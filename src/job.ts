@@ -1,4 +1,4 @@
-import { main as mainScraper } from "./scraper"
+import { main as mainScraper } from "./fintual/scraper"
 import { main as mainActual } from "./actual"
 import "./env"
 
