@@ -16,17 +16,19 @@
 		"@types/random-useragent": "^0.3.3",
 		"cron": "^4.3.0",
 		"dotenv": "^16.5.0",
+		"imapflow": "^1.2.0",
+		"node-html-parser": "^7.0.1",
 		"playwright": "^1.52.0",
 		"random-useragent": "^0.5.0",
 		"valibot": "^1.0.0"
 	},
 	"scripts": {
 		"build": "tsc -p tsconfig.json",
-    "dev": "tsc -p tsconfig.json && node dist/once.js",
-    "delete": "tsc -p tsconfig.json && node dist/delete-transactions.js",
-    "play": "tsc -p tsconfig.json && node dist/play.js",
+		"dev": "tsc -p tsconfig.json && node dist/once.js",
+		"delete": "tsc -p tsconfig.json && node dist/delete-transactions.js",
+		"play": "tsc -p tsconfig.json && node dist/play.js",
 		"once": "node dist/once.js",
-    "new-performance": "tsc -p tsconfig.json && node dist/fintual/new-performance.js",
+		"new-performance": "tsc -p tsconfig.json && node dist/fintual/new-performance.js",
 		"scheduler": "node dist/scheduler.js"
 	}
 }

@@ -1,5 +1,6 @@
 import "../env"
 import type { Page } from "playwright"
+import { get2FACodeFromEmail } from "./email-2fa"
 
 const USER_EMAIL = process.env.FINTUAL_USER_EMAIL ?? ""
 const USER_PASSWORD = process.env.FINTUAL_USER_PASSWORD ?? ""
@@ -12,6 +13,10 @@ export async function login(page: Page) {
 	await passwordLocator.fill(USER_PASSWORD)
 
 	const loginButtonLocator = page.getByRole("button", { name: "Entrar" })
+
+	// Record timestamp before login to filter emails received after this point
+	const loginTimestamp = new Date()
+
 	await Promise.all([loginButtonLocator.click(), page.waitForLoadState("networkidle", { timeout: 30000 })])
 
 	const twoFAText = "Escribe el código que te mandamos al correo"
@@ -37,18 +42,30 @@ export async function login(page: Page) {
 	}
 
 	if (result === "2fa") {
-		// Prompt user for 2FA code in terminal
-		const readline = await import("node:readline/promises")
-		const rl = readline.createInterface({
-			input: process.stdin,
-			output: process.stdout,
+		console.log("2FA required, attempting to fetch code from email...")
+
+		// Try automatic email fetch first
+		let code = await get2FACodeFromEmail({
+			afterTimestamp: loginTimestamp,
+			timeoutMs: 120000, // 2 minutes
+			pollIntervalMs: 3000, // 3 seconds
 		})
-		const code = await rl.question("Enter the 2FA code sent to your email: ")
-		rl.close()
+
+		// Fallback to manual input if automatic fetch fails
+		if (!code) {
+			console.log("Automatic 2FA fetch failed, falling back to manual input...")
+			const readline = await import("node:readline/promises")
+			const rl = readline.createInterface({
+				input: process.stdin,
+				output: process.stdout,
+			})
+			code = await rl.question("Enter the 2FA code sent to your email: ")
+			rl.close()
+		}
+
 		// Fill the code into the input field
 		const codeInput = page.locator('input[aria-label="Código"]')
 		await codeInput.fill(code)
-		// Optionally, press Enter if needed
 		await codeInput.press("Enter")
 		await page.waitForTimeout(2000)
 	}

@@ -40,6 +40,37 @@
    - **Actual Budget API key:** You can find your API key in the Actual Budget settings, search the documentation.
    - **Do not commit real credentials.** Use environment variables or secrets management for production.
 
+### Automatic 2FA Code Retrieval (Optional)
+
+The login process can automatically retrieve 2FA codes from your email instead of requiring manual input. To enable this feature:
+
+1. **Configure IMAP settings in your `.env` file:**
+
+   ```env
+   # IMAP settings for automatic 2FA code retrieval
+   IMAP_HOST=imap.gmail.com          # Your email provider's IMAP server
+   IMAP_PORT=993                      # IMAP port (993 for SSL)
+   IMAP_USER=your-email@gmail.com    # Your email address
+   IMAP_PASSWORD=your-app-password    # App password (see below)
+   
+   # Fintual email filter settings (optional, defaults shown)
+   FINTUAL_2FA_SENDER=notificaciones@fintual.com
+   FINTUAL_2FA_SUBJECT_PATTERN=código
+   ```
+
+2. **Gmail users:** You must use an [App Password](https://support.google.com/accounts/answer/185833) instead of your regular password:
+   - Go to [Google Account Security](https://myaccount.google.com/security)
+   - Enable 2-Step Verification if not already enabled
+   - Go to "App passwords" and generate a new password for "Mail"
+   - Use this 16-character password as `IMAP_PASSWORD`
+
+3. **Other email providers:** Use your IMAP server settings:
+   - **Outlook/Hotmail:** `IMAP_HOST=outlook.office365.com`
+   - **Yahoo:** `IMAP_HOST=imap.mail.yahoo.com`
+   - **iCloud:** `IMAP_HOST=imap.mail.me.com`
+
+If IMAP is not configured or the automatic fetch fails, the system will fall back to manual code entry in the terminal.
+
 ---
 
 ## Usage
