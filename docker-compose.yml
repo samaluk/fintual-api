@@ -1,8 +1,36 @@
 services:
   fintual-api:
     build: .
-    container_name: fintual-api
-    env_file: .env
+    image: fintual-api:test
+    container_name: fintual-api-local
+    env_file:
+      - path: .env
+        format: raw
     volumes:
+      - ./.env:/app/.env
       - ./tmp:/app/tmp
+    ports:
+      - "3000:3000"
+    command: ["sleep", "infinity"]
+    labels:
+      ofelia.enabled: "true"
+      ofelia.job-exec.fintual-sync.schedule: "${OFELIA_SYNC_SCHEDULE:-0 0 21 * * 1-5}"
+      ofelia.job-exec.fintual-sync.command: "./bin/run-sync.sh"
+      ofelia.job-exec.fintual-sync.no-overlap: "true"
+    restart: unless-stopped
+
+  ofelia:
+    image: mcuadros/ofelia:v0.3.21@sha256:f6325d43543b27ff55f527b9a6fd2700da16d8ae56ec838ce3612d3c412ae1ef
+    container_name: fintual-api-ofelia
+    depends_on:
+      - fintual-api
+    command:
+      - daemon
+      - --docker
+      - -f
+      - label=com.docker.compose.project=fintual-api
+    environment:
+      TZ: America/Santiago
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     restart: unless-stopped
