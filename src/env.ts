@@ -2,6 +2,16 @@ import { config } from "dotenv"
 
 config()
 
+export function assertRequiredEnv(names: string[]): void {
+	const missingNames = names.filter((name) => !getEnv(name))
+
+	if (missingNames.length === 0) {
+		return
+	}
+
+	throw new Error(`Missing environment variables: ${missingNames.join(", ")}`)
+}
+
 export function getEnv(name: string, fallback = ""): string {
 	const value = process.env[name]
 	if (!value) {
