@@ -39,7 +39,7 @@ Run this locally once to generate `GMAIL_REFRESH_TOKEN`:
 bun gmail:token
 ```
 
-Create `.env` first from `.env.example`. The command starts a local callback server, opens the Google consent screen, and updates `.env` in place without printing secrets to stdout.
+If `.env` exists, the command updates it in place. If `.env` does not exist, the command prints only the generated `GMAIL_REFRESH_TOKEN` so you can store it manually in Komodo or another secret manager.
 
 ## Run Once
 
@@ -98,7 +98,7 @@ You can also generate the Gmail refresh token inside the running Docker worker:
 docker exec -it fintual-api-local ./bin/run-gmail-token.sh
 ```
 
-That command listens on container port `3000`, which is published to the host by compose, and updates the mounted local `.env` file in place. Open the printed Google OAuth URL in your host browser and the callback will return to the running container.
+That command listens on container port `3000`, which is published to the host by compose. If the worker has a mounted `.env`, it updates that file. Otherwise it prints only the generated refresh token so you can copy it into your secret manager.
 
 The Docker wrapper disables browser auto-open by default, so seeing only the printed URL is expected.
 
@@ -143,3 +143,5 @@ Recommended Ofelia schedule for Santiago, Chile weekdays at 21:00:
 - timezone: `America/Santiago`
 
 Use an idle `fintual-api` worker plus an `ofelia` service that executes `./bin/run-sync.sh` on schedule.
+
+For homelab Gmail bootstrap, run `docker exec -it fintual-api ./bin/run-gmail-token.sh`, complete the OAuth flow in your browser, and then store the printed token as `GMAIL_REFRESH_TOKEN` in Komodo or Infisical.

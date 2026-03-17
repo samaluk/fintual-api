@@ -34,9 +34,7 @@ async function main(): Promise<void> {
 	}
 
 	const envPath = join(cwd(), ".env")
-	if (!(await fileExists(envPath))) {
-		throw new Error("Missing .env file. Copy .env.example to .env before running bun gmail:token")
-	}
+	const hasEnvFile = await fileExists(envPath)
 
 	const redirectUri = validateRedirectUri(GMAIL_OAUTH_REDIRECT_URI)
 	const oauthClient = new google.auth.OAuth2(GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, redirectUri.toString())
@@ -62,8 +60,12 @@ async function main(): Promise<void> {
 	}
 
 	const envUpdates = buildEnvUpdates(refreshToken, redirectUri)
-	await updateEnvFile(envPath, envUpdates)
-	console.log(`Updated ${envPath} with Gmail OAuth credentials.`)
+	if (hasEnvFile) {
+		await updateEnvFile(envPath, envUpdates)
+		console.log(`Updated ${envPath} with Gmail OAuth credentials.`)
+	} else {
+		printRefreshTokenInstructions(refreshToken)
+	}
 
 	console.log("Gmail refresh token generated successfully.")
 }
@@ -83,6 +85,13 @@ function printAuthorizationInstructions(redirectUri: URL, authorizationUrl: stri
 	console.log(`Redirect URI: ${redirectUri.toString()}`)
 	console.log("If the browser does not open automatically, open this URL manually:\n")
 	console.log(authorizationUrl)
+	console.log("")
+}
+
+function printRefreshTokenInstructions(refreshToken: string): void {
+	console.log("No .env file found in the current container, so the refresh token was not written to disk.")
+	console.log("Save this value in your secret manager as GMAIL_REFRESH_TOKEN:\n")
+	console.log(refreshToken)
 	console.log("")
 }
 
