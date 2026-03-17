@@ -1,77 +1,149 @@
-import "../env"
-import type { Page } from "playwright"
+import { getEnv } from "../env"
+import type { Locator, Page } from "playwright"
 import { get2FACodeFromEmail } from "./email-2fa"
 
-const USER_EMAIL = process.env.FINTUAL_USER_EMAIL ?? ""
-const USER_PASSWORD = process.env.FINTUAL_USER_PASSWORD ?? ""
+const USER_EMAIL = getEnv("FINTUAL_USER_EMAIL")
+const USER_PASSWORD = getEnv("FINTUAL_USER_PASSWORD")
+const LOGIN_TIMEOUT_MS = 30000
+const POST_LOGIN_WAIT_MS = 2000
+const LOGIN_BUTTON_ENABLE_TIMEOUT_MS = 10000
+const LOGIN_BUTTON_POLL_INTERVAL_MS = 250
 
-export async function login(page: Page) {
-	const emailLocator = page.locator('input[name="email"]')
-	const passwordLocator = page.locator('input[name="password"]')
+type LoginStatus = "authenticated" | "invalid_credentials" | "requires_2fa"
 
-	await emailLocator.fill(USER_EMAIL)
-	await passwordLocator.fill(USER_PASSWORD)
+export async function login(page: Page): Promise<boolean> {
+	ensureCredentialsConfigured()
 
-	const loginButtonLocator = page.getByRole("button", { name: "Entrar" })
+	const emailInput = page.locator('input[name="email"]')
+	const passwordInput = page.locator('input[name="password"]')
+	const loginButton = page.getByRole("button", { name: "Entrar" })
 
-	// Record timestamp before login to filter emails received after this point
+	await page.waitForLoadState("domcontentloaded")
+	await page.waitForLoadState("networkidle", { timeout: LOGIN_TIMEOUT_MS }).catch(() => undefined)
+	await emailInput.waitFor({ state: "visible", timeout: LOGIN_TIMEOUT_MS })
+	await passwordInput.waitFor({ state: "visible", timeout: LOGIN_TIMEOUT_MS })
+	await page.waitForTimeout(1000)
+
+	await fillInput(emailInput, USER_EMAIL)
+	await fillInput(passwordInput, USER_PASSWORD)
+	await waitForLoginButtonEnabled(page, emailInput, passwordInput, loginButton)
+
 	const loginTimestamp = new Date()
 
-	await Promise.all([loginButtonLocator.click(), page.waitForLoadState("networkidle", { timeout: 30000 })])
+	await Promise.all([loginButton.click(), page.waitForLoadState("networkidle", { timeout: LOGIN_TIMEOUT_MS })])
 
-	const twoFAText = "Escribe el código que te mandamos al correo"
-	const twoFAPrompt = page.locator(`text=${twoFAText}`).first()
+	const loginStatus = await waitForLoginStatus(page)
+	console.log("Login result:", loginStatus)
 
-	const errorText = "Correo o contraseña incorrectos"
-	const errorPrompt = page.locator(`text=${errorText}`).first()
-	const result = await Promise.race([
-		twoFAPrompt
-			.waitFor({ state: "visible", timeout: 30000 })
-			.then(() => "2fa")
-			.catch(() => null),
-		errorPrompt
-			.waitFor({ state: "visible", timeout: 30000 })
-			.then(() => "fail")
-			.catch(() => null),
-	])
-	console.log("Login result:", result)
-
-	if (result === "fail") {
+	if (loginStatus === "invalid_credentials") {
 		console.log("Login failed")
 		return false
 	}
 
-	if (result === "2fa") {
-		console.log("2FA required, attempting to fetch code from email...")
-
-		// Try automatic email fetch first
-		let code = await get2FACodeFromEmail({
-			afterTimestamp: loginTimestamp,
-			timeoutMs: 120000, // 2 minutes
-			pollIntervalMs: 3000, // 3 seconds
-		})
-
-		// Fallback to manual input if automatic fetch fails
-		if (!code) {
-			console.log("Automatic 2FA fetch failed, falling back to manual input...")
-			const readline = await import("node:readline/promises")
-			const rl = readline.createInterface({
-				input: process.stdin,
-				output: process.stdout,
-			})
-			code = await rl.question("Enter the 2FA code sent to your email: ")
-			rl.close()
+	if (loginStatus === "requires_2fa") {
+		const completedTwoFactorLogin = await completeTwoFactorLogin(page, loginTimestamp)
+		if (!completedTwoFactorLogin) {
+			return false
 		}
-
-		// Fill the code into the input field
-		const codeInput = page.locator('input[aria-label="Código"]')
-		await codeInput.fill(code)
-		await codeInput.press("Enter")
-		await page.waitForTimeout(2000)
 	}
 
 	console.log("Login successful")
-	await page.waitForTimeout(2000)
+	await page.waitForTimeout(POST_LOGIN_WAIT_MS)
+
+	return true
+}
+
+function ensureCredentialsConfigured(): void {
+	if (!USER_EMAIL || !USER_PASSWORD) {
+		throw new Error("Missing FINTUAL_USER_EMAIL or FINTUAL_USER_PASSWORD")
+	}
+}
+
+async function fillInput(input: Locator, value: string): Promise<void> {
+	await input.click()
+	await input.fill("")
+	await input.pressSequentially(value, { delay: 50 })
+	await input.dispatchEvent("input")
+	await input.dispatchEvent("change")
+	await input.blur()
+}
+
+async function waitForLoginButtonEnabled(
+	page: Page,
+	emailInput: Locator,
+	passwordInput: Locator,
+	loginButton: Locator,
+): Promise<void> {
+	const startedAt = Date.now()
+
+	while (Date.now() - startedAt < LOGIN_BUTTON_ENABLE_TIMEOUT_MS) {
+		if (await loginButton.isEnabled()) {
+			return
+		}
+
+		await page.waitForTimeout(LOGIN_BUTTON_POLL_INTERVAL_MS)
+	}
+
+	const buttonDisabled = await loginButton.evaluate((button) => button.hasAttribute("disabled"))
+	const diagnostics = await page.evaluate(() => {
+		const emailField = document.querySelector('input[name="email"]') as HTMLInputElement | null
+		const passwordField = document.querySelector('input[name="password"]') as HTMLInputElement | null
+		const submitButton = document.querySelector('button[type="submit"]') as HTMLButtonElement | null
+
+		return {
+			title: document.title,
+			emailValid: emailField?.checkValidity() ?? null,
+			passwordValid: passwordField?.checkValidity() ?? null,
+			emailType: emailField?.type ?? null,
+			passwordType: passwordField?.type ?? null,
+			buttonText: submitButton?.textContent?.trim() ?? null,
+			buttonDisabledProperty: submitButton?.disabled ?? null,
+		}
+	})
+
+	throw new Error(
+		`Login button remained disabled after filling credentials (disabled=${buttonDisabled}, emailValid=${diagnostics.emailValid}, passwordValid=${diagnostics.passwordValid}, title=${diagnostics.title}, emailType=${diagnostics.emailType}, passwordType=${diagnostics.passwordType}, buttonText=${diagnostics.buttonText}, buttonDisabledProperty=${diagnostics.buttonDisabledProperty})`,
+	)
+}
+
+async function waitForLoginStatus(page: Page): Promise<LoginStatus> {
+	const twoFactorPrompt = page.locator("text=Escribe el c\u00f3digo que te mandamos al correo").first()
+	const invalidCredentialsPrompt = page.locator("text=Correo o contrase\u00f1a incorrectos").first()
+
+	const loginStatus = await Promise.race([
+		twoFactorPrompt
+			.waitFor({ state: "visible", timeout: LOGIN_TIMEOUT_MS })
+			.then(() => "requires_2fa" as const)
+			.catch(() => null),
+		invalidCredentialsPrompt
+			.waitFor({ state: "visible", timeout: LOGIN_TIMEOUT_MS })
+			.then(() => "invalid_credentials" as const)
+			.catch(() => null),
+	])
+
+	if (loginStatus) {
+		return loginStatus
+	}
+
+	return "authenticated"
+}
+
+async function completeTwoFactorLogin(page: Page, loginTimestamp: Date): Promise<boolean> {
+	console.log("2FA required, attempting to fetch code from Gmail...")
+
+	const code = await get2FACodeFromEmail({
+		afterTimestamp: loginTimestamp,
+	})
+
+	if (!code) {
+		console.error("Automatic 2FA retrieval failed. Gmail OAuth must be configured for unattended runs.")
+		return false
+	}
+
+	const codeInput = page.locator('input[aria-label="C\u00f3digo"]')
+	await codeInput.fill(code)
+	await codeInput.press("Enter")
+	await page.waitForTimeout(POST_LOGIN_WAIT_MS)
 
 	return true
 }
