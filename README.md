@@ -1,156 +1,141 @@
 # fintual-api
 
-**fintual-api** is a TypeScript toolkit for automating the retrieval, processing, and import of investment data from Fintual into Actual Budget. It combines direct API access with browser automation (via Playwright) to ensure robust data collection, validation, and integration.
+`fintual-api` is a one-shot worker that logs into Fintual, fetches investment performance data, and imports the resulting variation transactions into Actual Budget.
 
-## Overview
+The repo intentionally supports only two flows:
 
-- **Fetches investment data** from Fintual using both public and authenticated APIs.
-- **Automates browser scraping** with Playwright for data not available via API.
-- **Validates and transforms** data using [valibot](https://valibot.dev/) schemas.
-- **Imports transactions** into Actual Budget using the `@actual-app/api` package.
-- **Includes automated tests** and examples for browser automation.
+- `bun once` runs the full sync once
+- `bun gmail:token` bootstraps the Gmail OAuth refresh token used for unattended 2FA
 
----
+## Requirements
 
-## Prerequisites
-
-- Node.js (v20+ recommended)
-- [Bun](https://bun.sh) (for development, optional)
-- [Playwright](https://playwright.dev/) (for browser automation)
+- Bun or Node.js 20+
+- Playwright browser dependencies
+- Fintual credentials
+- Actual Budget server credentials
+- Gmail OAuth credentials for unattended 2FA
 
 ## Setup
 
-1. **Install dependencies:**
-
-   ```bash
-   npm install
-   # or, for development
-   bun install
-   ```
-
-2. **Configure credentials:**
-   - Create a `.env` file in the root directory based on `.env.example`:
-
-     ```bash
-     cp .env.example .env
-     ```
-
-   - Fill in your Fintual credentials and Actual Budget API key. Ensure you have the correct permissions for the API key.
-   - **Fintual credentials:** You can find your Fintual account ID and goal ID in the URL when logged into your account. For example, if the URL is `https://app.fintual.cl/goal/123456`, then `123456` is your goal ID.
-   - **Actual Budget API key:** You can find your API key in the Actual Budget settings, search the documentation.
-   - **Do not commit real credentials.** Use environment variables or secrets management for production.
-
-### Automatic 2FA Code Retrieval (Optional)
-
-The login process can automatically retrieve 2FA codes from your email instead of requiring manual input. To enable this feature:
-
-1. **Configure IMAP settings in your `.env` file:**
-
-   ```env
-   # IMAP settings for automatic 2FA code retrieval
-   IMAP_HOST=imap.gmail.com          # Your email provider's IMAP server
-   IMAP_PORT=993                      # IMAP port (993 for SSL)
-   IMAP_USER=your-email@gmail.com    # Your email address
-   IMAP_PASSWORD=your-app-password    # App password (see below)
-   
-   # Fintual email filter settings (optional, defaults shown)
-   FINTUAL_2FA_SENDER=notificaciones@fintual.com
-   FINTUAL_2FA_SUBJECT_PATTERN=código
-   ```
-
-2. **Gmail users:** You must use an [App Password](https://support.google.com/accounts/answer/185833) instead of your regular password:
-   - Go to [Google Account Security](https://myaccount.google.com/security)
-   - Enable 2-Step Verification if not already enabled
-   - Go to "App passwords" and generate a new password for "Mail"
-   - Use this 16-character password as `IMAP_PASSWORD`
-
-3. **Other email providers:** Use your IMAP server settings:
-   - **Outlook/Hotmail:** `IMAP_HOST=outlook.office365.com`
-   - **Yahoo:** `IMAP_HOST=imap.mail.yahoo.com`
-   - **iCloud:** `IMAP_HOST=imap.mail.me.com`
-
-If IMAP is not configured or the automatic fetch fails, the system will fall back to manual code entry in the terminal.
-
----
-
-## Usage
-
-### 1. Scrape and Save Fintual Data
-
-Fetch and process your Fintual investment data, saving it to `balance.json`:
+1. Install dependencies:
 
 ```bash
-npm run build
-npm run scraper
+bun install
 ```
 
-### 2. Import Data into Actual Budget
-
-Import processed data from `balance.json` into your Actual Budget instance:
+2. Create a local env file:
 
 ```bash
-npm run build
-npm run actual
+cp .env.example .env
 ```
 
-### 3. Run Both Steps Sequentially
+3. Fill in your Actual, Fintual, and Gmail values.
 
-Run both the scraper and the Actual Budget importer:
+## Gmail OAuth Bootstrap
+
+Run this locally once to generate `GMAIL_REFRESH_TOKEN`:
 
 ```bash
-npm run start
+bun gmail:token
 ```
 
-### 4. Run Playwright Tests
+Create `.env` first from `.env.example`. The command starts a local callback server, opens the Google consent screen, and updates `.env` in place without printing secrets to stdout.
 
-Run browser-based tests and view reports:
+## Run Once
+
+Build the project and run the sync once:
 
 ```bash
-npx playwright test
+bun run build
+bun once
 ```
 
-Test results and reports are available in the `playwright-report/` directory.
+The worker will:
 
-### 5. Schedule Daily Execution
+- log in to Fintual with Playwright
+- retrieve the Gmail 2FA code when needed
+- write the scraped data to `tmp/fintual-data/balance-2.json`
+- import variation transactions into Actual Budget
 
-- To run the workflow daily inside Docker, use the scheduler script:
+## Docker Image
 
-  ```bash
-  npm run build
-  npm run scheduler
-  ```
+The published container image is designed as a one-shot worker. Its default command runs the sync once:
 
-- The scheduler will run the import job automatically at the time specified in `src/scheduler.ts` (default: 23:04 America/Santiago). You can change the time by editing the cron pattern in that file.
-- For one-off/manual runs, use the regular `npm run start` or `npm run actual`/`scraper` commands.
+```bash
+docker run --rm --env-file .env ghcr.io/samaluk/fintual-api:latest
+```
 
----
+Mount `./tmp` if you want to inspect the generated files locally:
 
-## Project Structure
+```bash
+docker run --rm --env-file .env -v "$(pwd)/tmp:/app/tmp" ghcr.io/samaluk/fintual-api:latest
+```
 
-- `src/scraper.ts` — Playwright script to log in to Fintual, fetch performance data, and save it as `balance.json`. Credentials and goal/account IDs are now loaded from environment variables (see `.env.example`).
-- `src/actual.ts` — Imports data from `balance.json` into Actual Budget using the API. All sensitive data and dates are loaded from environment variables.
-- `src/scheduler.ts` — Scheduler script for daily cron-like execution.
-- `src/job.ts` — (If present) Shared job logic for scheduled runs.
-- `tests/` — Automated and Playwright test specs.
-- `tests-examples/` — Example Playwright tests.
-- `playwright.config.ts` — Playwright configuration.
-- `balance.json` — Output file with processed investment and deposit data.
-- `tmp/actual-data/` — Local Actual Budget data cache.
+## Local Compose Workflow
 
----
+The local compose file keeps the worker container idle so you can run the sync manually with the exact same Docker environment each time:
 
-## Notes & Tips
+```bash
+docker compose --env-file .compose.env up -d --build
+docker exec -it fintual-api-local ./bin/run-sync.sh
+```
 
-- **Sensitive Data:** Never commit real credentials or sensitive data. Use environment variables or secrets management for production.
-- **Playwright Browsers:** If running Playwright for the first time, install browsers with:
+The compose stack also starts `ofelia`, so you can test the scheduled `job-exec` path and inspect scheduler logs:
 
-  ```bash
-  npx playwright install --with-deps
-  ```
+```bash
+docker logs -f fintual-api-ofelia
+```
 
-- **Customization:** Adjust goal/account IDs and credentials in the scripts to match your Fintual and Actual Budget setup.
-- **Testing:** Add or update tests in `tests/` as you extend functionality. Run tests with your preferred runner (e.g., `npm test`, `npx vitest`).
+Set `OFELIA_SYNC_SCHEDULE` in `.compose.env` if you want a faster local test cadence, for example:
 
----
+```dotenv
+OFELIA_SYNC_SCHEDULE=@every 5m
+```
 
-This project was created using `bun init` (v1.1.2). [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
+You can also generate the Gmail refresh token inside the running Docker worker:
+
+```bash
+docker exec -it fintual-api-local ./bin/run-gmail-token.sh
+```
+
+That command listens on container port `3000`, which is published to the host by compose, and updates the mounted local `.env` file in place. Open the printed Google OAuth URL in your host browser and the callback will return to the running container.
+
+The Docker wrapper disables browser auto-open by default, so seeing only the printed URL is expected.
+
+Useful commands while debugging:
+
+```bash
+docker logs -f fintual-api-local
+docker logs -f fintual-api-ofelia
+docker exec -it fintual-api-local sh
+docker exec -it fintual-api-local ./bin/run-sync.sh
+docker exec -it fintual-api-local ./bin/run-gmail-token.sh
+docker compose --env-file .compose.env down
+```
+
+## GitHub Actions Publishing
+
+This repo can publish `ghcr.io/samaluk/fintual-api` from GitHub Actions on pushes to `main`.
+
+Published tags:
+
+- `latest`
+- `sha-<commit>`
+- git tag versions when you push a version tag
+
+## Homelab Deployment
+
+The intended production model is:
+
+- GitHub Actions publishes the worker image to GHCR
+- the homelab compose stack pulls the image
+- a long-lived idle worker keeps secrets in its runtime environment
+- Ofelia schedules `job-exec` runs inside that worker
+- Komodo deploys compose changes from the homelab repo
+
+Recommended Ofelia schedule for Santiago, Chile weekdays at 21:00:
+
+- cron: `0 21 * * 1-5`
+- timezone: `America/Santiago`
+
+Use an idle `fintual-api` worker plus an `ofelia` service that executes `./bin/run-sync.sh` on schedule.
