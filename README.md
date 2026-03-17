@@ -144,4 +144,10 @@ Recommended Ofelia schedule for Santiago, Chile weekdays at 21:00:
 
 Use an idle `fintual-api` worker plus an `ofelia` service that executes `./bin/run-sync.sh` on schedule.
 
-For homelab Gmail bootstrap, run `docker exec -it fintual-api ./bin/run-gmail-token.sh`, complete the OAuth flow in your browser, and then store the printed token as `GMAIL_REFRESH_TOKEN` in Komodo or Infisical.
+For homelab Gmail bootstrap, keep the callback bound to `127.0.0.1:3000` on the homelab host and create an SSH tunnel from your laptop:
+
+```bash
+ssh -L 3000:127.0.0.1:3000 <homelab-host>
+```
+
+Then run `docker exec -it fintual-api ./bin/run-gmail-token.sh` on the homelab machine, open the printed Google OAuth URL in your local browser, and store the printed token as `GMAIL_REFRESH_TOKEN` in Komodo or Infisical.
