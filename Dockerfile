@@ -1,22 +1,20 @@
-# Use Node.js base image for better-sqlite3 compatibility
 FROM node:24-slim
 
 WORKDIR /app
 
-# Install Python and build tools for better-sqlite3/node-gyp
-RUN apt-get update && \
-    apt-get install -y g++ make python3 && \
-    rm -rf /var/lib/apt/lists/* && \
-    ln -sf /usr/bin/python3 /usr/bin/python
+COPY package.json ./
 
-ENV PYTHON=/usr/bin/python3
-ENV NODE_ENV=production
-
-COPY package.json package-lock.json* ./
-RUN npx -y playwright@1.52.0 install --with-deps && npm install
+RUN npm install \
+	&& npx playwright install --with-deps chromium chromium-headless-shell \
+	&& apt-get update \
+	&& apt-get install -y xauth \
+	&& rm -rf /var/lib/apt/lists/*
 
 COPY . .
 
-RUN npm run build
+RUN chmod +x ./bin/run-sync.sh ./bin/run-gmail-token.sh \
+	&& npm run build
 
-CMD ["npm", "run", "scheduler"]
+ENV NODE_ENV=production
+
+CMD ["./bin/run-sync.sh"]

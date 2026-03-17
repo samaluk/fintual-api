@@ -1,0 +1,13 @@
+.env
+.env.*
+.git
+.github
+.agents
+node_modules
+dist
+tmp
+playwright-report
+test-results
+blob-report
+.DS_Store
+*.log
