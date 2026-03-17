@@ -4,8 +4,9 @@ on:
   push:
     branches:
       - main
-    tags:
-      - "v*"
+  release:
+    types:
+      - published
   workflow_dispatch:
 
 env:
@@ -39,9 +40,10 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=nightly,enable=${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+            type=raw,value=latest,enable=${{ github.event_name == 'release' }}
+            type=raw,value=${{ github.event.release.tag_name }},enable=${{ github.event_name == 'release' }}
             type=sha,prefix=sha-
-            type=ref,event=tag
           labels: |
             org.opencontainers.image.title=fintual-api
             org.opencontainers.image.description=One-shot worker that syncs Fintual investment data into Actual Budget
