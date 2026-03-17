@@ -1,205 +1,199 @@
-import "../env"
-import { ImapFlow } from "imapflow"
-import { parse as parseHtml } from "node-html-parser"
+import { getEnv } from "../env"
+import { getErrorMessage } from "../log"
+import { google } from "googleapis"
+import type { gmail_v1 } from "googleapis"
 
-const IMAP_HOST = process.env.IMAP_HOST ?? ""
-const IMAP_PORT = Number.parseInt(process.env.IMAP_PORT ?? "993", 10)
-const IMAP_USER = process.env.IMAP_USER ?? ""
-const IMAP_PASSWORD = process.env.IMAP_PASSWORD ?? ""
-const FINTUAL_2FA_SENDER = process.env.FINTUAL_2FA_SENDER ?? "notificaciones@fintual.com"
-const FINTUAL_2FA_SUBJECT = process.env.FINTUAL_2FA_SUBJECT ?? "código"
+const DEFAULT_TIMEOUT_MS = 10000
+const DEFAULT_POLL_INTERVAL_MS = 2000
+const MAX_RESULTS = 10
+
+const GMAIL_CLIENT_ID = getEnv("GMAIL_CLIENT_ID")
+const GMAIL_CLIENT_SECRET = getEnv("GMAIL_CLIENT_SECRET")
+const GMAIL_REFRESH_TOKEN = getEnv("GMAIL_REFRESH_TOKEN")
+const GMAIL_USER_EMAIL = getEnv("GMAIL_USER_EMAIL", "me")
+const FINTUAL_2FA_SENDER = getEnv("FINTUAL_2FA_SENDER", "notificaciones@fintual.com")
+const FINTUAL_2FA_SUBJECT = getEnv("FINTUAL_2FA_SUBJECT", "Código para entrar")
 
 interface Email2FAOptions {
-	/** Timestamp after which to look for emails */
 	afterTimestamp: Date
-	/** Maximum time to wait for the email in milliseconds (default: 120000 = 2 minutes) */
 	timeoutMs?: number
-	/** Polling interval in milliseconds (default: 3000 = 3 seconds) */
 	pollIntervalMs?: number
 }
 
-/**
- * Connects to an IMAP server and polls for a 2FA email from Fintual.
- * Extracts and returns the 6-digit verification code.
- */
 export async function get2FACodeFromEmail(options: Email2FAOptions): Promise<string | null> {
-	const { afterTimestamp, timeoutMs = 120000, pollIntervalMs = 3000 } = options
+	const { afterTimestamp, timeoutMs = DEFAULT_TIMEOUT_MS, pollIntervalMs = DEFAULT_POLL_INTERVAL_MS } = options
 
-	if (!IMAP_HOST || !IMAP_USER || !IMAP_PASSWORD) {
-		console.log("IMAP credentials not configured, skipping automatic 2FA retrieval")
+	if (!GMAIL_CLIENT_ID || !GMAIL_CLIENT_SECRET || !GMAIL_REFRESH_TOKEN) {
+		console.log("Gmail API credentials not configured, skipping automatic 2FA retrieval")
 		return null
 	}
 
-	console.log(`Connecting to IMAP server ${IMAP_HOST}:${IMAP_PORT}...`)
-
-	const client = new ImapFlow({
-		host: IMAP_HOST,
-		port: IMAP_PORT,
-		secure: true,
-		auth: {
-			user: IMAP_USER,
-			pass: IMAP_PASSWORD,
-		},
-		logger: false,
-	})
-
-	let code: string | null = null
+	console.log("Connecting to Gmail API for automatic 2FA retrieval...")
+	const gmailClient = createGmailClient()
+	const startedAt = Date.now()
 
 	try {
-		await client.connect()
-		console.log("Connected to IMAP server")
-
-		const startTime = Date.now()
-
-		while (Date.now() - startTime < timeoutMs) {
-			code = await searchForCode(client, afterTimestamp)
+		while (Date.now() - startedAt < timeoutMs) {
+			const code = await searchForCode(gmailClient, afterTimestamp)
 			if (code) {
-				console.log(`Found 2FA code: ${code}`)
-				break
-			}
-
-			console.log(`Waiting for 2FA email... (${Math.round((Date.now() - startTime) / 1000)}s elapsed)`)
-			await sleep(pollIntervalMs)
-		}
-
-		if (!code) {
-			console.log("Timeout waiting for 2FA email")
-		}
-	} catch (error) {
-		console.error("Error fetching 2FA code from email:", error)
-	} finally {
-		console.log("Closing IMAP connection...")
-		client.close()
-		console.log("IMAP connection closed")
-	}
-
-	return code
-}
-
-async function searchForCode(client: ImapFlow, afterTimestamp: Date): Promise<string | null> {
-	const lock = await client.getMailboxLock("INBOX")
-
-	try {
-		// Search for emails from Fintual received after the login was initiated
-		const searchCriteria = {
-			from: FINTUAL_2FA_SENDER,
-			since: afterTimestamp,
-		}
-
-		const messages = client.fetch(searchCriteria, {
-			envelope: true,
-			source: true,
-		})
-
-		for await (const message of messages) {
-			const envelope = message.envelope
-			const subject = envelope?.subject ?? ""
-
-			// Check if subject matches the pattern (case-insensitive)
-			if (subject !== FINTUAL_2FA_SUBJECT) {
-				continue
-			}
-
-
-			// Check if the email was received after our timestamp
-			const emailDate = envelope?.date
-			if (emailDate && emailDate < afterTimestamp) {
-				continue
-			}
-
-			// Get email body and extract the code
-			const source = message.source?.toString() ?? ""
-			const code = extractCodeFromEmail(source)
-
-			if (code) {
+				console.log("2FA code retrieved from Gmail.")
 				return code
 			}
-		}
 
+			const elapsedSeconds = Math.round((Date.now() - startedAt) / 1000)
+			console.log(`Waiting for 2FA email... (${elapsedSeconds}s elapsed)`)
+			await sleep(pollIntervalMs)
+		}
+	} catch (error) {
+		console.error(`Error fetching 2FA code from Gmail API: ${getErrorMessage(error)}`)
 		return null
-	} finally {
-		lock.release()
 	}
+
+	console.log("Timeout waiting for 2FA email")
+	return null
 }
 
-/**
- * Extracts a 6-digit code from the email content.
- * Parses the HTML to find the code in the styled <td> element.
- */
-function extractCodeFromEmail(emailContent: string): string | null {
-	// Extract the HTML part from the multipart email
-	const htmlMatch = emailContent.match(/Content-Type: text\/html[\s\S]*?\n\n([\s\S]*?)(?:------=|$)/i)
-	if (!htmlMatch) {
-		console.log("No HTML content found in email")
-		return extractCodeFromPlainText(emailContent)
-	}
+function createGmailClient(): gmail_v1.Gmail {
+	const auth = new google.auth.OAuth2(GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET)
+	auth.setCredentials({ refresh_token: GMAIL_REFRESH_TOKEN })
 
-	// Decode quoted-printable encoding
-	let htmlContent = htmlMatch[1]
-	htmlContent = decodeQuotedPrintable(htmlContent)
+	return google.gmail({ version: "v1", auth })
+}
 
-	// Parse the HTML
-	const root = parseHtml(htmlContent)
+async function searchForCode(gmailClient: gmail_v1.Gmail, afterTimestamp: Date): Promise<string | null> {
+	const query = buildMessageQuery(afterTimestamp)
+	const response = await gmailClient.users.messages.list({
+		userId: GMAIL_USER_EMAIL,
+		q: query,
+		maxResults: MAX_RESULTS,
+	})
 
-	// Strategy 1: Find <td> with the specific code styling (font-size: 34px, letter-spacing: 0.5rem)
-	const allTds = root.querySelectorAll("td")
-	for (const td of allTds) {
-		const style = td.getAttribute("style") ?? ""
-		// Look for the distinctive styling of the code element
-		if (style.includes("font-size: 34px") && style.includes("letter-spacing")) {
-			const text = td.text.trim()
-			const codeMatch = text.match(/^\d{6}$/)
-			if (codeMatch) {
-				return codeMatch[0]
-			}
+	for (const message of response.data.messages ?? []) {
+		if (!message.id) {
+			continue
 		}
-	}
 
-	// Strategy 2: Find a <td> containing only a 6-digit number
-	for (const td of allTds) {
-		const text = td.text.trim()
-		if (/^\d{6}$/.test(text)) {
-			return text
+		const fullMessage = await gmailClient.users.messages.get({
+			userId: GMAIL_USER_EMAIL,
+			id: message.id,
+			format: "full",
+		})
+
+		const code = extractCodeFromMessage(fullMessage.data)
+		if (code) {
+			return code
 		}
-	}
-
-	// Fallback: extract from plain text
-	return extractCodeFromPlainText(emailContent)
-}
-
-/**
- * Decodes quoted-printable encoded content.
- */
-function decodeQuotedPrintable(str: string): string {
-	return str
-		// Remove soft line breaks (= at end of line)
-		.replace(/=\r?\n/g, "")
-		// Decode hex-encoded characters
-		.replace(/=([0-9A-Fa-f]{2})/g, (_, hex) => String.fromCharCode(Number.parseInt(hex, 16)))
-}
-
-/**
- * Fallback: Extract code from plain text content.
- */
-function extractCodeFromPlainText(content: string): string | null {
-	// Decode quoted-printable first
-	const decoded = decodeQuotedPrintable(content)
-
-	// Look for 6-digit codes after "cuenta" (as in "entrar a tu cuenta 094485")
-	const afterCuentaPattern = /cuenta\s+(\d{6})/i
-	const afterCuentaMatch = decoded.match(afterCuentaPattern)
-	if (afterCuentaMatch?.[1]) {
-		return afterCuentaMatch[1]
-	}
-
-	// Fallback: find any standalone 6-digit number
-	const sixDigitPattern = /\b(\d{6})\b/g
-	const matches = decoded.match(sixDigitPattern)
-	if (matches && matches.length > 0) {
-		return matches[0]
 	}
 
 	return null
+}
+
+function buildMessageQuery(afterTimestamp: Date): string {
+	const afterUnixTimestamp = Math.floor(afterTimestamp.getTime() / 1000)
+	const queryParts = [
+		`from:${FINTUAL_2FA_SENDER}`,
+		`subject:"${escapeGmailQueryValue(FINTUAL_2FA_SUBJECT)}"`,
+		`after:${afterUnixTimestamp}`,
+	]
+
+	return queryParts.join(" ")
+}
+
+function extractCodeFromMessage(message: gmail_v1.Schema$Message): string | null {
+	const sources = collectMessageSources(message)
+
+	for (const source of sources) {
+		const code = extractCodeFromText(source)
+		if (code) {
+			return code
+		}
+	}
+
+	return null
+}
+
+function collectMessageSources(message: gmail_v1.Schema$Message): string[] {
+	const sources: string[] = []
+
+	if (message.snippet) {
+		sources.push(message.snippet)
+	}
+
+	collectMessageTextParts(message.payload, sources)
+
+	return sources
+}
+
+function collectMessageTextParts(part: gmail_v1.Schema$MessagePart | undefined, output: string[]): void {
+	if (!part) {
+		return
+	}
+
+	if (part.body?.data && part.mimeType?.startsWith("text/")) {
+		output.push(decodeBase64Url(part.body.data))
+	}
+
+	for (const childPart of part.parts ?? []) {
+		collectMessageTextParts(childPart, output)
+	}
+}
+
+function decodeBase64Url(encoded: string): string {
+	const normalized = encoded.replaceAll("-", "+").replaceAll("_", "/")
+	const missingPadding = normalized.length % 4
+	const padded = missingPadding === 0 ? normalized : `${normalized}${"=".repeat(4 - missingPadding)}`
+
+	return Buffer.from(padded, "base64").toString("utf8")
+}
+
+function decodeQuotedPrintable(value: string): string {
+	return value
+		.replaceAll(/=\r?\n/g, "")
+		.replaceAll(/=([0-9A-Fa-f]{2})/g, (_, hex) => String.fromCodePoint(Number.parseInt(hex, 16)))
+}
+
+function extractCodeFromText(rawContent: string): string | null {
+	const decodedContent = decodeQuotedPrintable(rawContent)
+	const htmlAsText = decodedContent.replaceAll(/<[^>]*>/g, " ")
+	const collapsedText = htmlAsText.replaceAll(/\s+/g, " ")
+	const candidates = collectCandidateCodes(collapsedText)
+
+	for (const candidate of candidates) {
+		if (candidate !== "000000") {
+			return candidate
+		}
+	}
+
+	return null
+}
+
+function collectCandidateCodes(text: string): string[] {
+	const orderedCandidates: string[] = []
+	const preferredPatterns = [
+		/(?:codigo|c\u00f3digo)\D{0,20}(\d{6})/gi,
+		/(?:entrar(?:\s+a)?\s+tu\s+cuenta)\D{0,20}(\d{6})/gi,
+		/(?:cuenta)\D{0,20}(\d{6})/gi,
+	]
+
+	for (const pattern of preferredPatterns) {
+		for (const match of text.matchAll(pattern)) {
+			if (match[1]) {
+				orderedCandidates.push(match[1])
+			}
+		}
+	}
+
+	for (const match of text.matchAll(/\b(\d{6})\b/g)) {
+		if (match[1]) {
+			orderedCandidates.push(match[1])
+		}
+	}
+
+	return [...new Set(orderedCandidates)]
+}
+
+function escapeGmailQueryValue(value: string): string {
+	return value.replaceAll('"', String.raw`\"`)
 }
 
 function sleep(ms: number): Promise<void> {
