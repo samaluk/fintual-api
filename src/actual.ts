@@ -4,6 +4,7 @@ import type { InitConfig } from "@actual-app/api/@types/loot-core/src/server/mai
 import type { TransactionEntity } from "@actual-app/api/@types/loot-core/src/types/models"
 import * as v from "valibot"
 import { getEnv } from "./env"
+import { getErrorMessage } from "./log"
 
 const SERVER_URL = getEnv("ACTUAL_SERVER_URL")
 const PASSWORD = getEnv("ACTUAL_PASSWORD")
@@ -14,6 +15,8 @@ const PAYEE = getEnv("ACTUAL_PAYEE", "Fintual")
 
 const ACTUAL_DATA_DIR = "./tmp/actual-data"
 const BALANCE_FILE_PATH = "./tmp/fintual-data/balance-2.json"
+const MAX_SYNC_ATTEMPTS = 3
+const RETRY_DELAY_MS = 5000
 
 const balanceFileSchema = v.object({
 	balance: v.array(
@@ -46,7 +49,29 @@ interface SyncCounts {
 }
 
 export async function main(): Promise<void> {
-	ensureDataDirectoryExists()
+	for (let attempt = 1; attempt <= MAX_SYNC_ATTEMPTS; attempt += 1) {
+		try {
+			const syncCounts = await runActualSyncAttempt()
+			console.log(`Actual sync finished. Created ${syncCounts.created} transactions and updated ${syncCounts.updated}.`)
+			return
+		} catch (error) {
+			const errorMessage = getErrorMessage(error)
+			const shouldRetry = isRetryableActualError(error) && attempt < MAX_SYNC_ATTEMPTS
+
+			if (!shouldRetry) {
+				throw error
+			}
+
+			console.warn(
+				`Actual sync attempt ${attempt} failed with a retryable error: ${errorMessage}. Retrying in ${Math.round(RETRY_DELAY_MS / 1000)}s.`,
+			)
+			await sleep(RETRY_DELAY_MS)
+		}
+	}
+}
+
+async function runActualSyncAttempt(): Promise<SyncCounts> {
+	resetDataDirectory()
 
 	await api.init({
 		dataDir: ACTUAL_DATA_DIR,
@@ -54,10 +79,12 @@ export async function main(): Promise<void> {
 		password: PASSWORD,
 	} satisfies InitConfig)
 
-	await api.downloadBudget(SYNC_ID)
-	const syncCounts = await syncDailyVariationTransactions()
-	console.log(`Actual sync finished. Created ${syncCounts.created} transactions and updated ${syncCounts.updated}.`)
-	await api.shutdown()
+	try {
+		await api.downloadBudget(SYNC_ID)
+		return await syncDailyVariationTransactions()
+	} finally {
+		await api.shutdown().catch(() => undefined)
+	}
 }
 
 async function syncDailyVariationTransactions(): Promise<SyncCounts> {
@@ -88,10 +115,9 @@ async function syncDailyVariationTransactions(): Promise<SyncCounts> {
 	return syncCounts
 }
 
-function ensureDataDirectoryExists(): void {
-	if (!fs.existsSync(ACTUAL_DATA_DIR)) {
-		fs.mkdirSync(ACTUAL_DATA_DIR, { recursive: true })
-	}
+function resetDataDirectory(): void {
+	fs.rmSync(ACTUAL_DATA_DIR, { recursive: true, force: true })
+	fs.mkdirSync(ACTUAL_DATA_DIR, { recursive: true })
 }
 
 function loadBalanceEntries(): BalanceEntry[] {
@@ -141,4 +167,24 @@ function getTodayIsoDate(): string {
 
 function toIsoDate(timestamp: number): string {
 	return new Date(timestamp).toISOString().split("T")[0]
+}
+
+function isRetryableActualError(error: unknown): boolean {
+	if (error instanceof Error) {
+		return error.message.includes("network-failure")
+	}
+
+	if (!isRecord(error)) {
+		return false
+	}
+
+	return error.type === "PostError" && error.reason === "network-failure"
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null
+}
+
+function sleep(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms))
 }
