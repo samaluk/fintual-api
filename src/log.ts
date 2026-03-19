@@ -1,3 +1,4 @@
+import { inspect } from "node:util"
 import { normalizeEnvValue } from "./env"
 
 const SENSITIVE_ENV_NAMES = [
@@ -20,6 +21,15 @@ const SENSITIVE_ENV_NAMES = [
 export function getErrorMessage(error: unknown): string {
 	if (error instanceof Error && error.message) {
 		return redactSensitiveText(error.message)
+	}
+
+	if (isRecord(error)) {
+		const structuredMessage = getStructuredErrorMessage(error)
+		if (structuredMessage) {
+			return redactSensitiveText(structuredMessage)
+		}
+
+		return redactSensitiveText(inspect(error, { depth: 3, breakLength: Number.POSITIVE_INFINITY }))
 	}
 
 	if (typeof error === "string" && error.trim()) {
@@ -46,6 +56,24 @@ function redactSensitiveText(value: string): string {
 	return redactedValue
 }
 
+function getStructuredErrorMessage(error: Record<string, unknown>): string {
+	const parts: string[] = []
+
+	if (typeof error.type === "string" && error.type) {
+		parts.push(error.type)
+	}
+
+	if (typeof error.reason === "string" && error.reason) {
+		parts.push(error.reason)
+	}
+
+	if (typeof error.message === "string" && error.message) {
+		parts.push(error.message)
+	}
+
+	return parts.join(": ")
+}
+
 function getNormalizedEnvValue(name: string): string {
 	const value = process.env[name]
 	if (!value) {
@@ -53,4 +81,8 @@ function getNormalizedEnvValue(name: string): string {
 	}
 
 	return normalizeEnvValue(value)
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null
 }
