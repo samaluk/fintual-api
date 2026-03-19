@@ -15,8 +15,10 @@ const PAYEE = getEnv("ACTUAL_PAYEE", "Fintual")
 
 const ACTUAL_DATA_DIR = "./tmp/actual-data"
 const BALANCE_FILE_PATH = "./tmp/fintual-data/balance-2.json"
-const MAX_SYNC_ATTEMPTS = 3
-const RETRY_DELAY_MS = 5000
+const MAX_SYNC_ATTEMPTS = 5
+const INITIAL_RETRY_DELAY_MS = 5000
+const MAX_RETRY_DELAY_MS = 60000
+const RETRY_JITTER_RATIO = 0.2
 
 const balanceFileSchema = v.object({
 	balance: v.array(
@@ -62,10 +64,11 @@ export async function main(): Promise<void> {
 				throw error
 			}
 
+			const retryDelayMs = getRetryDelayMs(attempt)
 			console.warn(
-				`Actual sync attempt ${attempt} failed with a retryable error: ${errorMessage}. Retrying in ${Math.round(RETRY_DELAY_MS / 1000)}s.`,
+				`Actual sync attempt ${attempt} failed with a retryable error: ${errorMessage}. Retrying in ${Math.round(retryDelayMs / 1000)}s.`,
 			)
-			await sleep(RETRY_DELAY_MS)
+			await sleep(retryDelayMs)
 		}
 	}
 }
@@ -187,4 +190,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function getRetryDelayMs(attempt: number): number {
+	const exponentialDelayMs = Math.min(INITIAL_RETRY_DELAY_MS * 2 ** (attempt - 1), MAX_RETRY_DELAY_MS)
+	const jitterRangeMs = Math.round(exponentialDelayMs * RETRY_JITTER_RATIO)
+	const jitterOffsetMs = Math.floor(Math.random() * (jitterRangeMs * 2 + 1)) - jitterRangeMs
+
+	return Math.max(1000, exponentialDelayMs + jitterOffsetMs)
 }
