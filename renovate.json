@@ -1,12 +1,15 @@
 {
 	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
-	"extends": ["config:recommended", ":disableRateLimiting"],
+	"extends": [
+		"config:recommended",
+		":disableRateLimiting"
+	],
+	"minimumReleaseAge": "3 days",
 	"packageRules": [
 		{
-			"minimumReleaseAge": "3 days"
-		},
-		{
-			"matchPackageNames": ["@actual-app/api"],
+			"matchPackageNames": [
+				"@actual-app/api"
+			],
 			"minimumReleaseAge": "0 days"
 		}
 	]
