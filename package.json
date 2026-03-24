@@ -14,7 +14,7 @@
 	"dependencies": {
 		"@actual-app/api": "^26.2.0",
 		"@types/random-useragent": "^0.3.3",
-		"dotenv": "^16.5.0",
+		"dotenv": "^17.0.0",
 		"googleapis": "^171.4.0",
 		"playwright": "^1.52.0",
 		"random-useragent": "^0.5.0",
