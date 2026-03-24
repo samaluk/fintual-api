@@ -115,14 +115,10 @@ docker compose --env-file .compose.env down
 
 ## GitHub Actions Publishing
 
-This repo publishes `ghcr.io/samaluk/fintual-api` in two channels:
-
-- pushes to `main` publish a rolling `nightly` image plus `sha-<commit>`
-- GitHub Releases publish stable release images
+This repo publishes `ghcr.io/samaluk/fintual-api` from GitHub Releases.
 
 Published tags:
 
-- `nightly` from `main`
 - `sha-<commit>`
 - `latest` from GitHub Releases
 - the GitHub Release tag itself, such as `v1.0.0`
