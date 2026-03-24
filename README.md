@@ -62,13 +62,13 @@ The worker will:
 The published container image is designed as a one-shot worker. Its default command runs the sync once:
 
 ```bash
-docker run --rm --env-file .env ghcr.io/samaluk/fintual-api:latest
+docker run --rm --env-file .env docker.io/samaluk/fintual-api:latest
 ```
 
 Mount `./tmp` if you want to inspect the generated files locally:
 
 ```bash
-docker run --rm --env-file .env -v "$(pwd)/tmp:/app/tmp" ghcr.io/samaluk/fintual-api:latest
+docker run --rm --env-file .env -v "$(pwd)/tmp:/app/tmp" docker.io/samaluk/fintual-api:latest
 ```
 
 ## Local Compose Workflow
@@ -115,7 +115,12 @@ docker compose --env-file .compose.env down
 
 ## GitHub Actions Publishing
 
-This repo publishes `ghcr.io/samaluk/fintual-api` from GitHub Releases.
+This repo publishes `docker.io/samaluk/fintual-api` from GitHub Releases.
+
+Repository secrets required for publishing:
+
+- `DOCKERHUB_USERNAME`
+- `DOCKERHUB_TOKEN`
 
 Published tags:
 
@@ -127,7 +132,7 @@ Published tags:
 
 The intended production model is:
 
-- GitHub Actions publishes the worker image to GHCR
+- GitHub Actions publishes the worker image to Docker Hub
 - the homelab compose stack pulls the image
 - a long-lived idle worker keeps secrets in its runtime environment
 - Ofelia schedules `job-exec` runs inside that worker
