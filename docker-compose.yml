@@ -20,7 +20,7 @@ services:
     restart: unless-stopped
 
   ofelia:
-    image: mcuadros/ofelia:v0.3.21@sha256:f6325d43543b27ff55f527b9a6fd2700da16d8ae56ec838ce3612d3c412ae1ef
+    image: mcuadros/ofelia:v3.0.8@sha256:c36048db84b0b54d47a689f723f6f5d19281ac4b87d90fa6433a4582b93f1a5b
     container_name: fintual-api-ofelia
     depends_on:
       - fintual-api
