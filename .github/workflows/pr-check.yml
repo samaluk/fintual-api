@@ -36,5 +36,8 @@ jobs:
       - name: Run Biome
         run: pnpm lint
 
+      - name: Run Knip
+        run: pnpm knip
+
       - name: Run TypeScript
         run: pnpm run typecheck
