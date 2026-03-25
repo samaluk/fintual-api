@@ -11,9 +11,8 @@ const REQUIRED_SYNC_ENV_NAMES = [
 	"FINTUAL_USER_EMAIL",
 	"FINTUAL_USER_PASSWORD",
 	"FINTUAL_GOAL_ID",
-	"GMAIL_CLIENT_ID",
-	"GMAIL_CLIENT_SECRET",
-	"GMAIL_REFRESH_TOKEN",
+	"GMAIL_USER_EMAIL",
+	"GMAIL_APP_PASSWORD",
 ] satisfies string[]
 
 export async function runJob(): Promise<void> {

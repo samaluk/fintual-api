@@ -5,7 +5,7 @@
 The repo intentionally supports only two flows:
 
 - `pnpm once` runs the full sync once
-- `pnpm gmail:token` bootstraps the Gmail OAuth refresh token used for unattended 2FA
+- unattended 2FA retrieval via Gmail IMAP + app password
 
 ## Requirements
 
@@ -14,7 +14,7 @@ The repo intentionally supports only two flows:
 - Playwright browser dependencies
 - Fintual credentials
 - Actual Budget server credentials
-- Gmail OAuth credentials for unattended 2FA
+- Gmail app password for unattended 2FA
 
 ## Setup
 
@@ -32,15 +32,54 @@ cp .env.example .env
 
 1. Fill in your Actual, Fintual, and Gmail values.
 
-## Gmail OAuth Bootstrap
+## Gmail IMAP Setup
 
-Run this locally once to generate `GMAIL_REFRESH_TOKEN` directly from the TypeScript source:
+Enable 2-Step Verification in Google Account settings, then create a Gmail app password for the mailbox used to receive Fintual 2FA emails.
+
+### Simplified Gmail app password generation
+
+1. Open the 2-Step Verification page (you only need to do this once): [2-Step Verification](https://myaccount.google.com/security)
+2. Open App Passwords directly: [App Passwords](https://myaccount.google.com/apppasswords)
+3. Create an app password for any label (for example: `fintual-api`), then copy the generated 16-character password.
+4. Paste it into `.env` as `GMAIL_APP_PASSWORD`.
+
+If you prefer a quick copy/paste terminal flow:
 
 ```bash
-pnpm gmail:token
+read -s "GMAIL_APP_PASSWORD?Paste Gmail app password: "; echo
+cat >> .env <<EOF
+GMAIL_USER_EMAIL=your@gmail.com
+GMAIL_APP_PASSWORD=$GMAIL_APP_PASSWORD
+GMAIL_IMAP_HOST=imap.gmail.com
+GMAIL_IMAP_PORT=993
+EOF
+unset GMAIL_APP_PASSWORD
 ```
 
-If `.env` exists, the command updates it in place. If `.env` does not exist, the command prints only the generated `GMAIL_REFRESH_TOKEN` so you can store it manually in Komodo or another secret manager.
+Set these values in `.env` (or your runtime secret manager):
+
+- `GMAIL_USER_EMAIL`
+- `GMAIL_APP_PASSWORD`
+- `GMAIL_IMAP_HOST` (default: `imap.gmail.com`)
+- `GMAIL_IMAP_PORT` (default: `993`)
+
+`fintual-api` polls IMAP over TLS and extracts the 6-digit code from matching emails.
+
+## gcloud Secret Manager (CLI-only)
+
+Use `gcloud` CLI to store and retrieve the Gmail app password without committing it:
+
+```bash
+gcloud secrets create fintual-gmail-app-password --replication-policy=automatic
+printf '%s' "$GMAIL_APP_PASSWORD" | gcloud secrets versions add fintual-gmail-app-password --data-file=-
+gcloud secrets versions access latest --secret=fintual-gmail-app-password
+```
+
+Example to materialize a local `.env` value from Secret Manager:
+
+```bash
+echo "GMAIL_APP_PASSWORD=$(gcloud secrets versions access latest --secret=fintual-gmail-app-password)" >> .env
+```
 
 ## Run Once
 
@@ -93,15 +132,7 @@ Set `OFELIA_SYNC_SCHEDULE` in `.compose.env` if you want a faster local test cad
 OFELIA_SYNC_SCHEDULE=@every 5m
 ```
 
-You can also generate the Gmail refresh token inside the running Docker worker:
-
-```bash
-docker exec -it fintual-api-local ./bin/run-gmail-token.sh
-```
-
-That command listens on container port `3000`, which is published to the host by compose. If the worker has a mounted `.env`, it updates that file. Otherwise it prints only the generated refresh token so you can copy it into your secret manager.
-
-The Docker wrapper disables browser auto-open by default, so seeing only the printed URL is expected.
+If you keep runtime secrets in Secret Manager, fetch `GMAIL_APP_PASSWORD` at deploy time and inject it into the homelab runtime env instead of storing it in compose files.
 
 Useful commands while debugging:
 
@@ -110,7 +141,6 @@ docker logs -f fintual-api-local
 docker logs -f fintual-api-ofelia
 docker exec -it fintual-api-local sh
 docker exec -it fintual-api-local ./bin/run-sync.sh
-docker exec -it fintual-api-local ./bin/run-gmail-token.sh
 docker compose --env-file .compose.env down
 ```
 
@@ -146,10 +176,4 @@ Recommended Ofelia schedule for Santiago, Chile weekdays at 21:00:
 
 Use an idle `fintual-api` worker plus an `ofelia` service that executes `./bin/run-sync.sh` on schedule.
 
-For homelab Gmail bootstrap, keep the callback bound to `127.0.0.1:3000` on the homelab host and create an SSH tunnel from your laptop:
-
-```bash
-ssh -L 3000:127.0.0.1:3000 <homelab-host>
-```
-
-Then run `docker exec -it fintual-api ./bin/run-gmail-token.sh` on the homelab machine, open the printed Google OAuth URL in your local browser, and store the printed token as `GMAIL_REFRESH_TOKEN` in Komodo or Infisical.
+For homelab deployments, store `GMAIL_APP_PASSWORD` in your secret manager (for example, GCP Secret Manager) and inject it into the worker environment at runtime.

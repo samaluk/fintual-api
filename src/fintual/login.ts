@@ -136,7 +136,9 @@ async function completeTwoFactorLogin(page: Page, loginTimestamp: Date): Promise
 	})
 
 	if (!code) {
-		console.error("Automatic 2FA retrieval failed. Gmail OAuth must be configured for unattended runs.")
+		console.error(
+			"Automatic 2FA retrieval failed. Set GMAIL_USER_EMAIL and GMAIL_APP_PASSWORD (IMAP), and check FINTUAL_2FA_SENDER / FINTUAL_2FA_SUBJECT match the email.",
+		)
 		return false
 	}
 
