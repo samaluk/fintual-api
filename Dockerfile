@@ -25,6 +25,10 @@ COPY --from=deps /ms-playwright /ms-playwright
 
 COPY . .
 
-RUN chmod +x ./bin/run-sync.sh
+RUN chmod +x ./bin/run-sync.sh \
+	&& apt-get update \
+	&& apt-get install -y --no-install-recommends xvfb xauth \
+	&& npx playwright install-deps chromium \
+	&& rm -rf /var/lib/apt/lists/*
 
 CMD ["./bin/run-sync.sh"]
