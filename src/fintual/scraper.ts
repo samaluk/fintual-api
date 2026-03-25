@@ -1,8 +1,8 @@
 import * as fs from "node:fs"
-import { getEnv } from "../env.ts"
-import { getErrorMessage } from "../log.ts"
 import type { Page } from "playwright"
 import { chromium } from "playwright"
+import { getEnv } from "../env.ts"
+import { getErrorMessage } from "../log.ts"
 import { login } from "./login.ts"
 import { TimeIntervalCode, getGoalPerformance } from "./new-performance.ts"
 import type { GoalPerformanceData } from "./new-performance.ts"
@@ -58,7 +58,11 @@ async function ensureAuthenticatedPage(page: Page): Promise<void> {
 		return
 	}
 
-	const loginFormStillVisible = await page.locator('input[name="email"]').first().isVisible().catch(() => false)
+	const loginFormStillVisible = await page
+		.locator('input[name="email"]')
+		.first()
+		.isVisible()
+		.catch(() => false)
 	if (loginFormStillVisible) {
 		throw new Error("Login did not leave the sign-in page")
 	}

@@ -41,34 +41,37 @@ export async function getGoalPerformance(
 	goalId: string,
 	timeIntervalCode: TimeIntervalCode,
 ): Promise<GoalPerformanceData | null> {
-	const data = await page.evaluate(async ({ goalId, query, timeIntervalCode }) => {
-		const response = await fetch("https://fintual.cl/gql/", {
-			credentials: "include",
-			headers: {
-				Accept: "*/*",
-				"content-type": "application/json",
-			},
-			body: JSON.stringify({
-				operationName: "GoalInvestedBalanceGraphDataPoints",
-				variables: {
-					goalId,
-					timeIntervalCode,
+	const data = await page.evaluate(
+		async ({ goalId, query, timeIntervalCode }) => {
+			const response = await fetch("https://fintual.cl/gql/", {
+				credentials: "include",
+				headers: {
+					Accept: "*/*",
+					"content-type": "application/json",
 				},
-				query,
-			}),
-			method: "POST",
-		})
+				body: JSON.stringify({
+					operationName: "GoalInvestedBalanceGraphDataPoints",
+					variables: {
+						goalId,
+						timeIntervalCode,
+					},
+					query,
+				}),
+				method: "POST",
+			})
 
-		return {
-			ok: response.ok,
-			status: response.status,
-			body: await response.text(),
-		}
-	}, {
-		goalId,
-		query: NEW_PERFORMANCE_QUERY,
-		timeIntervalCode,
-	})
+			return {
+				ok: response.ok,
+				status: response.status,
+				body: await response.text(),
+			}
+		},
+		{
+			goalId,
+			query: NEW_PERFORMANCE_QUERY,
+			timeIntervalCode,
+		},
+	)
 
 	if (!data.ok) {
 		console.error(`Failed to fetch goal performance data (status ${data.status})`)

@@ -19,6 +19,8 @@
 	},
 	"scripts": {
 		"typecheck": "tsc -p tsconfig.json",
+		"lint": "biome check src",
+		"lint:fix": "biome check --write src",
 		"dev": "node src/once.ts",
 		"gmail:token": "node src/gmail-token.ts",
 		"once": "node src/once.ts"
