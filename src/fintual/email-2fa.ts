@@ -1,5 +1,5 @@
-import { google } from "googleapis"
-import type { gmail_v1 } from "googleapis"
+import { ImapFlow } from "imapflow"
+import { simpleParser } from "mailparser"
 import { getEnv } from "../env.ts"
 import { getErrorMessage } from "../log.ts"
 
@@ -7,10 +7,10 @@ const DEFAULT_TIMEOUT_MS = 10000
 const DEFAULT_POLL_INTERVAL_MS = 2000
 const MAX_RESULTS = 10
 
-const GMAIL_CLIENT_ID = getEnv("GMAIL_CLIENT_ID")
-const GMAIL_CLIENT_SECRET = getEnv("GMAIL_CLIENT_SECRET")
-const GMAIL_REFRESH_TOKEN = getEnv("GMAIL_REFRESH_TOKEN")
-const GMAIL_USER_EMAIL = getEnv("GMAIL_USER_EMAIL", "me")
+const GMAIL_IMAP_HOST = getEnv("GMAIL_IMAP_HOST", "imap.gmail.com")
+const GMAIL_IMAP_PORT = Number.parseInt(getEnv("GMAIL_IMAP_PORT", "993"), 10)
+const GMAIL_USER_EMAIL = getEnv("GMAIL_USER_EMAIL")
+const GMAIL_APP_PASSWORD = getEnv("GMAIL_APP_PASSWORD")
 const FINTUAL_2FA_SENDER = getEnv("FINTUAL_2FA_SENDER", "notificaciones@fintual.com")
 const FINTUAL_2FA_SUBJECT = getEnv("FINTUAL_2FA_SUBJECT", "Código para entrar")
 
@@ -23,18 +23,21 @@ interface Email2FAOptions {
 export async function get2FACodeFromEmail(options: Email2FAOptions): Promise<string | null> {
 	const { afterTimestamp, timeoutMs = DEFAULT_TIMEOUT_MS, pollIntervalMs = DEFAULT_POLL_INTERVAL_MS } = options
 
-	if (!GMAIL_CLIENT_ID || !GMAIL_CLIENT_SECRET || !GMAIL_REFRESH_TOKEN) {
-		console.log("Gmail API credentials not configured, skipping automatic 2FA retrieval")
+	if (!GMAIL_USER_EMAIL || !GMAIL_APP_PASSWORD) {
+		console.log("Gmail IMAP credentials not configured, skipping automatic 2FA retrieval")
 		return null
 	}
 
-	console.log("Connecting to Gmail API for automatic 2FA retrieval...")
-	const gmailClient = createGmailClient()
+	console.log("Connecting to Gmail IMAP for automatic 2FA retrieval...")
+	const imapClient = createImapClient()
 	const startedAt = Date.now()
+	const seenUids = new Set<number>()
 
 	try {
+		await imapClient.connect()
+
 		while (Date.now() - startedAt < timeoutMs) {
-			const code = await searchForCode(gmailClient, afterTimestamp)
+			const code = await searchForCode(imapClient, afterTimestamp, seenUids)
 			if (code) {
 				console.log("2FA code retrieved from Gmail.")
 				return code
@@ -45,62 +48,103 @@ export async function get2FACodeFromEmail(options: Email2FAOptions): Promise<str
 			await sleep(pollIntervalMs)
 		}
 	} catch (error) {
-		console.error(`Error fetching 2FA code from Gmail API: ${getErrorMessage(error)}`)
+		console.error(`Error fetching 2FA code from Gmail IMAP: ${getErrorMessage(error)}`)
 		return null
+	} finally {
+		await closeImapClient(imapClient)
 	}
 
 	console.log("Timeout waiting for 2FA email")
 	return null
 }
 
-function createGmailClient(): gmail_v1.Gmail {
-	const auth = new google.auth.OAuth2(GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET)
-	auth.setCredentials({ refresh_token: GMAIL_REFRESH_TOKEN })
-
-	return google.gmail({ version: "v1", auth })
+function createImapClient(): ImapFlow {
+	return new ImapFlow({
+		host: GMAIL_IMAP_HOST,
+		port: GMAIL_IMAP_PORT,
+		secure: true,
+		auth: {
+			user: GMAIL_USER_EMAIL,
+			pass: GMAIL_APP_PASSWORD,
+		},
+		logger: false,
+	})
 }
 
-async function searchForCode(gmailClient: gmail_v1.Gmail, afterTimestamp: Date): Promise<string | null> {
-	const query = buildMessageQuery(afterTimestamp)
-	const response = await gmailClient.users.messages.list({
-		userId: GMAIL_USER_EMAIL,
-		q: query,
-		maxResults: MAX_RESULTS,
-	})
-
-	for (const message of response.data.messages ?? []) {
-		if (!message.id) {
-			continue
+async function searchForCode(
+	imapClient: ImapFlow,
+	afterTimestamp: Date,
+	seenUids: Set<number>,
+): Promise<string | null> {
+	const lock = await imapClient.getMailboxLock("INBOX")
+	try {
+		const messageUids = await imapClient.search(buildSearchQuery(afterTimestamp), { uid: true })
+		if (!messageUids) {
+			return null
 		}
 
-		const fullMessage = await gmailClient.users.messages.get({
-			userId: GMAIL_USER_EMAIL,
-			id: message.id,
-			format: "full",
-		})
+		const recentUids = messageUids.slice(-MAX_RESULTS).reverse()
 
-		const code = extractCodeFromMessage(fullMessage.data)
-		if (code) {
-			return code
+		for (const uid of recentUids) {
+			if (seenUids.has(uid)) {
+				continue
+			}
+			seenUids.add(uid)
+
+			const message = await imapClient.fetchOne(
+				String(uid),
+				{
+					source: true,
+					envelope: true,
+					internalDate: true,
+				},
+				{ uid: true },
+			)
+			if (!message || !message.source) {
+				continue
+			}
+
+			const internalDate =
+				typeof message.internalDate === "string" ? new Date(message.internalDate) : message.internalDate
+			const deliveredAt = internalDate?.getTime() ?? 0
+			if (deliveredAt > 0 && deliveredAt < afterTimestamp.getTime()) {
+				continue
+			}
+
+			const code = await extractCodeFromMessage(message.source, message.envelope?.subject ?? "")
+			if (code) {
+				return code
+			}
 		}
+	} finally {
+		lock.release()
 	}
 
 	return null
 }
 
-function buildMessageQuery(afterTimestamp: Date): string {
-	const afterUnixTimestamp = Math.floor(afterTimestamp.getTime() / 1000)
-	const queryParts = [
-		`from:${FINTUAL_2FA_SENDER}`,
-		`subject:"${escapeGmailQueryValue(FINTUAL_2FA_SUBJECT)}"`,
-		`after:${afterUnixTimestamp}`,
-	]
+async function closeImapClient(imapClient: ImapFlow): Promise<void> {
+	if (!imapClient.usable) {
+		return
+	}
 
-	return queryParts.join(" ")
+	try {
+		await imapClient.logout()
+	} catch (error) {
+		console.warn(`Failed to close IMAP connection cleanly: ${getErrorMessage(error)}`)
+	}
 }
 
-function extractCodeFromMessage(message: gmail_v1.Schema$Message): string | null {
-	const sources = collectMessageSources(message)
+function buildSearchQuery(afterTimestamp: Date): Record<string, string | Date> {
+	return {
+		from: FINTUAL_2FA_SENDER,
+		subject: FINTUAL_2FA_SUBJECT,
+		since: afterTimestamp,
+	}
+}
+
+async function extractCodeFromMessage(rawSource: Buffer | Uint8Array, envelopeSubject: string): Promise<string | null> {
+	const sources = await collectMessageSources(rawSource, envelopeSubject)
 
 	for (const source of sources) {
 		const code = extractCodeFromText(source)
@@ -112,38 +156,24 @@ function extractCodeFromMessage(message: gmail_v1.Schema$Message): string | null
 	return null
 }
 
-function collectMessageSources(message: gmail_v1.Schema$Message): string[] {
+async function collectMessageSources(rawSource: Buffer | Uint8Array, envelopeSubject: string): Promise<string[]> {
 	const sources: string[] = []
-
-	if (message.snippet) {
-		sources.push(message.snippet)
+	if (envelopeSubject) {
+		sources.push(envelopeSubject)
 	}
 
-	collectMessageTextParts(message.payload, sources)
+	const parsedMessage = await simpleParser(Buffer.from(rawSource))
+	if (parsedMessage.subject) {
+		sources.push(parsedMessage.subject)
+	}
+	if (parsedMessage.text) {
+		sources.push(parsedMessage.text)
+	}
+	if (parsedMessage.html) {
+		sources.push(String(parsedMessage.html))
+	}
 
 	return sources
-}
-
-function collectMessageTextParts(part: gmail_v1.Schema$MessagePart | undefined, output: string[]): void {
-	if (!part) {
-		return
-	}
-
-	if (part.body?.data && part.mimeType?.startsWith("text/")) {
-		output.push(decodeBase64Url(part.body.data))
-	}
-
-	for (const childPart of part.parts ?? []) {
-		collectMessageTextParts(childPart, output)
-	}
-}
-
-function decodeBase64Url(encoded: string): string {
-	const normalized = encoded.replaceAll("-", "+").replaceAll("_", "/")
-	const missingPadding = normalized.length % 4
-	const padded = missingPadding === 0 ? normalized : `${normalized}${"=".repeat(4 - missingPadding)}`
-
-	return Buffer.from(padded, "base64").toString("utf8")
 }
 
 function decodeQuotedPrintable(value: string): string {
@@ -190,10 +220,6 @@ function collectCandidateCodes(text: string): string[] {
 	}
 
 	return [...new Set(orderedCandidates)]
-}
-
-function escapeGmailQueryValue(value: string): string {
-	return value.replaceAll('"', String.raw`\"`)
 }
 
 function sleep(ms: number): Promise<void> {
