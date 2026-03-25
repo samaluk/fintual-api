@@ -1,5 +1,5 @@
-import { getEnv } from "../env"
-import { getErrorMessage } from "../log"
+import { getEnv } from "../env.ts"
+import { getErrorMessage } from "../log.ts"
 import { google } from "googleapis"
 import type { gmail_v1 } from "googleapis"
 

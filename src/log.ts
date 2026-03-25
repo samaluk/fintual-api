@@ -1,5 +1,5 @@
 import { inspect } from "node:util"
-import { normalizeEnvValue } from "./env"
+import { normalizeEnvValue } from "./env.ts"
 
 const SENSITIVE_ENV_NAMES = [
 	"ACTUAL_PASSWORD",

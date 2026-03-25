@@ -1,6 +1,6 @@
 import type { Page } from "playwright"
 import * as v from "valibot"
-import { getErrorMessage } from "../log"
+import { getErrorMessage } from "../log.ts"
 
 export const TimeIntervalCode = {
 	LastMonth: "last_month",

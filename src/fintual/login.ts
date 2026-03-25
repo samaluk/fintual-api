@@ -1,6 +1,6 @@
-import { getEnv } from "../env"
+import { getEnv } from "../env.ts"
 import type { Locator, Page } from "playwright"
-import { get2FACodeFromEmail } from "./email-2fa"
+import { get2FACodeFromEmail } from "./email-2fa.ts"
 
 const USER_EMAIL = getEnv("FINTUAL_USER_EMAIL")
 const USER_PASSWORD = getEnv("FINTUAL_USER_PASSWORD")
