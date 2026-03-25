@@ -6,6 +6,7 @@
 		"@biomejs/biome": "1.9.4",
 		"@playwright/test": "1.58.2",
 		"@types/node": "22.19.15",
+		"knip": "^6.0.5",
 		"typescript": "5.9.3"
 	},
 	"dependencies": {
@@ -19,6 +20,7 @@
 		"typecheck": "tsc -p tsconfig.json",
 		"lint": "biome check src",
 		"lint:fix": "biome check --write src",
+		"knip": "knip",
 		"dev": "node src/once.ts",
 		"gmail:token": "node src/gmail-token.ts",
 		"once": "node src/once.ts"
