@@ -1,6 +1,6 @@
 import { main as mainActual } from "./actual.ts"
 import { assertRequiredEnv } from "./env.ts"
-import { main as mainScraper } from "./fintual/scraper.ts"
+import { runFintualSync } from "./fintual/http-sync.ts"
 import "./env.ts"
 
 const REQUIRED_SYNC_ENV_NAMES = [
@@ -18,7 +18,7 @@ const REQUIRED_SYNC_ENV_NAMES = [
 export async function runJob(): Promise<void> {
 	assertRequiredEnv(REQUIRED_SYNC_ENV_NAMES)
 	console.log("Running job...")
-	await mainScraper()
+	await runFintualSync()
 	await mainActual()
 	console.log("Job finished.")
 }

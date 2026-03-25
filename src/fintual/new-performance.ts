@@ -1,4 +1,3 @@
-import type { Page } from "playwright"
 import * as v from "valibot"
 import { getErrorMessage } from "../log.ts"
 
@@ -36,52 +35,11 @@ const newPerformanceSchema = v.object({
 
 export type GoalPerformanceData = v.InferOutput<typeof newPerformanceSchema>["data"]
 
-export async function getGoalPerformance(
-	page: Page,
-	goalId: string,
-	timeIntervalCode: TimeIntervalCode,
-): Promise<GoalPerformanceData | null> {
-	const data = await page.evaluate(
-		async ({ goalId, query, timeIntervalCode }) => {
-			const response = await fetch("https://fintual.cl/gql/", {
-				credentials: "include",
-				headers: {
-					Accept: "*/*",
-					"content-type": "application/json",
-				},
-				body: JSON.stringify({
-					operationName: "GoalInvestedBalanceGraphDataPoints",
-					variables: {
-						goalId,
-						timeIntervalCode,
-					},
-					query,
-				}),
-				method: "POST",
-			})
-
-			return {
-				ok: response.ok,
-				status: response.status,
-				body: await response.text(),
-			}
-		},
-		{
-			goalId,
-			query: NEW_PERFORMANCE_QUERY,
-			timeIntervalCode,
-		},
-	)
-
-	if (!data.ok) {
-		console.error(`Failed to fetch goal performance data (status ${data.status})`)
-		return null
-	}
-
+function parseGoalPerformanceJsonText(body: string): GoalPerformanceData | null {
 	let parsedJson: unknown
 
 	try {
-		parsedJson = JSON.parse(data.body)
+		parsedJson = JSON.parse(body)
 	} catch (error) {
 		console.error(`Failed to parse goal performance response body: ${getErrorMessage(error)}`)
 		return null
@@ -94,4 +52,40 @@ export async function getGoalPerformance(
 	}
 
 	return parsedData.output.data
+}
+
+const GQL_URL = "https://fintual.cl/gql/"
+
+/** GraphQL fetch using a raw `Cookie` header (see `docs/fintual-http-capture.md`). */
+export async function getGoalPerformanceWithCookies(
+	cookieHeader: string,
+	goalId: string,
+	timeIntervalCode: TimeIntervalCode,
+): Promise<GoalPerformanceData | null> {
+	const response = await fetch(GQL_URL, {
+		method: "POST",
+		headers: {
+			Accept: "*/*",
+			"content-type": "application/json",
+			Referer: "https://fintual.cl/",
+			...(cookieHeader ? { Cookie: cookieHeader } : {}),
+		},
+		body: JSON.stringify({
+			operationName: "GoalInvestedBalanceGraphDataPoints",
+			variables: {
+				goalId,
+				timeIntervalCode,
+			},
+			query: NEW_PERFORMANCE_QUERY,
+		}),
+	})
+
+	const body = await response.text()
+
+	if (!response.ok) {
+		console.error(`Failed to fetch goal performance data (status ${response.status})`)
+		return null
+	}
+
+	return parseGoalPerformanceJsonText(body)
 }
