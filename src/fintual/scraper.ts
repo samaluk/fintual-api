@@ -1,11 +1,11 @@
 import * as fs from "node:fs"
-import { getEnv } from "../env"
-import { getErrorMessage } from "../log"
+import { getEnv } from "../env.ts"
+import { getErrorMessage } from "../log.ts"
 import type { Page } from "playwright"
 import { chromium } from "playwright"
-import { login } from "./login"
-import { TimeIntervalCode, getGoalPerformance } from "./new-performance"
-import type { GoalPerformanceData } from "./new-performance"
+import { login } from "./login.ts"
+import { TimeIntervalCode, getGoalPerformance } from "./new-performance.ts"
+import type { GoalPerformanceData } from "./new-performance.ts"
 
 const BASE_URL = "https://fintual.cl"
 const GOAL_ID = getEnv("FINTUAL_GOAL_ID")

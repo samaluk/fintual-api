@@ -14,7 +14,7 @@ RUN corepack enable \
 COPY . .
 
 RUN chmod +x ./bin/run-sync.sh ./bin/run-gmail-token.sh \
-	&& pnpm run build
+	&& pnpm run typecheck
 
 ENV NODE_ENV=production
 

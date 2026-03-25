@@ -34,7 +34,7 @@ cp .env.example .env
 
 ## Gmail OAuth Bootstrap
 
-Run this locally once to generate `GMAIL_REFRESH_TOKEN`:
+Run this locally once to generate `GMAIL_REFRESH_TOKEN` directly from the TypeScript source:
 
 ```bash
 pnpm gmail:token
@@ -44,10 +44,10 @@ If `.env` exists, the command updates it in place. If `.env` does not exist, the
 
 ## Run Once
 
-Build the project and run the sync once:
+Optionally type-check the project, then run the sync directly from the TypeScript source:
 
 ```bash
-pnpm run build
+pnpm typecheck
 pnpm once
 ```
 

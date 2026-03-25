@@ -4,9 +4,10 @@ import { access, readFile, writeFile } from "node:fs/promises"
 import { createServer } from "node:http"
 import { join } from "node:path"
 import { cwd, platform } from "node:process"
+import { pathToFileURL } from "node:url"
 import { google } from "googleapis"
-import { getEnv } from "./env"
-import { getErrorMessage } from "./log"
+import { getEnv } from "./env.ts"
+import { getErrorMessage } from "./log.ts"
 
 const GMAIL_CLIENT_ID = getEnv("GMAIL_CLIENT_ID")
 const GMAIL_CLIENT_SECRET = getEnv("GMAIL_CLIENT_SECRET")
@@ -68,6 +69,10 @@ async function main(): Promise<void> {
 	}
 
 	console.log("Gmail refresh token generated successfully.")
+}
+
+function isMainModule(): boolean {
+	return import.meta.url === pathToFileURL(process.argv[1] ?? "").href
 }
 
 function buildEnvUpdates(refreshToken: string, redirectUri: URL): Record<string, string> {
@@ -274,7 +279,11 @@ async function updateEnvFile(path: string, updates: Record<string, string>): Pro
 	await writeFile(path, normalized, "utf8")
 }
 
-main().catch((error) => {
-	console.error(`Failed to generate Gmail refresh token: ${getErrorMessage(error)}`)
-	process.exit(1)
-})
+if (isMainModule()) {
+	try {
+		await main()
+	} catch (error) {
+		console.error(`Failed to generate Gmail refresh token: ${getErrorMessage(error)}`)
+		process.exit(1)
+	}
+}

@@ -1,10 +1,8 @@
 import * as fs from "node:fs"
 import * as api from "@actual-app/api"
-import type { InitConfig } from "@actual-app/api/@types/loot-core/src/server/main"
-import type { TransactionEntity } from "@actual-app/api/@types/loot-core/src/types/models"
 import * as v from "valibot"
-import { getEnv } from "./env"
-import { getErrorMessage } from "./log"
+import { getEnv } from "./env.ts"
+import { getErrorMessage } from "./log.ts"
 
 const SERVER_URL = getEnv("ACTUAL_SERVER_URL")
 const PASSWORD = getEnv("ACTUAL_PASSWORD")
@@ -38,12 +36,17 @@ const balanceFileSchema = v.object({
 	),
 })
 
-if (!SERVER_URL || !PASSWORD || !SYNC_ID || !FINTUAL_ACCOUNT || !STARTING_DATE || !PAYEE) {
-	console.error("Missing environment variables")
-	process.exit(1)
-}
-
 type BalanceEntry = v.InferOutput<typeof balanceFileSchema>["balance"][number]
+type ActualInitConfig = Parameters<typeof api.init>[0]
+
+interface VariationTransactionFields {
+	date: string
+	amount: number
+	payee: string | undefined
+	notes: string
+	imported_id: string
+	cleared: boolean
+}
 
 interface SyncCounts {
 	created: number
@@ -51,6 +54,8 @@ interface SyncCounts {
 }
 
 export async function main(): Promise<void> {
+	assertActualEnvConfigured()
+
 	for (let attempt = 1; attempt <= MAX_SYNC_ATTEMPTS; attempt += 1) {
 		try {
 			const syncCounts = await runActualSyncAttempt()
@@ -73,6 +78,14 @@ export async function main(): Promise<void> {
 	}
 }
 
+function assertActualEnvConfigured(): void {
+	if (SERVER_URL && PASSWORD && SYNC_ID && FINTUAL_ACCOUNT && STARTING_DATE && PAYEE) {
+		return
+	}
+
+	throw new Error("Missing Actual configuration environment variables")
+}
+
 async function runActualSyncAttempt(): Promise<SyncCounts> {
 	resetDataDirectory()
 
@@ -80,7 +93,7 @@ async function runActualSyncAttempt(): Promise<SyncCounts> {
 		dataDir: ACTUAL_DATA_DIR,
 		serverURL: SERVER_URL,
 		password: PASSWORD,
-	} satisfies InitConfig)
+	} satisfies ActualInitConfig)
 
 	try {
 		await api.downloadBudget(SYNC_ID)
@@ -92,7 +105,7 @@ async function runActualSyncAttempt(): Promise<SyncCounts> {
 
 async function syncDailyVariationTransactions(): Promise<SyncCounts> {
 	const endingDate = getTodayIsoDate()
-	const transactions = (await api.getTransactions(FINTUAL_ACCOUNT, STARTING_DATE, endingDate)) as TransactionEntity[]
+	const transactions = await api.getTransactions(FINTUAL_ACCOUNT, STARTING_DATE, endingDate)
 
 	const balanceEntries = loadBalanceEntries()
 	const payeeId = await getPayeeId()
@@ -140,9 +153,8 @@ function loadBalanceEntries(): BalanceEntry[] {
 function createVariationTransaction(
 	balanceEntry: BalanceEntry,
 	payeeId: string | undefined,
-): Omit<TransactionEntity, "id"> {
+): VariationTransactionFields {
 	return {
-		account: FINTUAL_ACCOUNT,
 		date: toIsoDate(balanceEntry.date),
 		amount: Math.round(Math.round(balanceEntry.real_difference) * 100),
 		payee: payeeId,

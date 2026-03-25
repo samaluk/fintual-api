@@ -1,14 +1,16 @@
 import type { Page } from "playwright"
 import * as v from "valibot"
-import { getErrorMessage } from "../log"
+import { getErrorMessage } from "../log.ts"
 
-export enum TimeIntervalCode {
-	LastMonth = "last_month",
-	LastSixMonths = "last_six_months",
-	LastYear = "last_year",
-	LastThreeYears = "last_three_years",
-	AllTime = "all_time",
-}
+export const TimeIntervalCode = {
+	LastMonth: "last_month",
+	LastSixMonths: "last_six_months",
+	LastYear: "last_year",
+	LastThreeYears: "last_three_years",
+	AllTime: "all_time",
+} as const
+
+export type TimeIntervalCode = (typeof TimeIntervalCode)[keyof typeof TimeIntervalCode]
 
 const NEW_PERFORMANCE_QUERY =
 	"query GoalInvestedBalanceGraphDataPoints($goalId: ID!, $timeIntervalCode: String!) {\n  balanceGraphDataPoints: clGoalBalanceGraphDataPoints(\n    goalId: $goalId\n    timeIntervalCode: $timeIntervalCode\n  ) {\n    date\n    unrealizedCostBasisAmount\n    unrealizedGainOrLossAmount\n    realizedCostBasisAmount\n    realizedGainOrLossAmount\n    sharesCostBasisAmount\n    sharesValuationAmount\n    pendingFulfillmentReinvestmentDepositsCostBasisAmount\n    pendingFulfillmentReinvestmentDepositsAmount\n    withdrawnAmount\n    __typename\n  }\n}"
