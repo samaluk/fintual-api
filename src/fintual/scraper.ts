@@ -1,77 +1,13 @@
 import * as fs from "node:fs"
-import type { Page } from "playwright"
-import { chromium } from "playwright"
-import { getEnv } from "../env.ts"
-import { getErrorMessage } from "../log.ts"
-import { login } from "./login.ts"
 import type { GoalPerformanceData } from "./new-performance.ts"
-import { getGoalPerformance, TimeIntervalCode } from "./new-performance.ts"
 
-const BASE_URL = "https://fintual.cl"
-const GOAL_ID = getEnv("FINTUAL_GOAL_ID")
 const FINTUAL_DATA_DIR = "./tmp/fintual-data"
-const BALANCE_FILE_PATH = `${FINTUAL_DATA_DIR}/balance-2.json`
-const DEFAULT_PAGE_TIMEOUT_MS = 15000
-const INITIAL_PAGE_LOAD_TIMEOUT_MS = 30000
-const POST_LOGIN_WAIT_MS = 2000
+export const BALANCE_FILE_PATH = `${FINTUAL_DATA_DIR}/balance-2.json`
 
-export async function main(): Promise<void> {
-	const browser = await chromium.launch({ headless: false })
-
-	try {
-		const context = await browser.newContext()
-		const page = await context.newPage()
-		page.setDefaultTimeout(DEFAULT_PAGE_TIMEOUT_MS)
-
-		await page.setViewportSize({ width: 800, height: 600 })
-		await page.goto(`${BASE_URL}/f/sign-in/`, { timeout: INITIAL_PAGE_LOAD_TIMEOUT_MS })
-
-		const loginSucceeded = await login(page)
-		if (!loginSucceeded) {
-			throw new Error("Login failed")
-		}
-
-		await ensureAuthenticatedPage(page)
-		await page.waitForTimeout(POST_LOGIN_WAIT_MS)
-
-		const performanceData = await getPerformanceData(page)
-		if (!performanceData) {
-			console.error("Failed to get new performance data")
-			return
-		}
-
-		writePerformanceFile(performanceData)
-		console.log(`Balance data saved to ${BALANCE_FILE_PATH}`)
-	} catch (error) {
-		console.error(`Error: ${getErrorMessage(error)}`)
-		process.exit(1)
-	} finally {
-		await browser.close()
-	}
-}
-
-async function ensureAuthenticatedPage(page: Page): Promise<void> {
-	await page.waitForLoadState("networkidle", { timeout: INITIAL_PAGE_LOAD_TIMEOUT_MS }).catch(() => undefined)
-
-	const isStillOnLoginPage = page.url().includes("/f/sign-in")
-	if (!isStillOnLoginPage) {
-		return
-	}
-
-	const loginFormStillVisible = await page
-		.locator('input[name="email"]')
-		.first()
-		.isVisible()
-		.catch(() => false)
-	if (loginFormStillVisible) {
-		throw new Error("Login did not leave the sign-in page")
-	}
-}
-
-async function getPerformanceData(page: Page): Promise<{ balance: unknown[]; deposits: unknown[] } | null> {
-	const sixMonthData = await getGoalPerformance(page, GOAL_ID, TimeIntervalCode.LastSixMonths)
-	const lastMonthData = await getGoalPerformance(page, GOAL_ID, TimeIntervalCode.LastMonth)
-
+export function foldGoalPerformanceData(
+	sixMonthData: GoalPerformanceData | null,
+	lastMonthData: GoalPerformanceData | null,
+): { balance: unknown[]; deposits: unknown[] } | null {
 	if (!lastMonthData?.balanceGraphDataPoints || !sixMonthData?.balanceGraphDataPoints) {
 		return null
 	}
@@ -129,7 +65,7 @@ function getPreviousValue(
 	return selectValue(currentPoints[0])
 }
 
-function writePerformanceFile(performanceData: { balance: unknown[]; deposits: unknown[] }): void {
+export function writePerformanceFile(performanceData: { balance: unknown[]; deposits: unknown[] }): void {
 	if (!fs.existsSync(FINTUAL_DATA_DIR)) {
 		fs.mkdirSync(FINTUAL_DATA_DIR, { recursive: true })
 	}
