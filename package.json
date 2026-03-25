@@ -24,7 +24,6 @@
 		"lint:fix": "biome check --write src",
 		"knip": "knip",
 		"dev": "node src/once.ts",
-		"gmail:token": "node src/gmail-token.ts",
 		"once": "node src/once.ts"
 	},
 	"pnpm": {
