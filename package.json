@@ -22,7 +22,8 @@
 		"lint:fix": "biome check --write src",
 		"knip": "knip",
 		"dev": "node src/once.ts",
-		"once": "node src/once.ts"
+		"once": "node src/once.ts",
+		"capture:har": "sh bin/capture-fintual-har.sh"
 	},
 	"pnpm": {
 		"onlyBuiltDependencies": [

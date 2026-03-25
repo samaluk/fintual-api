@@ -1,0 +1,18 @@
+query GoalInvestedBalanceGraphDataPoints($goalId: ID!, $timeIntervalCode: String!) {
+  balanceGraphDataPoints: clGoalBalanceGraphDataPoints(
+    goalId: $goalId
+    timeIntervalCode: $timeIntervalCode
+  ) {
+    date
+    unrealizedCostBasisAmount
+    unrealizedGainOrLossAmount
+    realizedCostBasisAmount
+    realizedGainOrLossAmount
+    sharesCostBasisAmount
+    sharesValuationAmount
+    pendingFulfillmentReinvestmentDepositsCostBasisAmount
+    pendingFulfillmentReinvestmentDepositsAmount
+    withdrawnAmount
+    __typename
+  }
+}
