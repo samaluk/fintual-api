@@ -4,7 +4,6 @@
 .github
 .agents
 node_modules
-dist
 tmp
 playwright-report
 test-results
