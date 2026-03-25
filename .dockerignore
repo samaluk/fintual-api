@@ -5,8 +5,5 @@
 .agents
 node_modules
 tmp
-playwright-report
-test-results
-blob-report
 .DS_Store
 *.log
