@@ -11,7 +11,6 @@ The repo intentionally supports only two flows:
 
 - Node.js 24+
 - pnpm
-- Playwright browser dependencies
 - Fintual credentials
 - Actual Budget server credentials
 - Gmail app password for unattended 2FA
@@ -92,10 +91,19 @@ pnpm once
 
 The worker will:
 
-- log in to Fintual with Playwright
-- retrieve the Gmail 2FA code when needed
-- write the scraped data to `tmp/fintual-data/balance-2.json`
+- log in to Fintual over HTTP (`initiate_login` → Gmail IMAP 2FA when required → `finalize_login_web`) and fetch GraphQL performance data
+- write the result to `tmp/fintual-data/balance-2.json`
 - import variation transactions into Actual Budget
+
+### Reverse-engineering Fintual HTTP (agent-browser)
+
+To capture login and GraphQL traffic for analysis (HAR), use **agent-browser ≥ 0.22** and run:
+
+```bash
+pnpm capture:har
+```
+
+Details and observed endpoints are in [`docs/fintual-http-capture.md`](docs/fintual-http-capture.md). Output goes to `tmp/fintual-capture.har` (gitignored).
 
 ## Docker Image
 
