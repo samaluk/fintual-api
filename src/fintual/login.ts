@@ -70,8 +70,8 @@ async function fillInput(input: Locator, value: string): Promise<void> {
 
 async function waitForLoginButtonEnabled(
 	page: Page,
-	emailInput: Locator,
-	passwordInput: Locator,
+	_emailInput: Locator,
+	_passwordInput: Locator,
 	loginButton: Locator,
 ): Promise<void> {
 	const startedAt = Date.now()

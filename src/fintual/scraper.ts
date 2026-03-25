@@ -4,8 +4,8 @@ import { chromium } from "playwright"
 import { getEnv } from "../env.ts"
 import { getErrorMessage } from "../log.ts"
 import { login } from "./login.ts"
-import { TimeIntervalCode, getGoalPerformance } from "./new-performance.ts"
 import type { GoalPerformanceData } from "./new-performance.ts"
+import { getGoalPerformance, TimeIntervalCode } from "./new-performance.ts"
 
 const BASE_URL = "https://fintual.cl"
 const GOAL_ID = getEnv("FINTUAL_GOAL_ID")
@@ -77,7 +77,6 @@ async function getPerformanceData(page: Page): Promise<{ balance: unknown[]; dep
 	}
 
 	const lastMonthPoints = lastMonthData.balanceGraphDataPoints
-	const sixMonthPoints = sixMonthData.balanceGraphDataPoints
 	const previousDeposits = getPreviousValue(sixMonthData, lastMonthData, (point) => point.unrealizedCostBasisAmount)
 	const previousBalance = getPreviousValue(sixMonthData, lastMonthData, (point) => point.sharesValuationAmount)
 
