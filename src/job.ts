@@ -1,7 +1,7 @@
-import { main as mainActual } from "./actual"
-import { assertRequiredEnv } from "./env"
-import { main as mainScraper } from "./fintual/scraper"
-import "./env"
+import { main as mainActual } from "./actual.ts"
+import { assertRequiredEnv } from "./env.ts"
+import { main as mainScraper } from "./fintual/scraper.ts"
+import "./env.ts"
 
 const REQUIRED_SYNC_ENV_NAMES = [
 	"ACTUAL_SERVER_URL",
