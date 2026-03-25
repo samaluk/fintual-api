@@ -1,7 +1,7 @@
-import { getEnv } from "../env.ts"
-import { getErrorMessage } from "../log.ts"
 import { google } from "googleapis"
 import type { gmail_v1 } from "googleapis"
+import { getEnv } from "../env.ts"
+import { getErrorMessage } from "../log.ts"
 
 const DEFAULT_TIMEOUT_MS = 10000
 const DEFAULT_POLL_INTERVAL_MS = 2000
