@@ -25,6 +25,6 @@ COPY --from=deps /ms-playwright /ms-playwright
 
 COPY . .
 
-RUN chmod +x ./bin/run-sync.sh ./bin/run-gmail-token.sh
+RUN chmod +x ./bin/run-sync.sh
 
 CMD ["./bin/run-sync.sh"]
