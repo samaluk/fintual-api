@@ -1,14 +1,12 @@
 {
 	"name": "fintual-api",
 	"module": "index.ts",
+	"packageManager": "pnpm@10.32.1",
 	"type": "commonjs",
 	"devDependencies": {
 		"@biomejs/biome": "1.9.4",
 		"@playwright/test": "1.58.2",
-		"@types/bun": "latest",
-		"@types/node": "22.19.15"
-	},
-	"peerDependencies": {
+		"@types/node": "22.19.15",
 		"typescript": "5.9.3"
 	},
 	"dependencies": {
@@ -23,7 +21,10 @@
 	"scripts": {
 		"build": "tsc -p tsconfig.json",
 		"dev": "tsc -p tsconfig.json && node dist/once.js",
-		"gmail:token": "bun run src/gmail-token.ts",
+		"gmail:token": "tsc -p tsconfig.json && node dist/gmail-token.js",
 		"once": "node dist/once.js"
+	},
+	"pnpm": {
+		"onlyBuiltDependencies": ["better-sqlite3"]
 	}
 }

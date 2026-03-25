@@ -4,12 +4,13 @@
 
 The repo intentionally supports only two flows:
 
-- `bun once` runs the full sync once
-- `bun gmail:token` bootstraps the Gmail OAuth refresh token used for unattended 2FA
+- `pnpm once` runs the full sync once
+- `pnpm gmail:token` bootstraps the Gmail OAuth refresh token used for unattended 2FA
 
 ## Requirements
 
-- Bun or Node.js 20+
+- Node.js 24+
+- pnpm
 - Playwright browser dependencies
 - Fintual credentials
 - Actual Budget server credentials
@@ -20,23 +21,23 @@ The repo intentionally supports only two flows:
 1. Install dependencies:
 
 ```bash
-bun install
+pnpm install
 ```
 
-2. Create a local env file:
+1. Create a local env file:
 
 ```bash
 cp .env.example .env
 ```
 
-3. Fill in your Actual, Fintual, and Gmail values.
+1. Fill in your Actual, Fintual, and Gmail values.
 
 ## Gmail OAuth Bootstrap
 
 Run this locally once to generate `GMAIL_REFRESH_TOKEN`:
 
 ```bash
-bun gmail:token
+pnpm gmail:token
 ```
 
 If `.env` exists, the command updates it in place. If `.env` does not exist, the command prints only the generated `GMAIL_REFRESH_TOKEN` so you can store it manually in Komodo or another secret manager.
@@ -46,8 +47,8 @@ If `.env` exists, the command updates it in place. If `.env` does not exist, the
 Build the project and run the sync once:
 
 ```bash
-bun run build
-bun once
+pnpm run build
+pnpm once
 ```
 
 The worker will:
