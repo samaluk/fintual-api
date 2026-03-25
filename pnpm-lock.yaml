@@ -15,10 +15,10 @@ importers:
         specifier: 17.3.1
         version: 17.3.1
       imapflow:
-        specifier: ^1.2.16
+        specifier: 1.2.16
         version: 1.2.16
       mailparser:
-        specifier: ^3.9.5
+        specifier: 3.9.5
         version: 3.9.5
       playwright:
         specifier: 1.58.2
@@ -34,13 +34,13 @@ importers:
         specifier: 1.58.2
         version: 1.58.2
       '@types/mailparser':
-        specifier: ^3.4.6
+        specifier: 3.4.6
         version: 3.4.6
       '@types/node':
         specifier: 24.12.0
         version: 24.12.0
       knip:
-        specifier: ^6.0.5
+        specifier: 6.0.5
         version: 6.0.5
       typescript:
         specifier: 5.9.3
