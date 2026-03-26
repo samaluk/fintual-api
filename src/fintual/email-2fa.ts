@@ -1,4 +1,4 @@
-import { ImapFlow } from "imapflow"
+import { ImapFlow, type SearchObject } from "imapflow"
 import { simpleParser } from "mailparser"
 import { getEnv } from "../env.ts"
 import { getErrorMessage } from "../log.ts"
@@ -6,13 +6,14 @@ import { getErrorMessage } from "../log.ts"
 const DEFAULT_TIMEOUT_MS = 10000
 const DEFAULT_POLL_INTERVAL_MS = 2000
 const MAX_RESULTS = 10
+/** Ignore INTERNALDATE vs local clock skew (same problem as Docker VM drift). */
+const DELIVERED_AT_SKEW_BUFFER_MS = 5 * 60 * 1000
 
 const GMAIL_IMAP_HOST = getEnv("GMAIL_IMAP_HOST", "imap.gmail.com")
 const GMAIL_IMAP_PORT = Number.parseInt(getEnv("GMAIL_IMAP_PORT", "993"), 10)
 const GMAIL_USER_EMAIL = getEnv("GMAIL_USER_EMAIL")
 const GMAIL_APP_PASSWORD = getEnv("GMAIL_APP_PASSWORD")
 const FINTUAL_2FA_SENDER = getEnv("FINTUAL_2FA_SENDER", "notificaciones@fintual.com")
-const FINTUAL_2FA_SUBJECT = getEnv("FINTUAL_2FA_SUBJECT", "Código para entrar")
 
 interface Email2FAOptions {
 	afterTimestamp: Date
@@ -78,12 +79,13 @@ async function searchForCode(
 ): Promise<string | null> {
 	const lock = await imapClient.getMailboxLock("INBOX")
 	try {
-		const messageUids = await imapClient.search(buildSearchQuery(afterTimestamp), { uid: true })
+		const messageUids = await runInboxSearch(imapClient, afterTimestamp)
 		if (!messageUids) {
 			return null
 		}
 
 		const recentUids = messageUids.slice(-MAX_RESULTS).reverse()
+		const earliestDeliveredAt = afterTimestamp.getTime() - DELIVERED_AT_SKEW_BUFFER_MS
 
 		for (const uid of recentUids) {
 			if (seenUids.has(uid)) {
@@ -107,7 +109,7 @@ async function searchForCode(
 			const internalDate =
 				typeof message.internalDate === "string" ? new Date(message.internalDate) : message.internalDate
 			const deliveredAt = internalDate?.getTime() ?? 0
-			if (deliveredAt > 0 && deliveredAt < afterTimestamp.getTime()) {
+			if (deliveredAt > 0 && deliveredAt < earliestDeliveredAt) {
 				continue
 			}
 
@@ -123,6 +125,61 @@ async function searchForCode(
 	return null
 }
 
+async function runInboxSearch(imapClient: ImapFlow, afterTimestamp: Date): Promise<number[] | false> {
+	const queries = buildSearchQueries(afterTimestamp)
+
+	for (const query of queries) {
+		try {
+			const messageUids = await imapClient.search(query, { uid: true })
+			if (messageUids && messageUids.length > 0) {
+				return messageUids
+			}
+		} catch (error) {
+			const err = error as { code?: string }
+			if (err.code === "MissingServerExtension") {
+				continue
+			}
+			throw error
+		}
+	}
+
+	return false
+}
+
+function isGmailImapHost(host: string): boolean {
+	const normalized = host.trim().toLowerCase()
+	return normalized === "imap.gmail.com" || normalized === "imap.googlemail.com"
+}
+
+/** Gmail web-style search; avoids broken IMAP SUBJECT matching for UTF-8 (e.g. "Código"). */
+function formatGmailAfterDate(d: Date): string {
+	const yyyy = d.getFullYear()
+	const mm = String(d.getMonth() + 1).padStart(2, "0")
+	const dd = String(d.getDate()).padStart(2, "0")
+	return `${yyyy}/${mm}/${dd}`
+}
+
+function buildSearchQueries(afterTimestamp: Date): SearchObject[] {
+	const queries: SearchObject[] = []
+
+	if (isGmailImapHost(GMAIL_IMAP_HOST)) {
+		const after = formatGmailAfterDate(afterTimestamp)
+		queries.push({
+			gmraw: `from:${FINTUAL_2FA_SENDER} after:${after}`,
+		})
+		queries.push({
+			gmraw: `from:fintual.com after:${after}`,
+		})
+	}
+
+	queries.push({
+		from: FINTUAL_2FA_SENDER,
+		since: afterTimestamp,
+	})
+
+	return queries
+}
+
 async function closeImapClient(imapClient: ImapFlow): Promise<void> {
 	if (!imapClient.usable) {
 		return
@@ -132,14 +189,6 @@ async function closeImapClient(imapClient: ImapFlow): Promise<void> {
 		await imapClient.logout()
 	} catch (error) {
 		console.warn(`Failed to close IMAP connection cleanly: ${getErrorMessage(error)}`)
-	}
-}
-
-function buildSearchQuery(afterTimestamp: Date): Record<string, string | Date> {
-	return {
-		from: FINTUAL_2FA_SENDER,
-		subject: FINTUAL_2FA_SUBJECT,
-		since: afterTimestamp,
 	}
 }
 
