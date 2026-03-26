@@ -20,7 +20,6 @@ async function fetchFintualPerformanceHttp(): Promise<void> {
 
 	await session.loadSignInPage()
 
-	const loginStartedAt = new Date()
 	const loginResponse = await session.initiateLogin(email, password)
 	const loginBody = await loginResponse.text()
 
@@ -29,6 +28,7 @@ async function fetchFintualPerformanceHttp(): Promise<void> {
 	}
 
 	if (loginResponse.status === 201) {
+		const loginStartedAt = new Date()
 		console.log("Fintual: login initiated (e-mail 2FA expected).")
 		const code = await get2FACodeFromEmail({
 			afterTimestamp: loginStartedAt,
@@ -36,7 +36,7 @@ async function fetchFintualPerformanceHttp(): Promise<void> {
 		})
 		if (!code) {
 			throw new Error(
-				"Fintual HTTP sync: no 2FA code from Gmail (check GMAIL_* and FINTUAL_2FA_SENDER / FINTUAL_2FA_SUBJECT).",
+				"Fintual HTTP sync: no 2FA code from Gmail (check GMAIL_* and FINTUAL_2FA_SENDER; confirm the 2FA email reached Inbox).",
 			)
 		}
 
