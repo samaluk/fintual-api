@@ -88,6 +88,7 @@ function assertActualEnvConfigured(): void {
 
 async function runActualSyncAttempt(): Promise<SyncCounts> {
 	resetDataDirectory()
+	await assertActualServerReachable()
 
 	await api.init({
 		dataDir: ACTUAL_DATA_DIR,
@@ -186,7 +187,16 @@ function toIsoDate(timestamp: number): string {
 
 function isRetryableActualError(error: unknown): boolean {
 	if (error instanceof Error) {
-		return error.message.includes("network-failure")
+		const message = `${error.message}\n${error.stack ?? ""}`.toLowerCase()
+		return (
+			message.includes("network-failure") ||
+			message.includes("econnreset") ||
+			message.includes("econnrefused") ||
+			message.includes("eai_again") ||
+			message.includes("etimedout") ||
+			message.includes("fetch failed") ||
+			message.includes("download-budget")
+		)
 	}
 
 	if (!isRecord(error)) {
@@ -194,6 +204,30 @@ function isRetryableActualError(error: unknown): boolean {
 	}
 
 	return error.type === "PostError" && error.reason === "network-failure"
+}
+
+async function assertActualServerReachable(): Promise<void> {
+	const normalizedBaseUrl = SERVER_URL.endsWith("/") ? SERVER_URL.slice(0, -1) : SERVER_URL
+	const healthUrl = `${normalizedBaseUrl}/health`
+
+	try {
+		const controller = new AbortController()
+		const timeout = setTimeout(() => controller.abort(), 10_000)
+		const response = await fetch(healthUrl, {
+			method: "GET",
+			signal: controller.signal,
+		})
+		clearTimeout(timeout)
+
+		if (response.ok) {
+			return
+		}
+
+		throw new Error(`health endpoint returned HTTP ${response.status}`)
+	} catch (error) {
+		const details = getErrorMessage(error)
+		throw new Error(`Actual server is unreachable at ${healthUrl}: ${details}`)
+	}
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
