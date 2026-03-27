@@ -11,9 +11,13 @@ const DELIVERED_AT_SKEW_BUFFER_MS = 5 * 60 * 1000
 
 const GMAIL_IMAP_HOST = getEnv("GMAIL_IMAP_HOST", "imap.gmail.com")
 const GMAIL_IMAP_PORT = Number.parseInt(getEnv("GMAIL_IMAP_PORT", "993"), 10)
+const GMAIL_IMAP_DEBUG = ["1", "true"].includes(getEnv("GMAIL_IMAP_DEBUG", "").toLowerCase())
 const GMAIL_USER_EMAIL = getEnv("GMAIL_USER_EMAIL")
 const GMAIL_APP_PASSWORD = getEnv("GMAIL_APP_PASSWORD")
 const FINTUAL_2FA_SENDER = getEnv("FINTUAL_2FA_SENDER", "notificaciones@fintual.com")
+
+/** Gmail can file 2FA under categories; IMAP search is per-folder. */
+const GMAIL_IMAP_SEARCH_PATHS = ["INBOX", "[Gmail]/All Mail", "[Gmail]/Spam"] as const
 
 interface Email2FAOptions {
 	afterTimestamp: Date
@@ -32,13 +36,13 @@ export async function get2FACodeFromEmail(options: Email2FAOptions): Promise<str
 	console.log("Connecting to Gmail IMAP for automatic 2FA retrieval...")
 	const imapClient = createImapClient()
 	const startedAt = Date.now()
-	const seenUids = new Set<number>()
+	const seenMessageKeys = new Set<string>()
 
 	try {
 		await imapClient.connect()
 
 		while (Date.now() - startedAt < timeoutMs) {
-			const code = await searchForCode(imapClient, afterTimestamp, seenUids)
+			const code = await searchForCode(imapClient, afterTimestamp, seenMessageKeys)
 			if (code) {
 				console.log("2FA code retrieved from Gmail.")
 				return code
@@ -75,57 +79,108 @@ function createImapClient(): ImapFlow {
 async function searchForCode(
 	imapClient: ImapFlow,
 	afterTimestamp: Date,
-	seenUids: Set<number>,
+	seenMessageKeys: Set<string>,
 ): Promise<string | null> {
-	const lock = await imapClient.getMailboxLock("INBOX")
-	try {
-		const messageUids = await runInboxSearch(imapClient, afterTimestamp)
-		if (!messageUids) {
-			return null
+	const paths = imapSearchMailboxes()
+
+	for (const mailboxPath of paths) {
+		let lock: Awaited<ReturnType<ImapFlow["getMailboxLock"]>> | undefined
+		try {
+			lock = await imapClient.getMailboxLock(mailboxPath)
+		} catch {
+			if (GMAIL_IMAP_DEBUG) {
+				console.log(`Gmail IMAP: skip missing mailbox ${mailboxPath}`)
+			}
+			continue
 		}
 
-		const recentUids = messageUids.slice(-MAX_RESULTS).reverse()
-		const earliestDeliveredAt = afterTimestamp.getTime() - DELIVERED_AT_SKEW_BUFFER_MS
-
-		for (const uid of recentUids) {
-			if (seenUids.has(uid)) {
+		try {
+			const messageUids = await runMailboxSearch(imapClient, afterTimestamp)
+			if (GMAIL_IMAP_DEBUG) {
+				console.log(
+					`Gmail IMAP: ${mailboxPath} search → ${messageUids === false ? "no match" : `${messageUids.length} uid(s)`}`,
+				)
+			}
+			if (!messageUids) {
 				continue
 			}
-			seenUids.add(uid)
 
-			const message = await imapClient.fetchOne(
-				String(uid),
-				{
-					source: true,
-					envelope: true,
-					internalDate: true,
-				},
-				{ uid: true },
+			const code = await extractCodeFromMailboxUids(
+				imapClient,
+				mailboxPath,
+				messageUids,
+				afterTimestamp,
+				seenMessageKeys,
 			)
-			if (!message || !message.source) {
-				continue
-			}
-
-			const internalDate =
-				typeof message.internalDate === "string" ? new Date(message.internalDate) : message.internalDate
-			const deliveredAt = internalDate?.getTime() ?? 0
-			if (deliveredAt > 0 && deliveredAt < earliestDeliveredAt) {
-				continue
-			}
-
-			const code = await extractCodeFromMessage(message.source, message.envelope?.subject ?? "")
 			if (code) {
 				return code
 			}
+		} finally {
+			lock?.release()
 		}
-	} finally {
-		lock.release()
 	}
 
 	return null
 }
 
-async function runInboxSearch(imapClient: ImapFlow, afterTimestamp: Date): Promise<number[] | false> {
+function imapSearchMailboxes(): string[] {
+	if (isGmailImapHost(GMAIL_IMAP_HOST)) {
+		return [...GMAIL_IMAP_SEARCH_PATHS]
+	}
+	return ["INBOX"]
+}
+
+function messageSeenKey(mailboxPath: string, uid: number): string {
+	return `${mailboxPath}:${uid}`
+}
+
+async function extractCodeFromMailboxUids(
+	imapClient: ImapFlow,
+	mailboxPath: string,
+	messageUids: number[],
+	afterTimestamp: Date,
+	seenMessageKeys: Set<string>,
+): Promise<string | null> {
+	const recentUids = messageUids.slice(-MAX_RESULTS).reverse()
+	const earliestDeliveredAt = afterTimestamp.getTime() - DELIVERED_AT_SKEW_BUFFER_MS
+
+	for (const uid of recentUids) {
+		const key = messageSeenKey(mailboxPath, uid)
+		if (seenMessageKeys.has(key)) {
+			continue
+		}
+		seenMessageKeys.add(key)
+
+		const message = await imapClient.fetchOne(
+			String(uid),
+			{
+				source: true,
+				envelope: true,
+				internalDate: true,
+			},
+			{ uid: true },
+		)
+		if (!message || !message.source) {
+			continue
+		}
+
+		const internalDate =
+			typeof message.internalDate === "string" ? new Date(message.internalDate) : message.internalDate
+		const deliveredAt = internalDate?.getTime() ?? 0
+		if (deliveredAt > 0 && deliveredAt < earliestDeliveredAt) {
+			continue
+		}
+
+		const code = await extractCodeFromMessage(message.source, message.envelope?.subject ?? "")
+		if (code) {
+			return code
+		}
+	}
+
+	return null
+}
+
+async function runMailboxSearch(imapClient: ImapFlow, afterTimestamp: Date): Promise<number[] | false> {
 	const queries = buildSearchQueries(afterTimestamp)
 
 	for (const query of queries) {
@@ -169,6 +224,13 @@ function buildSearchQueries(afterTimestamp: Date): SearchObject[] {
 		})
 		queries.push({
 			gmraw: `from:fintual.com after:${after}`,
+		})
+		// Relative window avoids rare date/TZ mismatches between container and Gmail account settings.
+		queries.push({
+			gmraw: `from:${FINTUAL_2FA_SENDER} newer_than:1d`,
+		})
+		queries.push({
+			gmraw: `from:fintual.com newer_than:1d`,
 		})
 	}
 
