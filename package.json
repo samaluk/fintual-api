@@ -6,7 +6,7 @@
 		"@biomejs/biome": "2.4.9",
 		"@types/mailparser": "3.4.6",
 		"@types/node": "24.12.0",
-		"knip": "6.0.6",
+		"knip": "6.1.0",
 		"typescript": "6.0.2"
 	},
 	"dependencies": {
