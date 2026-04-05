@@ -12,8 +12,8 @@ importers:
         specifier: 26.3.0
         version: 26.3.0
       dotenv:
-        specifier: 17.3.1
-        version: 17.3.1
+        specifier: 17.4.0
+        version: 17.4.0
       imapflow:
         specifier: 1.2.18
         version: 1.2.18
@@ -449,8 +449,8 @@ packages:
   domutils@3.2.2:
     resolution: {integrity: sha512-6kZKyUajlDuqlHKVX1w7gyslj9MPIXzIFiz/rGu35uC1wMi+kMhQwGhl4lt9unC9Vb9INnY9Z3/ZA3+FhASLaw==}
 
-  dotenv@17.3.1:
-    resolution: {integrity: sha512-IO8C/dzEb6O3F9/twg6ZLXz164a2fhTnEWb95H23Dm4OuN+92NmEAlTrupP9VW6Jm3sO26tQlqyvyi4CsnY9GA==}
+  dotenv@17.4.0:
+    resolution: {integrity: sha512-kCKF62fwtzwYm0IGBNjRUjtJgMfGapII+FslMHIjMR5KTnwEmBmWLDRSnc3XSNP8bNy34tekgQyDT0hr7pERRQ==}
     engines: {node: '>=12'}
 
   encoding-japanese@2.2.0:
@@ -1147,7 +1147,7 @@ snapshots:
       domelementtype: 2.3.0
       domhandler: 5.0.3
 
-  dotenv@17.3.1: {}
+  dotenv@17.4.0: {}
 
   encoding-japanese@2.2.0: {}
 
