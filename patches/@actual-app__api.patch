@@ -1,0 +1,70 @@
+diff --git a/@types/index.d.ts b/@types/index.d.ts
+index 3477219c60e021abbbe9cce57d0b7be5bb6ee7aa..4534a51a46737a69a817baf858268273ec9aaa88 100644
+--- a/@types/index.d.ts
++++ b/@types/index.d.ts
+@@ -1,17 +1,33 @@
+-import { APIAccountEntity } from '@actual-app/core/server/api-models';
+-import { APICategoryEntity } from '@actual-app/core/server/api-models';
+-import { APICategoryGroupEntity } from '@actual-app/core/server/api-models';
+-import { APIFileEntity } from '@actual-app/core/server/api-models';
+-import { APIPayeeEntity } from '@actual-app/core/server/api-models';
+-import { APIScheduleEntity } from '@actual-app/core/server/api-models';
+-import { APITagEntity } from '@actual-app/core/server/api-models';
+-import { ImportTransactionEntity } from '@actual-app/core/types/models';
+-import { ImportTransactionsOpts } from '@actual-app/core/types/api-handlers';
+-import { InitConfig } from '@actual-app/core/server/main';
+-import { lib } from '@actual-app/core/server/main';
+-import { Query } from '@actual-app/core/shared/query';
+-import { RuleEntity } from '@actual-app/core/types/models';
+-import { TransactionEntity } from '@actual-app/core/types/models';
++type APIAccountEntity = { id: string };
++type APICategoryEntity = { id: string };
++type APICategoryGroupEntity = { id: string };
++type APIFileEntity = { name: string };
++type APIPayeeEntity = { id: string; name?: string };
++type APIScheduleEntity = { id: string };
++type APITagEntity = { id: string };
++type ImportTransactionEntity = {
++    account?: string;
++    date?: string;
++    amount?: number;
++    payee?: string;
++    notes?: string;
++    imported_id?: string;
++    cleared?: boolean;
++};
++type ImportTransactionsOpts = Record<string, unknown>;
++type InitConfig = Record<string, unknown>;
++type lib = Record<string, unknown>;
++type Query = Record<string, unknown>;
++type RuleEntity = { id: string };
++type TransactionEntity = {
++    id: string;
++    imported_id?: string;
++    date?: string;
++    amount?: number;
++    payee?: string;
++    notes?: string;
++    cleared?: boolean;
++};
+ 
+ export declare function addTransactions(accountId: APIAccountEntity['id'], transactions: Omit<ImportTransactionEntity, 'account'>[], { learnCategories, runTransfers, }?: {
+     learnCategories?: boolean;
+@@ -80,7 +96,7 @@ export declare function getIDByName(type: 'accounts' | 'schedules' | 'categories
+ 
+ export declare function getPayeeRules(id: RuleEntity['id']): Promise<any>;
+ 
+-export declare function getPayees(): Promise<any>;
++export declare function getPayees(): Promise<APIPayeeEntity[]>;
+ 
+ export declare function getRules(): Promise<any>;
+ 
+@@ -90,7 +106,7 @@ export declare function getServerVersion(): Promise<any>;
+ 
+ export declare function getTags(): Promise<any>;
+ 
+-export declare function getTransactions(accountId: APIAccountEntity['id'], startDate: string, endDate: string): Promise<any>;
++export declare function getTransactions(accountId: APIAccountEntity['id'], startDate: string, endDate: string): Promise<TransactionEntity[]>;
+ 
+ export declare function holdBudgetForNextMonth(month: string, amount: number): Promise<any>;
+ 
