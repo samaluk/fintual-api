@@ -10,7 +10,7 @@
 		"typescript": "6.0.2"
 	},
 	"dependencies": {
-		"@actual-app/api": "26.3.0",
+		"@actual-app/api": "26.4.0",
 		"dotenv": "17.4.0",
 		"imapflow": "1.2.18",
 		"mailparser": "3.9.6",
