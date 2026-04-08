@@ -4,13 +4,18 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  '@actual-app/api':
+    hash: 9812464c9c674221b0c4a3573a091adce17dbe4f7429075b235ce8a029707b6a
+    path: patches/@actual-app__api.patch
+
 importers:
 
   .:
     dependencies:
       '@actual-app/api':
         specifier: 26.4.0
-        version: 26.4.0
+        version: 26.4.0(patch_hash=9812464c9c674221b0c4a3573a091adce17dbe4f7429075b235ce8a029707b6a)
       dotenv:
         specifier: 17.4.0
         version: 17.4.0
@@ -1178,7 +1183,7 @@ packages:
 
 snapshots:
 
-  '@actual-app/api@26.4.0':
+  '@actual-app/api@26.4.0(patch_hash=9812464c9c674221b0c4a3573a091adce17dbe4f7429075b235ce8a029707b6a)':
     dependencies:
       '@actual-app/core': 26.4.0
       '@actual-app/crdt': 2.1.0
