@@ -3,7 +3,7 @@
 	"packageManager": "pnpm@10.33.0",
 	"type": "module",
 	"devDependencies": {
-		"@biomejs/biome": "2.4.10",
+		"@biomejs/biome": "2.4.11",
 		"@types/mailparser": "3.4.6",
 		"@types/node": "24.12.2",
 		"knip": "6.3.1",
