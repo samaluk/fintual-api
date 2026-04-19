@@ -1,4 +1,4 @@
-FROM node:24.14.1-slim AS deps
+FROM node:24.15.0-slim AS deps
 
 WORKDIR /app
 
@@ -9,7 +9,7 @@ RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
 	corepack enable \
 	&& pnpm install --frozen-lockfile --prod
 
-FROM node:24.14.1-slim AS runtime
+FROM node:24.15.0-slim AS runtime
 
 WORKDIR /app
 
