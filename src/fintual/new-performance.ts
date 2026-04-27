@@ -1,4 +1,6 @@
+import { Effect } from "effect"
 import * as v from "valibot"
+import { error, tryPromise, trySync } from "../effect.ts"
 import { getErrorMessage } from "../log.ts"
 
 export const TimeIntervalCode = {
@@ -35,57 +37,93 @@ const newPerformanceSchema = v.object({
 
 export type GoalPerformanceData = v.InferOutput<typeof newPerformanceSchema>["data"]
 
-function parseGoalPerformanceJsonText(body: string): GoalPerformanceData | null {
-  let parsedJson: unknown
+function parseGoalPerformanceJsonText(body: string): Effect.Effect<GoalPerformanceData | null> {
+  return Effect.gen(function* () {
+    const parsedJson = yield* Effect.catchAll(
+      trySync({
+        try: () => JSON.parse(body) as unknown,
+        catch: "Failed to parse goal performance response body",
+      }),
+      (parseError) =>
+        Effect.as(
+          error(`Failed to parse goal performance response body: ${getErrorMessage(parseError)}`),
+          null,
+        ),
+    )
 
-  try {
-    parsedJson = JSON.parse(body)
-  } catch (error) {
-    console.error(`Failed to parse goal performance response body: ${getErrorMessage(error)}`)
-    return null
+    if (parsedJson === null) {
+      return null
+    }
+
+    const parsedData = v.safeParse(newPerformanceSchema, parsedJson)
+    if (!parsedData.success) {
+      yield* error(
+        `Failed to validate goal performance data: ${getValidationBodyPreview(parsedJson)}`,
+      )
+      return null
+    }
+
+    return parsedData.output.data
+  })
+}
+
+function getValidationBodyPreview(parsedJson: unknown): string {
+  if (!isRecord(parsedJson)) {
+    return `unexpected response ${JSON.stringify(parsedJson).slice(0, 400)}`
   }
 
-  const parsedData = v.safeParse(newPerformanceSchema, parsedJson)
-  if (!parsedData.success) {
-    console.error("Failed to validate goal performance data")
-    return null
+  if ("errors" in parsedJson) {
+    return `GraphQL errors ${JSON.stringify(parsedJson.errors).slice(0, 400)}`
   }
 
-  return parsedData.output.data
+  return `response preview ${JSON.stringify(parsedJson).slice(0, 400)}`
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null
 }
 
 const GQL_URL = "https://fintual.cl/gql/"
 
 /** GraphQL fetch using a raw `Cookie` header (see `docs/fintual-http-capture.md`). */
-export async function getGoalPerformanceWithCookies(
+export function getGoalPerformanceWithCookies(
   cookieHeader: string,
   goalId: string,
   timeIntervalCode: TimeIntervalCode,
-): Promise<GoalPerformanceData | null> {
-  const response = await fetch(GQL_URL, {
-    method: "POST",
-    headers: {
-      Accept: "*/*",
-      "content-type": "application/json",
-      Referer: "https://fintual.cl/",
-      ...(cookieHeader ? { Cookie: cookieHeader } : {}),
-    },
-    body: JSON.stringify({
-      operationName: "GoalInvestedBalanceGraphDataPoints",
-      variables: {
-        goalId,
-        timeIntervalCode,
-      },
-      query: NEW_PERFORMANCE_QUERY,
-    }),
+): Effect.Effect<GoalPerformanceData | null, Error> {
+  return Effect.gen(function* () {
+    const response = yield* tryPromise({
+      try: () =>
+        fetch(GQL_URL, {
+          method: "POST",
+          headers: {
+            Accept: "*/*",
+            "content-type": "application/json",
+            Referer: "https://fintual.cl/",
+            ...(cookieHeader ? { Cookie: cookieHeader } : {}),
+          },
+          body: JSON.stringify({
+            operationName: "GoalInvestedBalanceGraphDataPoints",
+            variables: {
+              goalId,
+              timeIntervalCode,
+            },
+            query: NEW_PERFORMANCE_QUERY,
+          }),
+        }),
+      catch: "Failed to fetch goal performance data",
+    })
+
+    const body = yield* tryPromise({
+      try: () => response.text(),
+      catch: "Failed to read goal performance response body",
+    })
+
+    if (!response.ok) {
+      yield* error(`Failed to fetch goal performance data (status ${response.status})`)
+      return null
+    }
+
+    return yield* parseGoalPerformanceJsonText(body)
   })
-
-  const body = await response.text()
-
-  if (!response.ok) {
-    console.error(`Failed to fetch goal performance data (status ${response.status})`)
-    return null
-  }
-
-  return parseGoalPerformanceJsonText(body)
 }

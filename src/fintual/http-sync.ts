@@ -1,3 +1,5 @@
+import { Effect } from "effect"
+import { error, log, tryPromise, trySync } from "../effect.ts"
 import { getEnv } from "../env.ts"
 import { getErrorMessage } from "../log.ts"
 import { get2FACodeFromEmail } from "./email-2fa.ts"
@@ -13,75 +15,92 @@ const HTTP_2FA_EMAIL_TIMEOUT_MS = 120_000
  * Fetches performance via `initiate_login` → (e-mail 2FA) `finalize_login_web` → GraphQL.
  * Requires Gmail IMAP env vars for accounts with e-mail 2FA.
  */
-async function fetchFintualPerformanceHttp(): Promise<void> {
+function fetchFintualPerformanceHttp(): Effect.Effect<void, Error> {
   const session = createFintualHttpSession()
   const email = getEnv("FINTUAL_USER_EMAIL")
   const password = getEnv("FINTUAL_USER_PASSWORD")
 
-  await session.loadSignInPage()
+  return Effect.gen(function* () {
+    yield* session.loadSignInPage()
 
-  const loginResponse = await session.initiateLogin(email, password)
-  const loginBody = await loginResponse.text()
-
-  if (!loginResponse.ok) {
-    throw new Error(
-      `Fintual initiate_login failed (${loginResponse.status}): ${loginBody.slice(0, 400)}`,
-    )
-  }
-
-  if (loginResponse.status === 201) {
-    const loginStartedAt = new Date()
-    console.log("Fintual: login initiated (e-mail 2FA expected).")
-    const code = await get2FACodeFromEmail({
-      afterTimestamp: loginStartedAt,
-      timeoutMs: HTTP_2FA_EMAIL_TIMEOUT_MS,
+    const loginResponse = yield* session.initiateLogin(email, password)
+    const loginBody = yield* tryPromise({
+      try: () => loginResponse.text(),
+      catch: "Failed to read Fintual initiate_login response body",
     })
-    if (!code) {
-      throw new Error(
-        "Fintual HTTP sync: no 2FA code from Gmail (check GMAIL_* and FINTUAL_2FA_SENDER; confirm the 2FA email reached Inbox).",
+
+    if (!loginResponse.ok) {
+      return yield* Effect.fail(
+        new Error(
+          `Fintual initiate_login failed (${loginResponse.status}): ${loginBody.slice(0, 400)}`,
+        ),
       )
     }
 
-    const finalizeResponse = await session.finalizeLoginWeb(email, password, code)
-    const finalizeBody = await finalizeResponse.text()
-    if (!finalizeResponse.ok) {
-      throw new Error(
-        `Fintual finalize_login_web failed (${finalizeResponse.status}): ${finalizeBody.slice(0, 400)}`,
+    if (loginResponse.status === 201) {
+      const loginStartedAt = new Date()
+      yield* log("Fintual: login initiated (e-mail 2FA expected).")
+      const code = yield* get2FACodeFromEmail({
+        afterTimestamp: loginStartedAt,
+        timeoutMs: HTTP_2FA_EMAIL_TIMEOUT_MS,
+      })
+      if (!code) {
+        return yield* Effect.fail(
+          new Error(
+            "Fintual HTTP sync: no 2FA code from Gmail (check GMAIL_* and FINTUAL_2FA_SENDER; confirm the 2FA email reached Inbox).",
+          ),
+        )
+      }
+
+      const finalizeResponse = yield* session.finalizeLoginWeb(email, password, code)
+      const finalizeBody = yield* tryPromise({
+        try: () => finalizeResponse.text(),
+        catch: "Failed to read Fintual finalize_login_web response body",
+      })
+      if (!finalizeResponse.ok) {
+        return yield* Effect.fail(
+          new Error(
+            `Fintual finalize_login_web failed (${finalizeResponse.status}): ${finalizeBody.slice(0, 400)}`,
+          ),
+        )
+      }
+    } else if (loginResponse.status !== 200) {
+      return yield* Effect.fail(
+        new Error(
+          `Fintual initiate_login: unexpected status ${loginResponse.status}: ${loginBody.slice(0, 400)}`,
+        ),
       )
     }
-  } else if (loginResponse.status !== 200) {
-    throw new Error(
-      `Fintual initiate_login: unexpected status ${loginResponse.status}: ${loginBody.slice(0, 400)}`,
+
+    const sixMonthData = yield* getGoalPerformanceWithCookies(
+      session.cookieHeader(),
+      GOAL_ID,
+      TimeIntervalCode.LastSixMonths,
     )
-  }
-
-  const sixMonthData = await getGoalPerformanceWithCookies(
-    session.cookieHeader(),
-    GOAL_ID,
-    TimeIntervalCode.LastSixMonths,
-  )
-  const lastMonthData = await getGoalPerformanceWithCookies(
-    session.cookieHeader(),
-    GOAL_ID,
-    TimeIntervalCode.LastMonth,
-  )
-
-  const performanceData = foldGoalPerformanceData(sixMonthData, lastMonthData)
-  if (!performanceData) {
-    throw new Error(
-      `Fintual HTTP sync: missing GraphQL data (session may require 2FA or extra auth). Login body preview: ${loginBody.slice(0, 300)}`,
+    const lastMonthData = yield* getGoalPerformanceWithCookies(
+      session.cookieHeader(),
+      GOAL_ID,
+      TimeIntervalCode.LastMonth,
     )
-  }
 
-  writePerformanceFile(performanceData)
-  console.log(`Balance data saved to ${BALANCE_FILE_PATH}`)
+    const performanceData = yield* trySync({
+      try: () => foldGoalPerformanceData(sixMonthData, lastMonthData),
+      catch: "Failed to fold Fintual performance data",
+    })
+    if (!performanceData) {
+      return yield* Effect.fail(
+        new Error(
+          `Fintual HTTP sync: missing GraphQL data (session may require 2FA or extra auth). Login body preview: ${loginBody.slice(0, 300)}`,
+        ),
+      )
+    }
+
+    yield* writePerformanceFile(performanceData)
+    yield* log(`Balance data saved to ${BALANCE_FILE_PATH}`)
+  })
 }
 
-export async function runFintualSync(): Promise<void> {
-  try {
-    await fetchFintualPerformanceHttp()
-  } catch (error) {
-    console.error(`Error: ${getErrorMessage(error)}`)
-    process.exit(1)
-  }
-}
+export const runFintualSync: Effect.Effect<void, Error> = Effect.catchAll(
+  fetchFintualPerformanceHttp(),
+  (cause) => Effect.zipRight(error(`Error: ${getErrorMessage(cause)}`), Effect.fail(cause)),
+)

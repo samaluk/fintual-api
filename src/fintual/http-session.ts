@@ -1,3 +1,6 @@
+import { Effect } from "effect"
+import { tryPromise, trySync } from "../effect.ts"
+
 const FINTUAL_ORIGIN = "https://fintual.cl"
 
 /** Matches a typical desktop Chrome UA; some stacks behave differently without it. */
@@ -36,74 +39,113 @@ class FintualHttpSession {
    * Loads the sign-in page so any `Set-Cookie` (e.g. `_fintual_session_cookie`) is captured.
    * Mirrors the browser before `initiate_login` / `finalize_login_web`.
    */
-  async loadSignInPage(): Promise<void> {
-    const response = await fetch(`${FINTUAL_ORIGIN}/f/sign-in/`, {
-      redirect: "follow",
-      headers: {
-        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        ...this.commonBrowserHeaders(),
-      },
+  loadSignInPage(): Effect.Effect<void, Error> {
+    return Effect.gen(this, function* () {
+      const response = yield* tryPromise({
+        try: () =>
+          fetch(`${FINTUAL_ORIGIN}/f/sign-in/`, {
+            redirect: "follow",
+            headers: {
+              Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+              ...this.commonBrowserHeaders(),
+            },
+          }),
+        catch: "Failed to load Fintual sign-in page",
+      })
+      yield* trySync({
+        try: () => mergeSetCookieHeaders(response.headers, this.cookies),
+        catch: "Failed to merge Fintual sign-in cookies",
+      })
+      yield* tryPromise({
+        try: () => response.arrayBuffer(),
+        catch: "Failed to drain Fintual sign-in response",
+      })
     })
-    mergeSetCookieHeaders(response.headers, this.cookies)
-    await response.arrayBuffer()
   }
 
   /**
    * POST JSON `{ email, password }` to `/auth/sessions/initiate_login`.
    * Merges any `Set-Cookie` headers from the response into the jar.
    */
-  async initiateLogin(email: string, password: string): Promise<Response> {
+  initiateLogin(email: string, password: string): Effect.Effect<Response, Error> {
     const cookie = this.cookieHeader()
-    const response = await fetch(`${FINTUAL_ORIGIN}/auth/sessions/initiate_login`, {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        Referer: `${FINTUAL_ORIGIN}/f/sign-in/`,
-        ...this.commonBrowserHeaders(),
-        ...(cookie ? { Cookie: cookie } : {}),
-      },
-      body: JSON.stringify({ email, password }),
+    return Effect.gen(this, function* () {
+      const response = yield* tryPromise({
+        try: () =>
+          fetch(`${FINTUAL_ORIGIN}/auth/sessions/initiate_login`, {
+            method: "POST",
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+              Referer: `${FINTUAL_ORIGIN}/f/sign-in/`,
+              ...this.commonBrowserHeaders(),
+              ...(cookie ? { Cookie: cookie } : {}),
+            },
+            body: JSON.stringify({ email, password }),
+          }),
+        catch: "Failed to initiate Fintual login",
+      })
+      yield* trySync({
+        try: () => mergeSetCookieHeaders(response.headers, this.cookies),
+        catch: "Failed to merge Fintual initiate_login cookies",
+      })
+      return response
     })
-    mergeSetCookieHeaders(response.headers, this.cookies)
-    return response
   }
 
   /**
    * Completes web login after e-mail 2FA: POST `{ email, password, code }` to
    * `/auth/sessions/finalize_login_web` (same cookies as after `initiate_login`).
    */
-  async finalizeLoginWeb(email: string, password: string, code: string): Promise<Response> {
-    const response = await fetch(`${FINTUAL_ORIGIN}/auth/sessions/finalize_login_web`, {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-        Referer: `${FINTUAL_ORIGIN}/f/sign-in/`,
-        ...this.commonBrowserHeaders(),
-        Cookie: this.cookieHeader(),
-      },
-      body: JSON.stringify({ email, password, code }),
+  finalizeLoginWeb(email: string, password: string, code: string): Effect.Effect<Response, Error> {
+    return Effect.gen(this, function* () {
+      const response = yield* tryPromise({
+        try: () =>
+          fetch(`${FINTUAL_ORIGIN}/auth/sessions/finalize_login_web`, {
+            method: "POST",
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json",
+              Referer: `${FINTUAL_ORIGIN}/f/sign-in/`,
+              ...this.commonBrowserHeaders(),
+              Cookie: this.cookieHeader(),
+            },
+            body: JSON.stringify({ email, password, code }),
+          }),
+        catch: "Failed to finalize Fintual login",
+      })
+      yield* trySync({
+        try: () => mergeSetCookieHeaders(response.headers, this.cookies),
+        catch: "Failed to merge Fintual finalize_login_web cookies",
+      })
+      return response
     })
-    mergeSetCookieHeaders(response.headers, this.cookies)
-    return response
   }
 
   /** POST a GraphQL body to `/gql/` using the current cookies. */
-  async postGql(payload: Record<string, unknown>): Promise<Response> {
-    const response = await fetch(`${FINTUAL_ORIGIN}/gql/`, {
-      method: "POST",
-      headers: {
-        Accept: "*/*",
-        "Content-Type": "application/json",
-        Referer: `${FINTUAL_ORIGIN}/`,
-        ...this.commonBrowserHeaders(),
-        Cookie: this.cookieHeader(),
-      },
-      body: JSON.stringify(payload),
+  postGql(payload: Record<string, unknown>): Effect.Effect<Response, Error> {
+    return Effect.gen(this, function* () {
+      const response = yield* tryPromise({
+        try: () =>
+          fetch(`${FINTUAL_ORIGIN}/gql/`, {
+            method: "POST",
+            headers: {
+              Accept: "*/*",
+              "Content-Type": "application/json",
+              Referer: `${FINTUAL_ORIGIN}/`,
+              ...this.commonBrowserHeaders(),
+              Cookie: this.cookieHeader(),
+            },
+            body: JSON.stringify(payload),
+          }),
+        catch: "Failed to post Fintual GraphQL request",
+      })
+      yield* trySync({
+        try: () => mergeSetCookieHeaders(response.headers, this.cookies),
+        catch: "Failed to merge Fintual GraphQL cookies",
+      })
+      return response
     })
-    mergeSetCookieHeaders(response.headers, this.cookies)
-    return response
   }
 }
 

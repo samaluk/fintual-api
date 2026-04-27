@@ -1,13 +1,13 @@
+import { Effect } from "effect"
 import { ImapFlow, type SearchObject } from "imapflow"
 import { simpleParser } from "mailparser"
+import { error, log, sleep, tryPromise, warn } from "../effect.ts"
 import { getEnv } from "../env.ts"
 import { getErrorMessage } from "../log.ts"
 
 const DEFAULT_TIMEOUT_MS = 10000
 const DEFAULT_POLL_INTERVAL_MS = 2000
 const MAX_RESULTS = 10
-/** Ignore INTERNALDATE vs local clock skew (same problem as Docker VM drift). */
-const DELIVERED_AT_SKEW_BUFFER_MS = 5 * 60 * 1000
 
 const GMAIL_IMAP_HOST = getEnv("GMAIL_IMAP_HOST", "imap.gmail.com")
 const GMAIL_IMAP_PORT = Number.parseInt(getEnv("GMAIL_IMAP_PORT", "993"), 10)
@@ -25,7 +25,7 @@ interface Email2FAOptions {
   pollIntervalMs?: number
 }
 
-export async function get2FACodeFromEmail(options: Email2FAOptions): Promise<string | null> {
+export function get2FACodeFromEmail(options: Email2FAOptions): Effect.Effect<string | null, Error> {
   const {
     afterTimestamp,
     timeoutMs = DEFAULT_TIMEOUT_MS,
@@ -33,38 +33,44 @@ export async function get2FACodeFromEmail(options: Email2FAOptions): Promise<str
   } = options
 
   if (!GMAIL_USER_EMAIL || !GMAIL_APP_PASSWORD) {
-    console.log("Gmail IMAP credentials not configured, skipping automatic 2FA retrieval")
-    return null
+    return Effect.as(
+      log("Gmail IMAP credentials not configured, skipping automatic 2FA retrieval"),
+      null,
+    )
   }
 
-  console.log("Connecting to Gmail IMAP for automatic 2FA retrieval...")
-  const imapClient = createImapClient()
-  const startedAt = Date.now()
-  const seenMessageKeys = new Set<string>()
+  return Effect.gen(function* () {
+    yield* log("Connecting to Gmail IMAP for automatic 2FA retrieval...")
+    const imapClient = createImapClient()
+    const startedAt = Date.now()
+    const seenMessageKeys = new Set<string>()
 
-  try {
-    await imapClient.connect()
+    const program = Effect.gen(function* () {
+      yield* tryPromise({
+        try: () => imapClient.connect(),
+        catch: "Failed to connect to Gmail IMAP",
+      })
 
-    while (Date.now() - startedAt < timeoutMs) {
-      const code = await searchForCode(imapClient, afterTimestamp, seenMessageKeys)
-      if (code) {
-        console.log("2FA code retrieved from Gmail.")
-        return code
+      while (Date.now() - startedAt < timeoutMs) {
+        const code = yield* searchForCode(imapClient, afterTimestamp, seenMessageKeys)
+        if (code) {
+          yield* log("2FA code retrieved from Gmail.")
+          return code
+        }
+
+        const elapsedSeconds = Math.round((Date.now() - startedAt) / 1000)
+        yield* log(`Waiting for 2FA email... (${elapsedSeconds}s elapsed)`)
+        yield* sleep(pollIntervalMs)
       }
 
-      const elapsedSeconds = Math.round((Date.now() - startedAt) / 1000)
-      console.log(`Waiting for 2FA email... (${elapsedSeconds}s elapsed)`)
-      await sleep(pollIntervalMs)
-    }
-  } catch (error) {
-    console.error(`Error fetching 2FA code from Gmail IMAP: ${getErrorMessage(error)}`)
-    return null
-  } finally {
-    await closeImapClient(imapClient)
-  }
+      yield* log("Timeout waiting for 2FA email")
+      return null
+    })
 
-  console.log("Timeout waiting for 2FA email")
-  return null
+    return yield* Effect.catchAll(Effect.ensuring(program, closeImapClient(imapClient)), (cause) =>
+      Effect.as(error(`Error fetching 2FA code from Gmail IMAP: ${getErrorMessage(cause)}`), null),
+    )
+  })
 }
 
 function createImapClient(): ImapFlow {
@@ -80,51 +86,58 @@ function createImapClient(): ImapFlow {
   })
 }
 
-async function searchForCode(
+function searchForCode(
   imapClient: ImapFlow,
   afterTimestamp: Date,
   seenMessageKeys: Set<string>,
-): Promise<string | null> {
+): Effect.Effect<string | null, Error> {
   const paths = imapSearchMailboxes()
 
-  for (const mailboxPath of paths) {
-    let lock: Awaited<ReturnType<ImapFlow["getMailboxLock"]>> | undefined
-    try {
-      lock = await imapClient.getMailboxLock(mailboxPath)
-    } catch {
-      if (GMAIL_IMAP_DEBUG) {
-        console.log(`Gmail IMAP: skip missing mailbox ${mailboxPath}`)
-      }
-      continue
-    }
-
-    try {
-      const messageUids = await runMailboxSearch(imapClient, afterTimestamp)
-      if (GMAIL_IMAP_DEBUG) {
-        console.log(
-          `Gmail IMAP: ${mailboxPath} search → ${messageUids === false ? "no match" : `${messageUids.length} uid(s)`}`,
-        )
-      }
-      if (!messageUids) {
+  return Effect.gen(function* () {
+    for (const mailboxPath of paths) {
+      const lock = yield* Effect.catchAll(
+        tryPromise({
+          try: () => imapClient.getMailboxLock(mailboxPath),
+          catch: `Failed to lock Gmail IMAP mailbox ${mailboxPath}`,
+        }),
+        () =>
+          GMAIL_IMAP_DEBUG
+            ? Effect.as(log(`Gmail IMAP: skip missing mailbox ${mailboxPath}`), undefined)
+            : Effect.succeed(undefined),
+      )
+      if (!lock) {
         continue
       }
 
-      const code = await extractCodeFromMailboxUids(
-        imapClient,
-        mailboxPath,
-        messageUids,
-        afterTimestamp,
-        seenMessageKeys,
+      const code = yield* Effect.ensuring(
+        Effect.gen(function* () {
+          const messageUids = yield* runMailboxSearch(imapClient, afterTimestamp)
+          if (GMAIL_IMAP_DEBUG) {
+            yield* log(
+              `Gmail IMAP: ${mailboxPath} search -> ${messageUids === false ? "no match" : `${messageUids.length} uid(s)`}`,
+            )
+          }
+          if (!messageUids) {
+            return null
+          }
+
+          return yield* extractCodeFromMailboxUids(
+            imapClient,
+            mailboxPath,
+            messageUids,
+            afterTimestamp,
+            seenMessageKeys,
+          )
+        }),
+        Effect.sync(() => lock.release()),
       )
       if (code) {
         return code
       }
-    } finally {
-      lock?.release()
     }
-  }
 
-  return null
+    return null
+  })
 }
 
 function imapSearchMailboxes(): string[] {
@@ -138,76 +151,87 @@ function messageSeenKey(mailboxPath: string, uid: number): string {
   return `${mailboxPath}:${uid}`
 }
 
-async function extractCodeFromMailboxUids(
+function extractCodeFromMailboxUids(
   imapClient: ImapFlow,
   mailboxPath: string,
   messageUids: number[],
   afterTimestamp: Date,
   seenMessageKeys: Set<string>,
-): Promise<string | null> {
+): Effect.Effect<string | null, Error> {
   const recentUids = messageUids.slice(-MAX_RESULTS).reverse()
-  const earliestDeliveredAt = afterTimestamp.getTime() - DELIVERED_AT_SKEW_BUFFER_MS
 
-  for (const uid of recentUids) {
-    const key = messageSeenKey(mailboxPath, uid)
-    if (seenMessageKeys.has(key)) {
-      continue
+  return Effect.gen(function* () {
+    for (const uid of recentUids) {
+      const key = messageSeenKey(mailboxPath, uid)
+      if (seenMessageKeys.has(key)) {
+        continue
+      }
+      seenMessageKeys.add(key)
+
+      const message = yield* tryPromise({
+        try: () =>
+          imapClient.fetchOne(
+            String(uid),
+            {
+              source: true,
+              envelope: true,
+              internalDate: true,
+            },
+            { uid: true },
+          ),
+        catch: "Failed to fetch Gmail IMAP message",
+      })
+      if (!message || !message.source) {
+        continue
+      }
+
+      const internalDate =
+        typeof message.internalDate === "string"
+          ? new Date(message.internalDate)
+          : message.internalDate
+      const deliveredAt = internalDate?.getTime() ?? 0
+      if (deliveredAt > 0 && deliveredAt < afterTimestamp.getTime()) {
+        continue
+      }
+
+      const code = yield* extractCodeFromMessage(message.source, message.envelope?.subject ?? "")
+      if (code) {
+        return code
+      }
     }
-    seenMessageKeys.add(key)
 
-    const message = await imapClient.fetchOne(
-      String(uid),
-      {
-        source: true,
-        envelope: true,
-        internalDate: true,
-      },
-      { uid: true },
-    )
-    if (!message || !message.source) {
-      continue
-    }
-
-    const internalDate =
-      typeof message.internalDate === "string"
-        ? new Date(message.internalDate)
-        : message.internalDate
-    const deliveredAt = internalDate?.getTime() ?? 0
-    if (deliveredAt > 0 && deliveredAt < earliestDeliveredAt) {
-      continue
-    }
-
-    const code = await extractCodeFromMessage(message.source, message.envelope?.subject ?? "")
-    if (code) {
-      return code
-    }
-  }
-
-  return null
+    return null
+  })
 }
 
-async function runMailboxSearch(
+function runMailboxSearch(
   imapClient: ImapFlow,
   afterTimestamp: Date,
-): Promise<number[] | false> {
+): Effect.Effect<number[] | false, Error> {
   const queries = buildSearchQueries(afterTimestamp)
 
-  for (const query of queries) {
-    try {
-      const messageUids = await imapClient.search(query, { uid: true })
+  return Effect.gen(function* () {
+    for (const query of queries) {
+      const messageUids = yield* Effect.catchAll(
+        tryPromise({
+          try: () => imapClient.search(query, { uid: true }),
+          catch: "Failed to search Gmail IMAP mailbox",
+        }),
+        (cause) => {
+          const originalError = cause.cause as { code?: string } | undefined
+          if (originalError?.code === "MissingServerExtension") {
+            return Effect.succeed(false as const)
+          }
+          return Effect.fail(cause)
+        },
+      )
       if (messageUids && messageUids.length > 0) {
         return messageUids
       }
-    } catch (error) {
-      const err = error as { code?: string }
-      if (err.code === "MissingServerExtension") {
-        continue
-      }
-      throw error
     }
-  }
 
-  return false
+    return false
+  })
 }
 
 function isGmailImapHost(host: string): boolean {
@@ -251,55 +275,64 @@ function buildSearchQueries(afterTimestamp: Date): SearchObject[] {
   return queries
 }
 
-async function closeImapClient(imapClient: ImapFlow): Promise<void> {
+function closeImapClient(imapClient: ImapFlow): Effect.Effect<void> {
   if (!imapClient.usable) {
-    return
+    return Effect.void
   }
 
-  try {
-    await imapClient.logout()
-  } catch (error) {
-    console.warn(`Failed to close IMAP connection cleanly: ${getErrorMessage(error)}`)
-  }
+  return Effect.catchAll(
+    tryPromise({
+      try: () => imapClient.logout(),
+      catch: "Failed to close IMAP connection cleanly",
+    }),
+    (cause) => warn(`Failed to close IMAP connection cleanly: ${getErrorMessage(cause)}`),
+  )
 }
 
-async function extractCodeFromMessage(
+function extractCodeFromMessage(
   rawSource: Buffer | Uint8Array,
   envelopeSubject: string,
-): Promise<string | null> {
-  const sources = await collectMessageSources(rawSource, envelopeSubject)
+): Effect.Effect<string | null, Error> {
+  return Effect.gen(function* () {
+    const sources = yield* collectMessageSources(rawSource, envelopeSubject)
 
-  for (const source of sources) {
-    const code = extractCodeFromText(source)
-    if (code) {
-      return code
+    for (const source of sources) {
+      const code = extractCodeFromText(source)
+      if (code) {
+        return code
+      }
     }
-  }
 
-  return null
+    return null
+  })
 }
 
-async function collectMessageSources(
+function collectMessageSources(
   rawSource: Buffer | Uint8Array,
   envelopeSubject: string,
-): Promise<string[]> {
-  const sources: string[] = []
-  if (envelopeSubject) {
-    sources.push(envelopeSubject)
-  }
+): Effect.Effect<string[], Error> {
+  return Effect.gen(function* () {
+    const sources: string[] = []
+    if (envelopeSubject) {
+      sources.push(envelopeSubject)
+    }
 
-  const parsedMessage = await simpleParser(Buffer.from(rawSource))
-  if (parsedMessage.subject) {
-    sources.push(parsedMessage.subject)
-  }
-  if (parsedMessage.text) {
-    sources.push(parsedMessage.text)
-  }
-  if (parsedMessage.html) {
-    sources.push(String(parsedMessage.html))
-  }
+    const parsedMessage = yield* tryPromise({
+      try: () => simpleParser(Buffer.from(rawSource)),
+      catch: "Failed to parse Gmail IMAP message",
+    })
+    if (parsedMessage.subject) {
+      sources.push(parsedMessage.subject)
+    }
+    if (parsedMessage.text) {
+      sources.push(parsedMessage.text)
+    }
+    if (parsedMessage.html) {
+      sources.push(String(parsedMessage.html))
+    }
 
-  return sources
+    return sources
+  })
 }
 
 function decodeQuotedPrintable(value: string): string {
@@ -346,8 +379,4 @@ function collectCandidateCodes(text: string): string[] {
   }
 
   return [...new Set(orderedCandidates)]
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
 }
