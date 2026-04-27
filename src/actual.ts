@@ -1,6 +1,8 @@
 import * as fs from "node:fs"
 import * as api from "@actual-app/api"
+import { Effect } from "effect"
 import * as v from "valibot"
+import { log, sleep, tryPromise, trySync, warn } from "./effect.ts"
 import { getEnv } from "./env.ts"
 import { getErrorMessage } from "./log.ts"
 
@@ -53,106 +55,141 @@ interface SyncCounts {
   updated: number
 }
 
-export async function main(): Promise<void> {
-  assertActualEnvConfigured()
+export const main: Effect.Effect<void, Error> = Effect.gen(function* () {
+  yield* assertActualEnvConfigured()
+  const syncCounts = yield* runActualSyncWithRetry(1)
+  yield* log(
+    `Actual sync finished. Created ${syncCounts.created} transactions and updated ${syncCounts.updated}.`,
+  )
+})
 
-  for (let attempt = 1; attempt <= MAX_SYNC_ATTEMPTS; attempt += 1) {
-    try {
-      const syncCounts = await runActualSyncAttempt()
-      console.log(
-        `Actual sync finished. Created ${syncCounts.created} transactions and updated ${syncCounts.updated}.`,
+function assertActualEnvConfigured(): Effect.Effect<void, Error> {
+  if (SERVER_URL && PASSWORD && SYNC_ID && FINTUAL_ACCOUNT && STARTING_DATE && PAYEE) {
+    return Effect.void
+  }
+
+  return Effect.fail(new Error("Missing Actual configuration environment variables"))
+}
+
+function runActualSyncWithRetry(attempt: number): Effect.Effect<SyncCounts, Error> {
+  return Effect.catchAll(runActualSyncAttempt(), (cause) => {
+    const shouldRetry = isRetryableActualError(cause) && attempt < MAX_SYNC_ATTEMPTS
+
+    if (!shouldRetry) {
+      return Effect.fail(cause)
+    }
+
+    const retryDelayMs = getRetryDelayMs(attempt)
+    return Effect.gen(function* () {
+      yield* warn(
+        `Actual sync attempt ${attempt} failed with a retryable error: ${getErrorMessage(cause)}. Retrying in ${Math.round(retryDelayMs / 1000)}s.`,
       )
-      return
-    } catch (error) {
-      const errorMessage = getErrorMessage(error)
-      const shouldRetry = isRetryableActualError(error) && attempt < MAX_SYNC_ATTEMPTS
+      yield* sleep(retryDelayMs)
+      return yield* runActualSyncWithRetry(attempt + 1)
+    })
+  })
+}
 
-      if (!shouldRetry) {
-        throw error
+function runActualSyncAttempt(): Effect.Effect<SyncCounts, Error> {
+  return Effect.gen(function* () {
+    yield* resetDataDirectory()
+    yield* assertActualServerReachable()
+
+    yield* tryPromise({
+      try: () =>
+        api.init({
+          dataDir: ACTUAL_DATA_DIR,
+          serverURL: SERVER_URL,
+          password: PASSWORD,
+        } satisfies ActualInitConfig),
+      catch: "Failed to initialize Actual API",
+    })
+
+    return yield* Effect.ensuring(
+      Effect.gen(function* () {
+        yield* tryPromise({
+          try: () => api.downloadBudget(SYNC_ID),
+          catch: "Failed to download Actual budget",
+        })
+        return yield* syncDailyVariationTransactions()
+      }),
+      Effect.ignore(
+        tryPromise({
+          try: () => api.shutdown(),
+          catch: "Failed to shutdown Actual API",
+        }),
+      ),
+    )
+  })
+}
+
+function syncDailyVariationTransactions(): Effect.Effect<SyncCounts, Error> {
+  return Effect.gen(function* () {
+    const endingDate = getTodayIsoDate()
+    const transactions = yield* tryPromise({
+      try: () => api.getTransactions(FINTUAL_ACCOUNT, STARTING_DATE, endingDate),
+      catch: "Failed to fetch Actual transactions",
+    })
+
+    const balanceEntries = yield* loadBalanceEntries()
+    const payeeId = yield* getPayeeId()
+    const syncCounts: SyncCounts = {
+      created: 0,
+      updated: 0,
+    }
+
+    for (const balanceEntry of balanceEntries) {
+      const transaction = createVariationTransaction(balanceEntry, payeeId)
+      const existingTransaction = transactions.find(
+        (candidate) => candidate.imported_id === transaction.imported_id,
+      )
+
+      if (!existingTransaction) {
+        yield* tryPromise({
+          try: () => api.addTransactions(FINTUAL_ACCOUNT, [transaction]),
+          catch: "Failed to add Actual transaction",
+        })
+        syncCounts.created += 1
+        continue
       }
 
-      const retryDelayMs = getRetryDelayMs(attempt)
-      console.warn(
-        `Actual sync attempt ${attempt} failed with a retryable error: ${errorMessage}. Retrying in ${Math.round(retryDelayMs / 1000)}s.`,
-      )
-      await sleep(retryDelayMs)
-    }
-  }
-}
-
-function assertActualEnvConfigured(): void {
-  if (SERVER_URL && PASSWORD && SYNC_ID && FINTUAL_ACCOUNT && STARTING_DATE && PAYEE) {
-    return
-  }
-
-  throw new Error("Missing Actual configuration environment variables")
-}
-
-async function runActualSyncAttempt(): Promise<SyncCounts> {
-  resetDataDirectory()
-  await assertActualServerReachable()
-
-  await api.init({
-    dataDir: ACTUAL_DATA_DIR,
-    serverURL: SERVER_URL,
-    password: PASSWORD,
-  } satisfies ActualInitConfig)
-
-  try {
-    await api.downloadBudget(SYNC_ID)
-    return await syncDailyVariationTransactions()
-  } finally {
-    await api.shutdown().catch(() => undefined)
-  }
-}
-
-async function syncDailyVariationTransactions(): Promise<SyncCounts> {
-  const endingDate = getTodayIsoDate()
-  const transactions = await api.getTransactions(FINTUAL_ACCOUNT, STARTING_DATE, endingDate)
-
-  const balanceEntries = loadBalanceEntries()
-  const payeeId = await getPayeeId()
-  const syncCounts: SyncCounts = {
-    created: 0,
-    updated: 0,
-  }
-
-  for (const balanceEntry of balanceEntries) {
-    const transaction = createVariationTransaction(balanceEntry, payeeId)
-    const existingTransaction = transactions.find(
-      (candidate) => candidate.imported_id === transaction.imported_id,
-    )
-
-    if (!existingTransaction) {
-      await api.addTransactions(FINTUAL_ACCOUNT, [transaction])
-      syncCounts.created += 1
-      continue
+      yield* tryPromise({
+        try: () => api.updateTransaction(existingTransaction.id, transaction),
+        catch: "Failed to update Actual transaction",
+      })
+      syncCounts.updated += 1
     }
 
-    await api.updateTransaction(existingTransaction.id, transaction)
-    syncCounts.updated += 1
-  }
-
-  return syncCounts
+    return syncCounts
+  })
 }
 
-function resetDataDirectory(): void {
-  fs.rmSync(ACTUAL_DATA_DIR, { recursive: true, force: true })
-  fs.mkdirSync(ACTUAL_DATA_DIR, { recursive: true })
+function resetDataDirectory(): Effect.Effect<void, Error> {
+  return trySync({
+    try: () => {
+      fs.rmSync(ACTUAL_DATA_DIR, { recursive: true, force: true })
+      fs.mkdirSync(ACTUAL_DATA_DIR, { recursive: true })
+    },
+    catch: "Failed to reset Actual data directory",
+  })
 }
 
-function loadBalanceEntries(): BalanceEntry[] {
-  const balanceFile = fs.readFileSync(BALANCE_FILE_PATH, "utf-8")
-  const parsedFile = JSON.parse(balanceFile)
-  const validation = v.safeParse(balanceFileSchema, parsedFile)
+function loadBalanceEntries(): Effect.Effect<BalanceEntry[], Error> {
+  return Effect.gen(function* () {
+    const parsedFile = yield* trySync({
+      try: () => JSON.parse(fs.readFileSync(BALANCE_FILE_PATH, "utf-8")) as unknown,
+      catch: "Failed to load Fintual balance file",
+    })
+    const validation = v.safeParse(balanceFileSchema, parsedFile)
 
-  if (!validation.success) {
-    console.error("Balance file is invalid")
-    return []
-  }
+    if (!validation.success) {
+      yield* log("Balance file is invalid")
+      return []
+    }
 
-  const startingTimestamp = Date.parse(STARTING_DATE)
-  return validation.output.balance.filter((entry) => entry.date >= startingTimestamp)
+    const startingTimestamp = Date.parse(STARTING_DATE)
+    return validation.output.balance.filter((entry) => entry.date >= startingTimestamp)
+  })
 }
 
 function createVariationTransaction(
@@ -169,16 +206,21 @@ function createVariationTransaction(
   }
 }
 
-async function getPayeeId(): Promise<string | undefined> {
-  const payees = await api.getPayees()
-  const payee = payees.find((candidate) => candidate.name === PAYEE)
+function getPayeeId(): Effect.Effect<string | undefined, Error> {
+  return Effect.gen(function* () {
+    const payees = yield* tryPromise({
+      try: () => api.getPayees(),
+      catch: "Failed to fetch Actual payees",
+    })
+    const payee = payees.find((candidate) => candidate.name === PAYEE)
 
-  if (!payee) {
-    console.error("Configured payee not found")
-    return undefined
-  }
+    if (!payee) {
+      yield* log("Configured payee not found")
+      return undefined
+    }
 
-  return payee.id
+    return payee.id
+  })
 }
 
 function getTodayIsoDate(): string {
@@ -210,36 +252,40 @@ function isRetryableActualError(error: unknown): boolean {
   return error.type === "PostError" && error.reason === "network-failure"
 }
 
-async function assertActualServerReachable(): Promise<void> {
+function assertActualServerReachable(): Effect.Effect<void, Error> {
   const normalizedBaseUrl = SERVER_URL.endsWith("/") ? SERVER_URL.slice(0, -1) : SERVER_URL
   const healthUrl = `${normalizedBaseUrl}/health`
 
-  try {
+  return Effect.gen(function* () {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 10_000)
-    const response = await fetch(healthUrl, {
-      method: "GET",
-      signal: controller.signal,
-    })
-    clearTimeout(timeout)
+
+    const response = yield* Effect.ensuring(
+      tryPromise({
+        try: () =>
+          fetch(healthUrl, {
+            method: "GET",
+            signal: controller.signal,
+          }),
+        catch: (cause) => `Actual server is unreachable at ${healthUrl}: ${getErrorMessage(cause)}`,
+      }),
+      Effect.sync(() => clearTimeout(timeout)),
+    )
 
     if (response.ok) {
       return
     }
 
-    throw new Error(`health endpoint returned HTTP ${response.status}`)
-  } catch (error) {
-    const details = getErrorMessage(error)
-    throw new Error(`Actual server is unreachable at ${healthUrl}: ${details}`)
-  }
+    return yield* Effect.fail(
+      new Error(
+        `Actual server is unreachable at ${healthUrl}: health endpoint returned HTTP ${response.status}`,
+      ),
+    )
+  })
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 function getRetryDelayMs(attempt: number): number {

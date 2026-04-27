@@ -1,15 +1,16 @@
 import { config } from "dotenv"
+import { Effect } from "effect"
 
 config()
 
-export function assertRequiredEnv(names: string[]): void {
+export function assertRequiredEnv(names: string[]): Effect.Effect<void, Error> {
   const missingNames = names.filter((name) => !getEnv(name))
 
   if (missingNames.length === 0) {
-    return
+    return Effect.void
   }
 
-  throw new Error(`Missing environment variables: ${missingNames.join(", ")}`)
+  return Effect.fail(new Error(`Missing environment variables: ${missingNames.join(", ")}`))
 }
 
 export function getEnv(name: string, fallback = ""): string {
