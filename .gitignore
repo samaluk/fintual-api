@@ -13,6 +13,7 @@ lerna-debug.log*
 # Caches
 
 .cache
+.fallow/
 tmp
 
 # Dependency directories

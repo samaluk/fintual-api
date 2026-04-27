@@ -5,7 +5,7 @@
 	"devDependencies": {
 		"@types/mailparser": "3.4.6",
 		"@types/node": "24.12.2",
-		"knip": "6.4.1",
+		"fallow": "2.52.0",
 		"oxfmt": "0.47.0",
 		"oxlint": "1.62.0",
 		"typescript": "6.0.3"
@@ -23,7 +23,7 @@
 		"format:check": "oxfmt --check src",
 		"lint": "oxlint src",
 		"lint:fix": "oxlint --fix src",
-		"knip": "knip",
+		"fallow": "fallow --fail-on-regression",
 		"dev": "node src/once.ts",
 		"once": "node src/once.ts",
 		"capture:har": "sh bin/capture-fintual-har.sh"

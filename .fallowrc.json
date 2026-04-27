@@ -1,0 +1,32 @@
+{
+	"$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+	"entry": [
+		"src/once.ts",
+		"bin/**/*.mjs"
+	],
+	"health": {
+		"maxCyclomatic": 13,
+		"maxCognitive": 16,
+		"maxCrap": 157
+	},
+	"regression": {
+		"baseline": {
+			"totalIssues": 0,
+			"unusedFiles": 0,
+			"unusedExports": 0,
+			"unusedTypes": 0,
+			"unusedDependencies": 0,
+			"unusedDevDependencies": 0,
+			"unusedOptionalDependencies": 0,
+			"unusedEnumMembers": 0,
+			"unusedClassMembers": 0,
+			"unresolvedImports": 0,
+			"unlistedDependencies": 0,
+			"duplicateExports": 0,
+			"circularDependencies": 0,
+			"typeOnlyDependencies": 0,
+			"testOnlyDependencies": 0,
+			"boundaryViolations": 0
+		}
+	}
+}
