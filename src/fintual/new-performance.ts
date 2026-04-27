@@ -9,7 +9,7 @@ export const TimeIntervalCode = {
   AllTime: "all_time",
 } as const
 
-export type TimeIntervalCode = (typeof TimeIntervalCode)[keyof typeof TimeIntervalCode]
+type TimeIntervalCode = (typeof TimeIntervalCode)[keyof typeof TimeIntervalCode]
 
 const NEW_PERFORMANCE_QUERY =
   "query GoalInvestedBalanceGraphDataPoints($goalId: ID!, $timeIntervalCode: String!) {\n  balanceGraphDataPoints: clGoalBalanceGraphDataPoints(\n    goalId: $goalId\n    timeIntervalCode: $timeIntervalCode\n  ) {\n    date\n    unrealizedCostBasisAmount\n    unrealizedGainOrLossAmount\n    realizedCostBasisAmount\n    realizedGainOrLossAmount\n    sharesCostBasisAmount\n    sharesValuationAmount\n    pendingFulfillmentReinvestmentDepositsCostBasisAmount\n    pendingFulfillmentReinvestmentDepositsAmount\n    withdrawnAmount\n    __typename\n  }\n}"

@@ -39,8 +39,8 @@ jobs:
       - name: Run Oxlint
         run: pnpm lint
 
-      - name: Run Knip
-        run: pnpm knip
+      - name: Run Fallow
+        run: pnpm fallow
 
       - name: Run TypeScript
         run: pnpm run typecheck
