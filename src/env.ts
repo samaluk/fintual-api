@@ -3,32 +3,32 @@ import { config } from "dotenv"
 config()
 
 export function assertRequiredEnv(names: string[]): void {
-	const missingNames = names.filter((name) => !getEnv(name))
+  const missingNames = names.filter((name) => !getEnv(name))
 
-	if (missingNames.length === 0) {
-		return
-	}
+  if (missingNames.length === 0) {
+    return
+  }
 
-	throw new Error(`Missing environment variables: ${missingNames.join(", ")}`)
+  throw new Error(`Missing environment variables: ${missingNames.join(", ")}`)
 }
 
 export function getEnv(name: string, fallback = ""): string {
-	const value = process.env[name]
-	if (!value) {
-		return fallback
-	}
+  const value = process.env[name]
+  if (!value) {
+    return fallback
+  }
 
-	return normalizeEnvValue(value)
+  return normalizeEnvValue(value)
 }
 
 export function normalizeEnvValue(value: string): string {
-	const trimmedValue = value.trim()
-	const startsWithQuote = trimmedValue.startsWith('"') || trimmedValue.startsWith("'")
-	const endsWithQuote = trimmedValue.endsWith('"') || trimmedValue.endsWith("'")
+  const trimmedValue = value.trim()
+  const startsWithQuote = trimmedValue.startsWith('"') || trimmedValue.startsWith("'")
+  const endsWithQuote = trimmedValue.endsWith('"') || trimmedValue.endsWith("'")
 
-	if (startsWithQuote && endsWithQuote && trimmedValue.length >= 2) {
-		return trimmedValue.slice(1, -1).trim()
-	}
+  if (startsWithQuote && endsWithQuote && trimmedValue.length >= 2) {
+    return trimmedValue.slice(1, -1).trim()
+  }
 
-	return trimmedValue
+  return trimmedValue
 }
