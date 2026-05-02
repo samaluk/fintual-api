@@ -1,0 +1,45 @@
+name: Renovate Actual API Auto-Merge
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  enable-auto-merge:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.user.login == 'renovate[bot]' && github.event.pull_request.head.repo.full_name == github.repository
+
+    steps:
+      - name: Checkout pull request
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Detect @actual-app/api updates
+        id: detect
+        shell: bash
+        run: |
+          git fetch origin "${{ github.event.pull_request.base.ref }}":"refs/remotes/origin/${{ github.event.pull_request.base.ref }}"
+          git show "origin/${{ github.event.pull_request.base.ref }}:package.json" > /tmp/base-package.json
+          node <<'NODE'
+          const fs = require('fs');
+          const base = JSON.parse(fs.readFileSync('/tmp/base-package.json', 'utf8'));
+          const head = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const getVersion = (pkg) => pkg.dependencies?.['@actual-app/api'] ?? pkg.devDependencies?.['@actual-app/api'] ?? null;
+          const shouldMerge = getVersion(base) !== getVersion(head);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `should_merge=${shouldMerge}\n`);
+          NODE
+
+      - name: Enable auto-merge
+        if: steps.detect.outputs.should_merge == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh pr merge --auto --squash "${{ github.event.pull_request.html_url }}"
