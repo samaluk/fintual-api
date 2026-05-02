@@ -39,8 +39,8 @@ importers:
         specifier: 24.12.2
         version: 24.12.2
       fallow:
-        specifier: 2.52.0
-        version: 2.52.0
+        specifier: 2.54.3
+        version: 2.54.3
       oxfmt:
         specifier: 0.47.0
         version: 0.47.0
@@ -63,43 +63,43 @@ packages:
   '@actual-app/crdt@2.1.0':
     resolution: {integrity: sha512-Qb8hMq10Wi2kYIDj0fG4uy00f9Mloghd+xQrHQiPQfgx022VPJ/No+z/bmfj4MuFH8FrPiLysSzRsj2PNQIedw==}
 
-  '@fallow-cli/darwin-arm64@2.52.0':
-    resolution: {integrity: sha512-pvWp2jn+LPfPqfKQOEd4PwC69Rb0g4gv95j38v6gkT8xXMEzrjgzZpijYojVPuWDeMYRSG1+01njghL72qJi+A==}
+  '@fallow-cli/darwin-arm64@2.54.3':
+    resolution: {integrity: sha512-JHKo1KpXK0PO8fpkJNnXr5Gcaq5KedjUfYbydoWpEMS//5QQg00r8A0GMbnF78hOM09hhM07IXSzsOUxmagdww==}
     cpu: [arm64]
     os: [darwin]
 
-  '@fallow-cli/darwin-x64@2.52.0':
-    resolution: {integrity: sha512-Vo2xLC2EPcv+JervfbsP/Mzlhekjo1w3uMtryY+pULztHbH960srJscr8TFwRnoCYXdZjRtO2CXdZZ/7tuDbHA==}
+  '@fallow-cli/darwin-x64@2.54.3':
+    resolution: {integrity: sha512-liBvvIHv3wbbkpoaAdkGgMzPPuMC+aXh1BL3FgcOBLcWss4SMvaxtHtUGdntUHfMukTkRbLGi5r0BAQlGzPniA==}
     cpu: [x64]
     os: [darwin]
 
-  '@fallow-cli/linux-arm64-gnu@2.52.0':
-    resolution: {integrity: sha512-AIBLQqlq7hlCFeLj+LyFNhXPNiyfSKl8HrAtj8azfCW+9h4IR0vXi6apRvbHE9/VCoHlMlZpDE/6528qUpTUNg==}
+  '@fallow-cli/linux-arm64-gnu@2.54.3':
+    resolution: {integrity: sha512-reFCEa1/4qVeJWKMGF27W82Bbr7hi3gJKbhXq0di3vNUmChVCrrzXv5kVcKanA5cGgdesf8kT9J7CGMifhVeGw==}
     cpu: [arm64]
     os: [linux]
 
-  '@fallow-cli/linux-arm64-musl@2.52.0':
-    resolution: {integrity: sha512-x1a3LCFf+E9irw5Lkj1pT9GHRa6LfYg+w6SLqE8deZei6frtanqAeGKyD5d+24LzHF+TqlySlSQxnbBTMbl8AA==}
+  '@fallow-cli/linux-arm64-musl@2.54.3':
+    resolution: {integrity: sha512-3fJ1tnKMMwQKuw6tlHDEH2zp3BOxbGpkaRZ5zcGasPfX9Oscc3mv5iIyHacrbEGPnHLY30I7csZxVEcEWmylVg==}
     cpu: [arm64]
     os: [linux]
 
-  '@fallow-cli/linux-x64-gnu@2.52.0':
-    resolution: {integrity: sha512-JBezH1wC4CWrsnpkA5fdXwvbf6JIUKvZ9o9N855PVIwnmObj34KY+CvLZnlst4LassTAZk7NWy650OaJaiNWGg==}
+  '@fallow-cli/linux-x64-gnu@2.54.3':
+    resolution: {integrity: sha512-WSd2IlHYEyMznTikoyY3liY+ufeobXXYcnfJQifVEljd0HHdbCTbmTweEiP13qTzJhXKn5WHD9LNNhu+C2k9Cg==}
     cpu: [x64]
     os: [linux]
 
-  '@fallow-cli/linux-x64-musl@2.52.0':
-    resolution: {integrity: sha512-hv9Utb8oea+QJ526L7dl8qWexLYLwNsNLkSB8Ywb8+8q1oHXH3ORccEcxXEud/hjzHUHbjPcgqL36/CvLP02Xw==}
+  '@fallow-cli/linux-x64-musl@2.54.3':
+    resolution: {integrity: sha512-SGvli2q6+oU391BhCzwCgFo+KBer3FSLRzkJ8utaThUlqbgxHAMMQkZ1KFP3LK2WUmVn8Ot/jaBcHXc8RvG5iw==}
     cpu: [x64]
     os: [linux]
 
-  '@fallow-cli/win32-arm64-msvc@2.52.0':
-    resolution: {integrity: sha512-uYT1WXu9lMIpBYfHqNNiULvTg+YgGxeCgfvMrRTO36LVrRXzdnKn5xeuYXx7CwjbQb9Zsu4PzHB++KC9ocGKiQ==}
+  '@fallow-cli/win32-arm64-msvc@2.54.3':
+    resolution: {integrity: sha512-leYoK953TLIvTlcnem3gIODwwxHwqIVU3qIgj0i9jKJ47oSLm5vU+jQWMEgBZY+aEcsxgEmCcKv2qV/F9nKpdQ==}
     cpu: [arm64]
     os: [win32]
 
-  '@fallow-cli/win32-x64-msvc@2.52.0':
-    resolution: {integrity: sha512-qJ2v+En5PLZidrsaapYUPuOUY2b1ZzbNlUbDg5Ly0Th8I2TaUpB8ZgKPWa3t+ISBfjbylmhrk1eLj0JFVEaEqw==}
+  '@fallow-cli/win32-x64-msvc@2.54.3':
+    resolution: {integrity: sha512-IAIDQN3A2e/z7so73WanGIZg+Ev/dgNeayfD8d0iCoWFuotsnFZ3wLUKSWh2+vliJ1cvFMTg/nS6vg5qNNsW0g==}
     cpu: [x64]
     os: [win32]
 
@@ -569,8 +569,8 @@ packages:
     resolution: {integrity: sha512-XYfuKMvj4O35f/pOXLObndIRvyQ+/+6AhODh+OKWj9S9498pHHn/IMszH+gt0fBCRWMNfk1ZSp5x3AifmnI2vg==}
     engines: {node: '>=6'}
 
-  fallow@2.52.0:
-    resolution: {integrity: sha512-yZNFqRODW42mnGKYz6RosZR2CNhNwdYkXKIGBARKWNMRGwn9E9jonXFZDB+czjPL6rDnthNRheIJpRhDvzAaUw==}
+  fallow@2.54.3:
+    resolution: {integrity: sha512-siIk+14xYbLt9E7sMO0PqshgkWN3UGK/wfAs139cFZg6j8ZG30kKpDPCVXcZUDhS013F0tuoGDaHZTtHa0DiMA==}
     engines: {node: '>=16'}
     hasBin: true
 
@@ -1024,6 +1024,7 @@ packages:
 
   uuid@9.0.1:
     resolution: {integrity: sha512-b+1eJOlsR9K8HJpow9Ok3fiWOWSIcIzXodvv0rQjVoOVNpWMpxf1wZNpt4y9h10odCNrqnYp1OBzRktckBe3sA==}
+    deprecated: uuid@10 and below is no longer supported.  For ESM codebases, update to uuid@latest.  For CommonJS codebases, use uuid@11 (but be aware this version will likely be deprecated in 2028).
     hasBin: true
 
   valibot@1.3.1:
@@ -1115,28 +1116,28 @@ snapshots:
       murmurhash: 2.0.1
       uuid: 9.0.1
 
-  '@fallow-cli/darwin-arm64@2.52.0':
+  '@fallow-cli/darwin-arm64@2.54.3':
     optional: true
 
-  '@fallow-cli/darwin-x64@2.52.0':
+  '@fallow-cli/darwin-x64@2.54.3':
     optional: true
 
-  '@fallow-cli/linux-arm64-gnu@2.52.0':
+  '@fallow-cli/linux-arm64-gnu@2.54.3':
     optional: true
 
-  '@fallow-cli/linux-arm64-musl@2.52.0':
+  '@fallow-cli/linux-arm64-musl@2.54.3':
     optional: true
 
-  '@fallow-cli/linux-x64-gnu@2.52.0':
+  '@fallow-cli/linux-x64-gnu@2.54.3':
     optional: true
 
-  '@fallow-cli/linux-x64-musl@2.52.0':
+  '@fallow-cli/linux-x64-musl@2.54.3':
     optional: true
 
-  '@fallow-cli/win32-arm64-msvc@2.52.0':
+  '@fallow-cli/win32-arm64-msvc@2.54.3':
     optional: true
 
-  '@fallow-cli/win32-x64-msvc@2.52.0':
+  '@fallow-cli/win32-x64-msvc@2.54.3':
     optional: true
 
   '@jlongster/sql.js@1.6.7': {}
@@ -1469,18 +1470,18 @@ snapshots:
 
   expand-template@2.0.3: {}
 
-  fallow@2.52.0:
+  fallow@2.54.3:
     dependencies:
       detect-libc: 2.1.2
     optionalDependencies:
-      '@fallow-cli/darwin-arm64': 2.52.0
-      '@fallow-cli/darwin-x64': 2.52.0
-      '@fallow-cli/linux-arm64-gnu': 2.52.0
-      '@fallow-cli/linux-arm64-musl': 2.52.0
-      '@fallow-cli/linux-x64-gnu': 2.52.0
-      '@fallow-cli/linux-x64-musl': 2.52.0
-      '@fallow-cli/win32-arm64-msvc': 2.52.0
-      '@fallow-cli/win32-x64-msvc': 2.52.0
+      '@fallow-cli/darwin-arm64': 2.54.3
+      '@fallow-cli/darwin-x64': 2.54.3
+      '@fallow-cli/linux-arm64-gnu': 2.54.3
+      '@fallow-cli/linux-arm64-musl': 2.54.3
+      '@fallow-cli/linux-x64-gnu': 2.54.3
+      '@fallow-cli/linux-x64-musl': 2.54.3
+      '@fallow-cli/win32-arm64-msvc': 2.54.3
+      '@fallow-cli/win32-x64-msvc': 2.54.3
 
   fast-check@3.23.2:
     dependencies:
