@@ -1,0 +1,77 @@
+name: Renovate Actual API Release
+
+on:
+  pull_request:
+    types:
+      - closed
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true && github.event.pull_request.user.login == 'renovate[bot]' && github.event.pull_request.head.repo.full_name == github.repository
+
+    steps:
+      - name: Checkout merged commit
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+
+      - name: Detect @actual-app/api update
+        id: detect
+        shell: bash
+        run: |
+          git show "${{ github.event.pull_request.merge_commit_sha }}^:package.json" > /tmp/base-package.json
+          node <<'NODE'
+          const fs = require('fs');
+          const base = JSON.parse(fs.readFileSync('/tmp/base-package.json', 'utf8'));
+          const head = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const getVersion = (pkg) => pkg.dependencies?.['@actual-app/api'] ?? pkg.devDependencies?.['@actual-app/api'] ?? null;
+          const shouldRelease = getVersion(base) !== getVersion(head);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `should_release=${shouldRelease}\n`);
+          NODE
+
+      - name: Determine next release tag
+        id: version
+        if: steps.detect.outputs.should_release == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const releases = await github.paginate(github.rest.repos.listReleases, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100,
+            });
+
+            const latest = releases.find((release) => !release.draft && !release.prerelease);
+
+            if (!latest) {
+              core.setFailed('No published releases found to increment.');
+              return;
+            }
+
+            const match = latest.tag_name.match(/^v?(\d+)\.(\d+)\.(\d+)$/);
+
+            if (!match) {
+              core.setFailed(`Latest release tag "${latest.tag_name}" is not a simple semver tag.`);
+              return;
+            }
+
+            const [, major, minor, patch] = match;
+            const nextTag = `v${major}.${minor}.${Number(patch) + 1}`;
+
+            core.setOutput('tag', nextTag);
+
+      - name: Create GitHub release
+        if: steps.detect.outputs.should_release == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.event.pull_request.merge_commit_sha }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
