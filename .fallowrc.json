@@ -4,6 +4,9 @@
 		"src/once.ts",
 		"bin/**/*.mjs"
 	],
+	"dynamicallyLoaded": [
+		"bin/fintual-goal-performance.graphql"
+	],
 	"health": {
 		"maxCyclomatic": 13,
 		"maxCognitive": 16,
