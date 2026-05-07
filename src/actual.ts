@@ -187,6 +187,11 @@ function syncDailyVariationTransactions(): Effect.Effect<SyncCounts, Error> {
       )
     }
 
+    yield* tryPromise({
+      try: () => api.sync(),
+      catch: "Failed to sync Actual budget",
+    })
+
     return syncCounts
   })
 }
