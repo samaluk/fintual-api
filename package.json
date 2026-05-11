@@ -5,7 +5,7 @@
 	"devDependencies": {
 		"@types/mailparser": "3.4.6",
 		"@types/node": "24.12.3",
-		"fallow": "2.64.0",
+		"fallow": "2.67.0",
 		"oxfmt": "0.48.0",
 		"oxlint": "1.63.0",
 		"typescript": "6.0.3"
