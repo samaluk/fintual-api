@@ -29,6 +29,12 @@ jobs:
         with:
           ref: ${{ env.RELEASE_TAG || github.sha }}
 
+      - name: Capture source revision
+        id: source
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
 
@@ -47,10 +53,11 @@ jobs:
           tags: |
             type=raw,value=latest,enable=${{ env.RELEASE_TAG != '' }}
             type=raw,value=${{ env.RELEASE_TAG }},enable=${{ env.RELEASE_TAG != '' }}
-            type=sha,prefix=sha-
+            type=raw,value=sha-${{ steps.source.outputs.short_sha }}
           labels: |
             org.opencontainers.image.title=fintual-api
             org.opencontainers.image.description=One-shot worker that syncs Fintual investment data into Actual Budget
+            org.opencontainers.image.revision=${{ steps.source.outputs.sha }}
 
       - name: Build and publish image
         uses: docker/build-push-action@v7
