@@ -9,6 +9,12 @@
 	"packageRules": [
 		{
 			"matchPackageNames": [
+				"mcuadros/ofelia"
+			],
+			"allowedVersions": "!/^v3\\.0\\.8$/"
+		},
+		{
+			"matchPackageNames": [
 				"@actual-app/api"
 			],
 			"minimumReleaseAge": "0 days",
