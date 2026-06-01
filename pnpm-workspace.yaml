@@ -3,3 +3,4 @@ allowBuilds:
   fallow: true
 minimumReleaseAgeExclude:
   - '@actual-app/api'
+  - '@actual-app/core'
