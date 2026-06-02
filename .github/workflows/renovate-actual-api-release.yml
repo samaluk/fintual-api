@@ -16,7 +16,7 @@ jobs:
 
     steps:
       - name: Checkout merged commit
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.3
         with:
           fetch-depth: 2
           ref: ${{ github.event.pull_request.merge_commit_sha }}
@@ -38,7 +38,7 @@ jobs:
       - name: Determine next release tag
         id: version
         if: steps.detect.outputs.should_release == 'true'
-        uses: actions/github-script@v9
+        uses: actions/github-script@v9.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -69,7 +69,7 @@ jobs:
 
       - name: Create GitHub release
         if: steps.detect.outputs.should_release == 'true'
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@v3.0.0
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           target_commitish: ${{ github.event.pull_request.merge_commit_sha }}
