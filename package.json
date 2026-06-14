@@ -4,7 +4,7 @@
 	"type": "module",
 	"devDependencies": {
 		"@types/mailparser": "3.4.6",
-		"@types/node": "24.13.1",
+		"@types/node": "24.13.2",
 		"fallow": "2.89.0",
 		"oxfmt": "0.53.0",
 		"oxlint": "1.68.0",
