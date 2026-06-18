@@ -1,6 +1,6 @@
 {
 	"name": "fintual-api",
-	"packageManager": "pnpm@11.5.2",
+	"packageManager": "pnpm@11.7.0",
 	"type": "module",
 	"devDependencies": {
 		"@types/mailparser": "3.4.6",
