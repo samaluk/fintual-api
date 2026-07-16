@@ -69,7 +69,7 @@ jobs:
 
       - name: Create GitHub release
         if: steps.detect.outputs.should_release == 'true'
-        uses: softprops/action-gh-release@v3.0.1
+        uses: softprops/action-gh-release@v3.0.2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           target_commitish: ${{ github.event.pull_request.merge_commit_sha }}
