@@ -16,7 +16,7 @@ jobs:
 
     steps:
       - name: Checkout merged commit
-        uses: actions/checkout@v7.0.0
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 2
           ref: ${{ github.event.pull_request.merge_commit_sha }}
