@@ -11,7 +11,7 @@
 		"typescript": "7.0.2"
 	},
 	"dependencies": {
-		"@actual-app/api": "26.7.0",
+		"@actual-app/api": "26.8.0",
 		"dotenv": "17.4.2",
 		"effect": "3.22.1",
 		"imapflow": "1.6.5",
