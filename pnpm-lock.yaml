@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@actual-app/api':
-        specifier: 26.7.0
-        version: 26.7.0
+        specifier: 26.8.0
+        version: 26.8.0
       dotenv:
         specifier: 17.4.2
         version: 17.4.2
@@ -48,18 +48,18 @@ importers:
 
 packages:
 
-  '@actual-app/api@26.7.0':
-    resolution: {integrity: sha512-nZDZAE6blc1HTdNEDGomAijE9Xgw+vBwUPkUsD63MVyAu92Vyi8H7hqueePtoERo2T9HYkMunXlABRrcPwr1KA==}
+  '@actual-app/api@26.8.0':
+    resolution: {integrity: sha512-hFtepJjD9pmWo7eY53mvZ4AACEENUYCW4v0EYmYS/BhxTVMY5MjzcsW7GXwOE2iO9tJLJmSBkORWTB6rDNte2Q==}
     engines: {node: '>=20'}
 
-  '@actual-app/core@26.7.0':
-    resolution: {integrity: sha512-OkssXglnNvyq2kVCPvBNNOSb9FoXwyEHWeYGyW0OwoL34Rirp8eCiz4Gz33AweEEPieW9EdWLR7rU3fPPs/8ZQ==}
+  '@actual-app/core@26.8.0':
+    resolution: {integrity: sha512-TP3Bw86JVshli5lccr/RqOaLIh2KLGE+Rtz4iTJnML7hFsSF1261db6QqntrSwvmxyTYqbxQR/2EQua2Uc20VQ==}
 
-  '@actual-app/crdt@3.1.0':
-    resolution: {integrity: sha512-1XQM2e4zA73kI8WJ/Le0Q3aMA9X9BRYQsCpAl0R6NN+jGgUN0CylfaupknhAjUGU8m3mY9xomOkPKj4JqJF1Dw==}
+  '@actual-app/crdt@3.1.1':
+    resolution: {integrity: sha512-zuUDbA12dYF6QInFFDdAbWcl4stDL9IWEL6HPzqlmW/T5nNNYKqclOAMCXkXx1e8TJ3jvhHnwl4/m6xzeDEZpw==}
 
-  '@bufbuild/protobuf@2.12.0':
-    resolution: {integrity: sha512-B/XlCaFIP8LOwzo+bz5uFzATYokcwCKQcghqnlfwSmM5eX/qTkvDBnDPs+gXtX/RyjxJ4DRikECcPJbyALA8FA==}
+  '@bufbuild/protobuf@2.13.0':
+    resolution: {integrity: sha512-acq7c49vxfm1ggJ95P70TX7ABDM0vxr1SYD3BB0o0jnBLB4OAqeHyKuN+cD3w80gXEDQ2zxHpR6CUeA+O/aU9g==}
 
   '@fallow-cli/darwin-arm64@3.10.0':
     resolution: {integrity: sha512-1jND5zFCJW9wMnvZNwCaiYdnC/+8wHJ4lDLvITrZVnNfKdW1i6HQeW2+MJpc+2WuDzmuoNUM4y1xhi+DNHBFNQ==}
@@ -499,10 +499,6 @@ packages:
   absurd-sql@0.0.54:
     resolution: {integrity: sha512-p+SWTtpRs2t3sXMLxkTyLRZkEzxTv/zG/Bl93wibegLZTGAHGk68SJMWslRWHBGh63ka/ePGTXGHh1117++45Q==}
 
-  adm-zip@0.5.17:
-    resolution: {integrity: sha512-+Ut8d9LLqwEvHHJl1+PIHqoyDxFgVN847JTVM3Izi3xHDWPE4UtzzXysMZQs64DMcrJfBeS/uoEP4AD3HQHnQQ==}
-    engines: {node: '>=12.0'}
-
   atomic-sleep@1.0.0:
     resolution: {integrity: sha512-kNOjDqAh7px0XWNI+4QbzoiR/nTkHAWNud2uvnJquD1/x5a7EQZMJT0AczqK0Qn67oY/TTQ1LbUKajZpp3I9tQ==}
     engines: {node: '>=8.0.0'}
@@ -532,11 +528,11 @@ packages:
   compare-versions@6.1.1:
     resolution: {integrity: sha512-4hm4VPpIecmlg59CHXnRDnqGplJFrbLG4aFEl5vl6cK1u76ws3LLvX7ikFnTDl5vo39sjWD6AaDPYodJp/NNHg==}
 
-  csv-parse@6.2.1:
-    resolution: {integrity: sha512-LRLMV+UCyfMokp8Wb411duBf1gaBKJfOfBWU9eHMJ+b+cJYZsNu3AFmjJf3+yPGd59Exz1TsMjaSFyxnYB9+IQ==}
+  csv-parse@7.0.1:
+    resolution: {integrity: sha512-+2z7Ar0APQ7Uu6fX4cn+pitRmxjZ1WPBcGmZFKmA74FCyi7Et/XZx8cjNQ5CjbZ4HCOxXCOpRBYvYH08Qa003A==}
 
-  csv-stringify@6.7.0:
-    resolution: {integrity: sha512-UdtziYp5HuTz7e5j8Nvq+a/3HQo+2/aJZ9xntNTpmRRIg/3YYqDVgiS9fvAhtNbnyfbv2ZBe0bqCHqzhE7FqWQ==}
+  csv-stringify@6.8.1:
+    resolution: {integrity: sha512-tZ6X6TKQyQgCo5OptXcyAbfN1pwmoxEqELPQ7KFazNErx7kiVsDK8o+VYRXhfMl4N9vvOOLXuioquR2MeP847A==}
 
   date-fns@4.4.0:
     resolution: {integrity: sha512-+1UMbeh68lH1SegH83CGWwpb6OHHbpSgr3+s5Eww5M4CAgswBpoWS0AjTOfEJ33HiYKz1hdj/KTFprzXHmq/6w==}
@@ -613,6 +609,9 @@ packages:
     resolution: {integrity: sha512-h5+1OzzfCC3Ef7VbtKdcv7zsstUQwUDlYpUTvjeUsJAssPgLn7QzbboPtL5ro04Mq0rPOsMzl7q5hIbRs2wD1A==}
     engines: {node: '>=8.0.0'}
 
+  fflate@0.8.3:
+    resolution: {integrity: sha512-tbZNuJrLwGUp3zshBtdy4W+ORxZuIh8a5ilyIEQDC5rY1f3U20JMry0Ll3WBzU58EZKsEuJFXhb5gwv8CsPvgA==}
+
   file-uri-to-path@1.0.0:
     resolution: {integrity: sha512-0Zt+s3L7Vf1biwWZ29aARiVYLx7iMGnEUl9x33fbB/j3jR81u/O2LbqK+Bm1CDSNDKVtJ/YjwY7TUd5SkeLQLw==}
 
@@ -680,8 +679,8 @@ packages:
   linkify-it@5.0.2:
     resolution: {integrity: sha512-ONTm2jCMAVZjgQa/Fy1kScXsuOoF5NPTsoFBdE1KVIZ2vAh/r9+Bqo+0jINCBYnavTPQZz38QzFTme79ENoN3Q==}
 
-  lru-cache@11.5.1:
-    resolution: {integrity: sha512-RPimw/7aMdv2oqRrxKwvZXcPfwBrn/JZ2xYcY9Hus/6LaS3VOAKVWKWgNLCFSiOm1ESXinjsDlidVU7JlnCN2A==}
+  lru-cache@11.5.2:
+    resolution: {integrity: sha512-4pfM1Ff0x50o0tQwb5ucw/RzNyD0/YJME6IVcStalZuMWxdt3sR3huStTtxz4PUmvZfRguvDejasvQ2kifR11g==}
     engines: {node: 20 || >=22}
 
   mailparser@3.9.14:
@@ -904,10 +903,6 @@ packages:
   util-deprecate@1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
 
-  uuid@14.0.0:
-    resolution: {integrity: sha512-Qo+uWgilfSmAhXCMav1uYFynlQO7fMFiMVZsQqZRMIXp0O7rR7qjkj+cPvBHLgBqi960QCoo/PH2/6ZtVqKvrg==}
-    hasBin: true
-
   uuid@14.0.1:
     resolution: {integrity: sha512-6ZxzVpzDXDa3bJWaHilVayA+BH/1zmxCJoVgvmqJnid/gPoKHxUrS/aC/T6LGQtNHT+XHG9fXPJB4d+IrU30Ew==}
     hasBin: true
@@ -936,40 +931,40 @@ packages:
 
 snapshots:
 
-  '@actual-app/api@26.7.0':
+  '@actual-app/api@26.8.0':
     dependencies:
-      '@actual-app/core': 26.7.0
-      '@actual-app/crdt': 3.1.0
+      '@actual-app/core': 26.8.0
+      '@actual-app/crdt': 3.1.1
       better-sqlite3: 12.11.1
       compare-versions: 6.1.1
       uuid: 14.0.1
 
-  '@actual-app/core@26.7.0':
+  '@actual-app/core@26.8.0':
     dependencies:
       '@jlongster/sql.js': 1.6.7
       '@rschedule/core': 1.5.0
       '@rschedule/standard-date-adapter': 1.5.0(@rschedule/core@1.5.0)
       absurd-sql: 0.0.54
-      adm-zip: 0.5.17
       better-sqlite3: 12.11.1
-      csv-parse: 6.2.1
-      csv-stringify: 6.7.0
+      csv-parse: 7.0.1
+      csv-stringify: 6.8.1
       date-fns: 4.4.0
       es-toolkit: 1.49.0
+      fflate: 0.8.3
       handlebars: 4.7.9
       hyperformula: 3.3.0
-      lru-cache: 11.5.1
+      lru-cache: 11.5.2
       mitt: 3.0.1
       uuid: 14.0.1
       xml2js: 0.6.2
 
-  '@actual-app/crdt@3.1.0':
+  '@actual-app/crdt@3.1.1':
     dependencies:
-      '@bufbuild/protobuf': 2.12.0
+      '@bufbuild/protobuf': 2.13.0
       murmurhash: 2.0.1
-      uuid: 14.0.0
+      uuid: 14.0.1
 
-  '@bufbuild/protobuf@2.12.0': {}
+  '@bufbuild/protobuf@2.13.0': {}
 
   '@fallow-cli/darwin-arm64@3.10.0':
     optional: true
@@ -1206,8 +1201,6 @@ snapshots:
     dependencies:
       safari-14-idb-fix: 1.0.6
 
-  adm-zip@0.5.17: {}
-
   atomic-sleep@1.0.0: {}
 
   base64-js@1.5.1: {}
@@ -1240,9 +1233,9 @@ snapshots:
 
   compare-versions@6.1.1: {}
 
-  csv-parse@6.2.1: {}
+  csv-parse@7.0.1: {}
 
-  csv-stringify@6.7.0: {}
+  csv-stringify@6.8.1: {}
 
   date-fns@4.4.0: {}
 
@@ -1317,6 +1310,8 @@ snapshots:
   fast-check@3.23.2:
     dependencies:
       pure-rand: 6.1.0
+
+  fflate@0.8.3: {}
 
   file-uri-to-path@1.0.0: {}
 
@@ -1399,7 +1394,7 @@ snapshots:
     dependencies:
       uc.micro: 2.1.0
 
-  lru-cache@11.5.1: {}
+  lru-cache@11.5.2: {}
 
   mailparser@3.9.14:
     dependencies:
@@ -1663,8 +1658,6 @@ snapshots:
   undici-types@7.18.2: {}
 
   util-deprecate@1.0.2: {}
-
-  uuid@14.0.0: {}
 
   uuid@14.0.1: {}
 
