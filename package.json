@@ -13,7 +13,7 @@
 	"dependencies": {
 		"@actual-app/api": "26.7.0",
 		"dotenv": "17.4.2",
-		"effect": "3.22.0",
+		"effect": "3.22.1",
 		"imapflow": "1.6.4",
 		"mailparser": "3.9.14",
 		"valibot": "1.4.2"
