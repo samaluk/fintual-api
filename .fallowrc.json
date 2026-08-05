@@ -1,35 +1,78 @@
 {
-	"$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
-	"entry": [
-		"src/once.ts",
-		"bin/**/*.mjs"
-	],
-	"dynamicallyLoaded": [
-		"bin/fintual-goal-performance.graphql"
-	],
-	"health": {
-		"maxCyclomatic": 13,
-		"maxCognitive": 16,
-		"maxCrap": 157
-	},
-	"regression": {
-		"baseline": {
-			"totalIssues": 0,
-			"unusedFiles": 0,
-			"unusedExports": 0,
-			"unusedTypes": 0,
-			"unusedDependencies": 0,
-			"unusedDevDependencies": 0,
-			"unusedOptionalDependencies": 0,
-			"unusedEnumMembers": 0,
-			"unusedClassMembers": 0,
-			"unresolvedImports": 0,
-			"unlistedDependencies": 0,
-			"duplicateExports": 0,
-			"circularDependencies": 0,
-			"typeOnlyDependencies": 0,
-			"testOnlyDependencies": 0,
-			"boundaryViolations": 0
-		}
-	}
+  "$schema": "./node_modules/fallow/schema.json",
+  "entry": [
+    "src/once.ts",
+    "bin/**/*.mjs"
+  ],
+  "ignorePatterns": [
+    "scripts/**"
+  ],
+  "dynamicallyLoaded": [
+    "bin/fintual-goal-performance.graphql"
+  ],
+  "typeAware": {
+    "enabled": true,
+    "require": "complete",
+    "projects": [
+      "tsconfig.json"
+    ]
+  },
+  "rules": {
+    "private-type-leaks": "warn"
+  },
+  "duplicates": {
+    "mode": "semantic",
+    "minLines": 8,
+    "minTokens": 60,
+    "minOccurrences": 3,
+    "ignoreImports": true
+  },
+  "health": {
+    "maxCyclomatic": 13,
+    "maxCognitive": 16,
+    "maxCrap": 157,
+    "maxUnitSize": 60
+  },
+  "audit": {
+    "gate": "new-only",
+    "deadCodeBaseline": "fallow-baselines/dead-code.json",
+    "healthBaseline": "fallow-baselines/health.json",
+    "dupesBaseline": "fallow-baselines/dupes.json"
+  },
+  "regression": {
+    "baseline": {
+      "analysisIdentity": {
+        "mode": "type-aware",
+        "semantic_schema_version": 2,
+        "capabilities": [
+          "symbol-use",
+          "api-surface"
+        ],
+        "project_config_hash": "deferred:no-semantic-queries",
+        "backend_family": "typescript-go",
+        "completeness": "complete"
+      },
+      "totalIssues": 2,
+      "unusedFiles": 0,
+      "unusedExports": 0,
+      "unusedTypes": 0,
+      "unusedDependencies": 0,
+      "unusedDevDependencies": 0,
+      "unusedOptionalDependencies": 0,
+      "unusedEnumMembers": 0,
+      "unusedClassMembers": 0,
+      "unresolvedImports": 0,
+      "unlistedDependencies": 0,
+      "duplicateExports": 0,
+      "circularDependencies": 0,
+      "reExportCycles": 0,
+      "typeOnlyDependencies": 0,
+      "testOnlyDependencies": 0,
+      "devDependenciesInProduction": 0,
+      "boundaryViolations": 0,
+      "boundaryCoverageViolations": 0,
+      "boundaryCallViolations": 0,
+      "policyViolations": 0
+    }
+  }
 }
