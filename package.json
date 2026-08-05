@@ -5,7 +5,7 @@
 	"devDependencies": {
 		"@types/mailparser": "3.4.6",
 		"@types/node": "24.13.3",
-		"fallow": "3.10.0",
+		"fallow": "3.14.0",
 		"oxfmt": "0.61.0",
 		"oxlint": "1.76.0",
 		"typescript": "7.0.2"
@@ -24,7 +24,18 @@
 		"format:check": "oxfmt --check src",
 		"lint": "oxlint src",
 		"lint:fix": "oxlint --fix src",
-		"fallow": "fallow --fail-on-regression",
+		"fallow": "fallow",
+		"fallow:status": "fallow type-aware status",
+		"fallow:dead-code": "fallow dead-code --baseline fallow-baselines/dead-code.json --fail-on-issues",
+		"fallow:dupes": "fallow dupes --baseline fallow-baselines/dupes.json --fail-on-issues",
+		"fallow:health": "fallow health --baseline fallow-baselines/health.json --baseline-mode identity --fail-on-issues",
+		"fallow:audit": "fallow audit --gate new-only --dead-code-baseline fallow-baselines/dead-code.json --health-baseline fallow-baselines/health.json --dupes-baseline fallow-baselines/dupes.json",
+		"fallow:regression": "node scripts/fallow-regression-check.mjs",
+		"fallow:ci": "node scripts/fallow-ci.mjs",
+		"fallow:baseline:update": "node scripts/fallow-baseline-update.mjs",
+		"fallow:baseline:check": "node scripts/fallow-baseline-check.mjs",
+		"fallow:fix:preview": "fallow fix --type-aware --dry-run",
+		"fallow:fix": "fallow fix --type-aware",
 		"dev": "node src/once.ts",
 		"once": "node src/once.ts",
 		"capture:har": "sh bin/capture-fintual-har.sh"

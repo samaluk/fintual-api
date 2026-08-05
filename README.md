@@ -105,6 +105,10 @@ pnpm capture:har
 
 Details and observed endpoints are in [`docs/fintual-http-capture.md`](docs/fintual-http-capture.md). Output goes to `tmp/fintual-capture.har` (gitignored).
 
+## Quality ratchet
+
+Fallow 3.14 runs type-aware dead-code, duplication, and health gates in CI. See [`docs/fallow.md`](docs/fallow.md).
+
 ## Docker Image
 
 The published container image is designed as a one-shot worker. Its default command runs the sync once:
