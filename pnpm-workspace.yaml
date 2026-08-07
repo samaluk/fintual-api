@@ -1,6 +1,7 @@
 allowBuilds:
   better-sqlite3: true
   fallow: true
+minimumReleaseAgeStrict: true
 minimumReleaseAgeExclude:
   - '@actual-app/api'
   - '@actual-app/core'
