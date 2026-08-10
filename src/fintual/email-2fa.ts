@@ -218,6 +218,7 @@ function runMailboxSearch(
           catch: "Failed to search Gmail IMAP mailbox",
         }),
         (cause) => {
+          // oxlint-disable-next-line typescript/consistent-type-assertions, typescript/no-unsafe-type-assertion
           const originalError = cause.cause as { code?: string } | undefined
           if (originalError?.code === "MissingServerExtension") {
             return Effect.succeed(false as const)
@@ -336,9 +337,12 @@ function collectMessageSources(
 }
 
 function decodeQuotedPrintable(value: string): string {
-  return value
-    .replaceAll(/=\r?\n/g, "")
-    .replaceAll(/=([0-9A-Fa-f]{2})/g, (_, hex) => String.fromCodePoint(Number.parseInt(hex, 16)))
+  return (
+    value
+      .replaceAll(/=\r?\n/g, "")
+      // oxlint-disable-next-line typescript/no-unsafe-argument
+      .replaceAll(/=([0-9A-Fa-f]{2})/g, (_, hex) => String.fromCodePoint(Number.parseInt(hex, 16)))
+  )
 }
 
 function extractCodeFromText(rawContent: string): string | null {

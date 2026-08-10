@@ -8,6 +8,7 @@
 		"fallow": "3.14.0",
 		"oxfmt": "0.62.0",
 		"oxlint": "1.77.0",
+		"oxlint-tsgolint": "7.0.2001",
 		"typescript": "7.0.2"
 	},
 	"dependencies": {
@@ -22,7 +23,7 @@
 		"typecheck": "tsc -p tsconfig.json",
 		"format": "oxfmt --write src",
 		"format:check": "oxfmt --check src",
-		"lint": "oxlint src",
+		"lint": "oxlint --report-unused-disable-directives src",
 		"lint:fix": "oxlint --fix src",
 		"fallow": "fallow",
 		"fallow:status": "fallow type-aware status",

@@ -209,6 +209,7 @@ function resetDataDirectory(): Effect.Effect<void, Error> {
 function loadBalanceEntries(): Effect.Effect<BalanceEntry[], Error> {
   return Effect.gen(function* () {
     const parsedFile = yield* trySync({
+      // oxlint-disable-next-line typescript/consistent-type-assertions
       try: () => JSON.parse(fs.readFileSync(BALANCE_FILE_PATH, "utf-8")) as unknown,
       catch: "Failed to load Fintual balance file",
     })

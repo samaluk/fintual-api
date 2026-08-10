@@ -41,6 +41,7 @@ function parseGoalPerformanceJsonText(body: string): Effect.Effect<GoalPerforman
   return Effect.gen(function* () {
     const parsedJson = yield* Effect.catchAll(
       trySync({
+        // oxlint-disable-next-line typescript/consistent-type-assertions
         try: () => JSON.parse(body) as unknown,
         catch: "Failed to parse goal performance response body",
       }),
