@@ -1,6 +1,5 @@
-import assert from "node:assert/strict"
-import test from "node:test"
 import { Effect } from "effect"
+import { describe, expect, test } from "vitest"
 import { createAuthenticatedFintualIngestion } from "./authenticated-ingestion.ts"
 
 const OPTIONS = {
@@ -9,7 +8,7 @@ const OPTIONS = {
   goalId: "goal-123",
 }
 
-void test("returns Reference and Recent Goal Performance Data after direct login", async () => {
+test("returns Reference and Recent Goal Performance Data after direct login", async () => {
   const script = createFetchScript([
     response("", 200, "session=sign-in"),
     response("{}", 200, "auth=direct"),
@@ -23,14 +22,14 @@ void test("returns Reference and Recent Goal Performance Data after direct login
 
   const result = await Effect.runPromise(ingestion(OPTIONS))
 
-  assert.equal(result.reference.balanceGraphDataPoints[0]?.date, "2026-01-01")
-  assert.equal(result.recent.balanceGraphDataPoints[0]?.date, "2026-07-01")
-  assert.equal(script.requests.length, 4)
-  assert.match(requestBody(script.requests[2]), /"timeIntervalCode":"last_six_months"/)
-  assert.match(requestBody(script.requests[3]), /"timeIntervalCode":"last_month"/)
+  expect(result.reference.balanceGraphDataPoints[0]?.date).toBe("2026-01-01")
+  expect(result.recent.balanceGraphDataPoints[0]?.date).toBe("2026-07-01")
+  expect(script.requests).toHaveLength(4)
+  expect(requestBody(script.requests[2])).toMatch(/"timeIntervalCode":"last_six_months"/)
+  expect(requestBody(script.requests[3])).toMatch(/"timeIntervalCode":"last_month"/)
 })
 
-void test("completes email 2FA before it requests Goal Performance Data", async () => {
+test("completes email 2FA before it requests Goal Performance Data", async () => {
   const script = createFetchScript([
     response("", 200, "session=sign-in"),
     response("{}", 201, "challenge=email"),
@@ -49,49 +48,50 @@ void test("completes email 2FA before it requests Goal Performance Data", async 
 
   await Effect.runPromise(ingestion(OPTIONS))
 
-  assert.equal(codeRequests, 1)
-  assert.match(requestBody(script.requests[2]), /"code":"123456"/)
-  assert.match(script.requests[3]?.url ?? "", /\/gql\/$/)
+  expect(codeRequests).toBe(1)
+  expect(requestBody(script.requests[2])).toMatch(/"code":"123456"/)
+  expect(script.requests[3]?.url ?? "").toMatch(/\/gql\/$/)
 })
 
-void test("fails when email 2FA does not return a code", async () => {
+test("fails when email 2FA does not return a code", async () => {
   const script = createFetchScript([response(""), response("{}", 201)])
   const ingestion = createAuthenticatedFintualIngestion({
     fetch: script.fetch,
     get2FACode: () => Effect.succeed(null),
   })
 
-  await assert.rejects(Effect.runPromise(ingestion(OPTIONS)), /no code received before timeout/)
-  assert.equal(script.requests.length, 2)
+  await expect(Effect.runPromise(ingestion(OPTIONS))).rejects.toThrow(
+    "no code received before timeout",
+  )
+  expect(script.requests).toHaveLength(2)
 })
 
-void test("fails on an unexpected login response without exposing its body", async () => {
+test("fails on an unexpected login response without exposing its body", async () => {
   const script = createFetchScript([response(""), response("session-token=secret", 418)])
   const ingestion = createAuthenticatedFintualIngestion({
     fetch: script.fetch,
     get2FACode: () => Effect.succeed(null),
   })
 
-  await assert.rejects(Effect.runPromise(ingestion(OPTIONS)), (error) =>
+  await expect(Effect.runPromise(ingestion(OPTIONS))).rejects.toSatisfy((error) =>
     errorMessageIncludes(error, "Fintual login: unexpected HTTP status 418", "secret"),
   )
 })
 
-void test("fails atomically when the reference request fails", async () => {
+test("fails atomically when the reference request fails", async () => {
   const script = createFetchScript([response(""), response("{}"), response("{}", 503)])
   const ingestion = createAuthenticatedFintualIngestion({
     fetch: script.fetch,
     get2FACode: () => Effect.succeed(null),
   })
 
-  await assert.rejects(
-    Effect.runPromise(ingestion(OPTIONS)),
-    /Fintual reference Goal Performance Data: unexpected HTTP status 503/,
+  await expect(Effect.runPromise(ingestion(OPTIONS))).rejects.toThrow(
+    "Fintual reference Goal Performance Data: unexpected HTTP status 503",
   )
-  assert.equal(script.requests.length, 3)
+  expect(script.requests).toHaveLength(3)
 })
 
-void test("fails atomically when the recent request fails", async () => {
+test("fails atomically when the recent request fails", async () => {
   const script = createFetchScript([
     response(""),
     response("{}"),
@@ -103,24 +103,23 @@ void test("fails atomically when the recent request fails", async () => {
     get2FACode: () => Effect.succeed(null),
   })
 
-  await assert.rejects(
-    Effect.runPromise(ingestion(OPTIONS)),
-    /Fintual recent Goal Performance Data: unexpected HTTP status 503/,
+  await expect(Effect.runPromise(ingestion(OPTIONS))).rejects.toThrow(
+    "Fintual recent Goal Performance Data: unexpected HTTP status 503",
   )
 })
 
-void test("fails when Goal Performance Data is malformed or invalid", async (context) => {
-  await context.test("malformed JSON", async () => {
+describe("fails when Goal Performance Data is malformed or invalid", () => {
+  test("malformed JSON", async () => {
     const script = createFetchScript([response(""), response("{}"), response("{")])
     const ingestion = createAuthenticatedFintualIngestion({
       fetch: script.fetch,
       get2FACode: () => Effect.succeed(null),
     })
 
-    await assert.rejects(Effect.runPromise(ingestion(OPTIONS)), /validation failed/)
+    await expect(Effect.runPromise(ingestion(OPTIONS))).rejects.toThrow("validation failed")
   })
 
-  await context.test("invalid shape", async () => {
+  test("invalid shape", async () => {
     const script = createFetchScript([
       response(""),
       response("{}"),
@@ -131,11 +130,11 @@ void test("fails when Goal Performance Data is malformed or invalid", async (con
       get2FACode: () => Effect.succeed(null),
     })
 
-    await assert.rejects(Effect.runPromise(ingestion(OPTIONS)), /validation failed/)
+    await expect(Effect.runPromise(ingestion(OPTIONS))).rejects.toThrow("validation failed")
   })
 })
 
-void test("propagates cookies and browser headers through the ephemeral session", async () => {
+test("propagates cookies and browser headers through the ephemeral session", async () => {
   const script = createFetchScript([
     response("", 200, "session=sign-in"),
     response("{}", 200, "auth=direct"),
@@ -149,17 +148,16 @@ void test("propagates cookies and browser headers through the ephemeral session"
 
   await Effect.runPromise(ingestion(OPTIONS))
 
-  assert.equal(requestHeaders(script.requests[0]).get("Cookie"), null)
-  assert.equal(requestHeaders(script.requests[1]).get("Cookie"), "session=sign-in")
-  assert.equal(requestHeaders(script.requests[2]).get("Cookie"), "session=sign-in; auth=direct")
-  assert.equal(
-    requestHeaders(script.requests[3]).get("Cookie"),
+  expect(requestHeaders(script.requests[0]).get("Cookie")).toBeNull()
+  expect(requestHeaders(script.requests[1]).get("Cookie")).toBe("session=sign-in")
+  expect(requestHeaders(script.requests[2]).get("Cookie")).toBe("session=sign-in; auth=direct")
+  expect(requestHeaders(script.requests[3]).get("Cookie")).toBe(
     "session=sign-in; auth=direct; graph=reference",
   )
 
   for (const request of script.requests) {
-    assert.match(requestHeaders(request).get("User-Agent") ?? "", /Mozilla\/5\.0/)
-    assert.equal(requestHeaders(request).get("Origin"), "https://fintual.cl")
+    expect(requestHeaders(request).get("User-Agent") ?? "").toMatch(/Mozilla\/5\.0/)
+    expect(requestHeaders(request).get("Origin")).toBe("https://fintual.cl")
   }
 })
 
@@ -239,7 +237,7 @@ function errorMessageIncludes(error: unknown, included: string, excluded: string
     return false
   }
 
-  assert.match(error.message, new RegExp(included))
-  assert.doesNotMatch(error.message, new RegExp(excluded))
+  expect(error.message).toContain(included)
+  expect(error.message).not.toContain(excluded)
   return true
 }
