@@ -1,9 +1,14 @@
-import { Effect } from "effect"
-import { ImapFlow, type SearchObject } from "imapflow"
-import { simpleParser } from "mailparser"
+import { Clock, Effect } from "effect"
+import { ImapFlow } from "imapflow"
 import { error, log, sleep, tryPromise, warn } from "../effect.ts"
 import type { Email2FAConfig } from "../env.ts"
 import { getErrorMessage } from "../log.ts"
+import {
+  buildEmail2FASearchQueries,
+  isGmailImapHost,
+  selectEmail2FACode,
+  type Email2FACandidate,
+} from "./email-2fa-policy.ts"
 
 const DEFAULT_TIMEOUT_MS = 10000
 const DEFAULT_POLL_INTERVAL_MS = 2000
@@ -38,7 +43,7 @@ export function get2FACodeFromEmail(
   return Effect.gen(function* () {
     yield* log("Connecting to Gmail IMAP for automatic 2FA retrieval...")
     const imapClient = createImapClient(config)
-    const startedAt = Date.now()
+    const startedAt = yield* Clock.currentTimeMillis
     const seenMessageKeys = new Set<string>()
 
     const program = Effect.gen(function* () {
@@ -47,14 +52,15 @@ export function get2FACodeFromEmail(
         catch: "Failed to connect to Gmail IMAP",
       })
 
-      while (Date.now() - startedAt < timeoutMs) {
+      while ((yield* Clock.currentTimeMillis) - startedAt < timeoutMs) {
         const code = yield* searchForCode(config, imapClient, afterTimestamp, seenMessageKeys)
         if (code) {
           yield* log("2FA code retrieved from Gmail.")
           return code
         }
 
-        const elapsedSeconds = Math.round((Date.now() - startedAt) / 1000)
+        const now = yield* Clock.currentTimeMillis
+        const elapsedSeconds = Math.round((now - startedAt) / 1000)
         yield* log(`Waiting for 2FA email... (${elapsedSeconds}s elapsed)`)
         yield* sleep(pollIntervalMs)
       }
@@ -158,6 +164,7 @@ function extractCodeFromMailboxUids(
   const recentUids = messageUids.slice(-MAX_RESULTS).reverse()
 
   return Effect.gen(function* () {
+    const candidates: Email2FACandidate[] = []
     for (const uid of recentUids) {
       const key = messageSeenKey(mailboxPath, uid)
       if (seenMessageKeys.has(key)) {
@@ -186,18 +193,14 @@ function extractCodeFromMailboxUids(
         typeof message.internalDate === "string"
           ? new Date(message.internalDate)
           : message.internalDate
-      const deliveredAt = internalDate?.getTime() ?? 0
-      if (deliveredAt > 0 && deliveredAt < afterTimestamp.getTime()) {
-        continue
-      }
-
-      const code = yield* extractCodeFromMessage(message.source, message.envelope?.subject ?? "")
-      if (code) {
-        return code
-      }
+      candidates.push({
+        source: message.source,
+        envelopeSubject: message.envelope?.subject,
+        receivedAt: internalDate,
+      })
     }
 
-    return null
+    return yield* selectEmail2FACode(candidates, afterTimestamp)
   })
 }
 
@@ -206,7 +209,7 @@ function runMailboxSearch(
   imapClient: ImapFlow,
   afterTimestamp: Date,
 ): Effect.Effect<number[] | false, Error> {
-  const queries = buildSearchQueries(config, afterTimestamp)
+  const queries = buildEmail2FASearchQueries(config, afterTimestamp)
 
   return Effect.gen(function* () {
     for (const query of queries) {
@@ -233,47 +236,6 @@ function runMailboxSearch(
   })
 }
 
-function isGmailImapHost(host: string): boolean {
-  const normalized = host.trim().toLowerCase()
-  return normalized === "imap.gmail.com" || normalized === "imap.googlemail.com"
-}
-
-/** Gmail web-style search; avoids broken IMAP SUBJECT matching for UTF-8 (e.g. "Código"). */
-function formatGmailAfterDate(d: Date): string {
-  const yyyy = d.getFullYear()
-  const mm = String(d.getMonth() + 1).padStart(2, "0")
-  const dd = String(d.getDate()).padStart(2, "0")
-  return `${yyyy}/${mm}/${dd}`
-}
-
-function buildSearchQueries(config: Email2FAConfig, afterTimestamp: Date): SearchObject[] {
-  const queries: SearchObject[] = []
-
-  if (isGmailImapHost(config.host)) {
-    const after = formatGmailAfterDate(afterTimestamp)
-    queries.push({
-      gmraw: `from:${config.sender} after:${after}`,
-    })
-    queries.push({
-      gmraw: `from:fintual.com after:${after}`,
-    })
-    // Relative window avoids rare date/TZ mismatches between container and Gmail account settings.
-    queries.push({
-      gmraw: `from:${config.sender} newer_than:1d`,
-    })
-    queries.push({
-      gmraw: `from:fintual.com newer_than:1d`,
-    })
-  }
-
-  queries.push({
-    from: config.sender,
-    since: afterTimestamp,
-  })
-
-  return queries
-}
-
 function closeImapClient(imapClient: ImapFlow): Effect.Effect<void> {
   if (!imapClient.usable) {
     return Effect.void
@@ -286,99 +248,4 @@ function closeImapClient(imapClient: ImapFlow): Effect.Effect<void> {
     }),
     (cause) => warn(`Failed to close IMAP connection cleanly: ${getErrorMessage(cause)}`),
   )
-}
-
-function extractCodeFromMessage(
-  rawSource: Buffer | Uint8Array,
-  envelopeSubject: string,
-): Effect.Effect<string | null, Error> {
-  return Effect.gen(function* () {
-    const sources = yield* collectMessageSources(rawSource, envelopeSubject)
-
-    for (const source of sources) {
-      const code = extractCodeFromText(source)
-      if (code) {
-        return code
-      }
-    }
-
-    return null
-  })
-}
-
-function collectMessageSources(
-  rawSource: Buffer | Uint8Array,
-  envelopeSubject: string,
-): Effect.Effect<string[], Error> {
-  return Effect.gen(function* () {
-    const sources: string[] = []
-    if (envelopeSubject) {
-      sources.push(envelopeSubject)
-    }
-
-    const parsedMessage = yield* tryPromise({
-      try: () => simpleParser(Buffer.from(rawSource)),
-      catch: "Failed to parse Gmail IMAP message",
-    })
-    if (parsedMessage.subject) {
-      sources.push(parsedMessage.subject)
-    }
-    if (parsedMessage.text) {
-      sources.push(parsedMessage.text)
-    }
-    if (parsedMessage.html) {
-      sources.push(String(parsedMessage.html))
-    }
-
-    return sources
-  })
-}
-
-function decodeQuotedPrintable(value: string): string {
-  return (
-    value
-      .replaceAll(/=\r?\n/g, "")
-      // oxlint-disable-next-line typescript/no-unsafe-argument
-      .replaceAll(/=([0-9A-Fa-f]{2})/g, (_, hex) => String.fromCodePoint(Number.parseInt(hex, 16)))
-  )
-}
-
-function extractCodeFromText(rawContent: string): string | null {
-  const decodedContent = decodeQuotedPrintable(rawContent)
-  const htmlAsText = decodedContent.replaceAll(/<[^>]*>/g, " ")
-  const collapsedText = htmlAsText.replaceAll(/\s+/g, " ")
-  const candidates = collectCandidateCodes(collapsedText)
-
-  for (const candidate of candidates) {
-    if (candidate !== "000000") {
-      return candidate
-    }
-  }
-
-  return null
-}
-
-function collectCandidateCodes(text: string): string[] {
-  const orderedCandidates: string[] = []
-  const preferredPatterns = [
-    /(?:codigo|c\u00f3digo)\D{0,20}(\d{6})/gi,
-    /(?:entrar(?:\s+a)?\s+tu\s+cuenta)\D{0,20}(\d{6})/gi,
-    /(?:cuenta)\D{0,20}(\d{6})/gi,
-  ]
-
-  for (const pattern of preferredPatterns) {
-    for (const match of text.matchAll(pattern)) {
-      if (match[1]) {
-        orderedCandidates.push(match[1])
-      }
-    }
-  }
-
-  for (const match of text.matchAll(/\b(\d{6})\b/g)) {
-    if (match[1]) {
-      orderedCandidates.push(match[1])
-    }
-  }
-
-  return [...new Set(orderedCandidates)]
 }
