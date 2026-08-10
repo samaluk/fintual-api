@@ -1,7 +1,6 @@
 import { Effect } from "effect"
 import * as v from "valibot"
-import { error, tryPromise, trySync } from "../effect.ts"
-import { getErrorMessage } from "../log.ts"
+import { trySync } from "../effect.ts"
 
 export const TimeIntervalCode = {
   LastMonth: "last_month",
@@ -74,8 +73,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null
 }
 
-const GQL_URL = "https://fintual.cl/gql/"
-
 export function createGoalPerformanceRequest(
   goalId: string,
   timeIntervalCode: TimeIntervalCode,
@@ -88,42 +85,4 @@ export function createGoalPerformanceRequest(
     },
     query: NEW_PERFORMANCE_QUERY,
   }
-}
-
-/** GraphQL fetch using a raw `Cookie` header (see `docs/fintual-http-capture.md`). */
-export function getGoalPerformanceWithCookies(
-  cookieHeader: string,
-  goalId: string,
-  timeIntervalCode: TimeIntervalCode,
-): Effect.Effect<GoalPerformanceData | null, Error> {
-  return Effect.gen(function* () {
-    const response = yield* tryPromise({
-      try: () =>
-        fetch(GQL_URL, {
-          method: "POST",
-          headers: {
-            Accept: "*/*",
-            "content-type": "application/json",
-            Referer: "https://fintual.cl/",
-            ...(cookieHeader ? { Cookie: cookieHeader } : {}),
-          },
-          body: JSON.stringify(createGoalPerformanceRequest(goalId, timeIntervalCode)),
-        }),
-      catch: "Failed to fetch goal performance data",
-    })
-
-    const body = yield* tryPromise({
-      try: () => response.text(),
-      catch: "Failed to read goal performance response body",
-    })
-
-    if (!response.ok) {
-      yield* error(`Failed to fetch goal performance data (status ${response.status})`)
-      return null
-    }
-
-    return yield* Effect.catchAll(parseGoalPerformanceResponseBody(body), (cause) =>
-      Effect.as(error(getErrorMessage(cause)), null),
-    )
-  })
 }

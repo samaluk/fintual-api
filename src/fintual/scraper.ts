@@ -7,26 +7,26 @@ const FINTUAL_DATA_DIR = "./tmp/fintual-data"
 export const BALANCE_FILE_PATH = `${FINTUAL_DATA_DIR}/balance-2.json`
 
 export function foldGoalPerformanceData(
-  sixMonthData: GoalPerformanceData | null,
-  lastMonthData: GoalPerformanceData | null,
+  referenceData: GoalPerformanceData | null,
+  recentData: GoalPerformanceData | null,
 ): { balance: unknown[]; deposits: unknown[] } | null {
-  if (!lastMonthData?.balanceGraphDataPoints || !sixMonthData?.balanceGraphDataPoints) {
+  if (!recentData?.balanceGraphDataPoints || !referenceData?.balanceGraphDataPoints) {
     return null
   }
 
-  const lastMonthPoints = lastMonthData.balanceGraphDataPoints
+  const recentPoints = recentData.balanceGraphDataPoints
   const previousDeposits = getPreviousValue(
-    sixMonthData,
-    lastMonthData,
+    referenceData,
+    recentData,
     (point) => point.unrealizedCostBasisAmount,
   )
   const previousBalance = getPreviousValue(
-    sixMonthData,
-    lastMonthData,
+    referenceData,
+    recentData,
     (point) => point.sharesValuationAmount,
   )
 
-  const deposits = lastMonthPoints.map((point, index, points) => {
+  const deposits = recentPoints.map((point, index, points) => {
     const previousValue =
       index === 0 ? previousDeposits : points[index - 1].unrealizedCostBasisAmount
 
@@ -37,7 +37,7 @@ export function foldGoalPerformanceData(
     }
   })
 
-  const balance = lastMonthPoints.map((point, index, points) => {
+  const balance = recentPoints.map((point, index, points) => {
     const previousValue = index === 0 ? previousBalance : points[index - 1].sharesValuationAmount
     const previousDeposit =
       index === 0 ? previousDeposits : points[index - 1].unrealizedCostBasisAmount
