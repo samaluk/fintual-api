@@ -27,6 +27,11 @@ local projectChecks = new Mapping<String, Step> {
             argv = List("pnpm", "run", "typecheck")
         }
     }
+    ["test"] {
+        check = new Command {
+            argv = List("pnpm", "test")
+        }
+    }
     ["fallow"] {
         check = new Command {
             argv = List("pnpm", "run", "fallow:ci")

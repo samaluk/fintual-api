@@ -42,5 +42,8 @@ jobs:
       - name: Run Fallow
         run: pnpm fallow:ci
 
+      - name: Run tests
+        run: pnpm test
+
       - name: Run TypeScript
         run: pnpm run typecheck

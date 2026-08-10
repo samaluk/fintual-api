@@ -120,5 +120,5 @@ On pull requests, `pnpm fallow:ci`:
 
 ## Known findings (baselined)
 
-- 2 private type leaks (warn): `get2FACodeFromEmail` → `Email2FAOptions`, `createFintualHttpSession` → `FintualHttpSession`
+- 1 private type leak (warn): `get2FACodeFromEmail` → `Email2FAOptions`
 - No unused files/exports, semantic duplicate clone groups, or health threshold violations under current limits

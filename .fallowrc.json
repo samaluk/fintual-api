@@ -52,7 +52,7 @@
         "backend_family": "typescript-go",
         "completeness": "complete"
       },
-      "totalIssues": 2,
+      "totalIssues": 1,
       "unusedFiles": 0,
       "unusedExports": 0,
       "unusedTypes": 0,

@@ -14,8 +14,7 @@
   "unused_exports": [],
   "unused_types": [],
   "private_type_leaks": [
-    "src/fintual/email-2fa.ts:get2FACodeFromEmail->Email2FAOptions",
-    "src/fintual/http-session.ts:createFintualHttpSession->FintualHttpSession"
+    "src/fintual/email-2fa.ts:get2FACodeFromEmail->Email2FAOptions"
   ],
   "unused_dependencies": [],
   "unused_dev_dependencies": [],
