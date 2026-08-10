@@ -51,8 +51,8 @@ Use **Preserve log** in Chrome DevTools Network, or **`network har start` … `h
 
 ## Programmatic follow-up in this repo
 
-- [`src/fintual/http-session.ts`](../src/fintual/http-session.ts) — `loadSignInPage`, `initiateLogin`, `finalizeLoginWeb`, cookie jar, `postGql`.
-- [`src/fintual/http-sync.ts`](../src/fintual/http-sync.ts) — production sync: initiate (201) → Gmail IMAP 2FA → `finalize_login_web` → GraphQL (`GMAIL_*` / `FINTUAL_2FA_*`).
+- [`src/fintual/authenticated-ingestion.ts`](../src/fintual/authenticated-ingestion.ts) — ephemeral cookie jar and the complete sign-in → optional Gmail IMAP 2FA → GraphQL ingestion flow.
+- [`src/fintual/http-sync.ts`](../src/fintual/http-sync.ts) — production sync: authenticated ingestion → fold Reference and Recent Goal Performance Data → persist the balance file.
 
 **Note:** Node `fetch` may not receive `Set-Cookie` from Fintual/Cloudflare in some environments. If HTTP login fails, compare cookies in a HAR with a manual browser login.
 
@@ -65,4 +65,4 @@ Captures are written to **`tmp/fintual-capture.har`** (the `tmp/` directory is g
 | File | Role |
 |------|------|
 | [`bin/capture-fintual-har.sh`](../bin/capture-fintual-har.sh) | `pnpm capture:har` — HAR start, sign-in (from `.env` Fintual fields via [`bin/load-fintual-env-for-capture.mjs`](../bin/load-fintual-env-for-capture.mjs)), optional pause for 2FA, in-page GQL eval from [`bin/fintual-gql-eval-fragment.mjs`](../bin/fintual-gql-eval-fragment.mjs) + [`bin/fintual-goal-performance.graphql`](../bin/fintual-goal-performance.graphql), HAR stop. |
-| [`src/fintual/http-session.ts`](../src/fintual/http-session.ts) | Cookie jar + sign-in + `initiate_login` + `finalize_login_web` + `postGql`. |
+| [`src/fintual/authenticated-ingestion.ts`](../src/fintual/authenticated-ingestion.ts) | Ephemeral cookie jar + sign-in + `initiate_login` + optional `finalize_login_web` + Goal Performance Data requests. |
