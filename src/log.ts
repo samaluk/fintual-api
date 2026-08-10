@@ -1,21 +1,21 @@
 import { inspect } from "node:util"
-import { normalizeEnvValue } from "./env.ts"
+import type { RuntimeConfig } from "./env.ts"
 
-const SENSITIVE_ENV_NAMES = [
-  "ACTUAL_PASSWORD",
-  "ACTUAL_SERVER_URL",
-  "ACTUAL_SYNC_ID",
-  "ACTUAL_FINTUAL_ACCOUNT",
-  "FINTUAL_USER_EMAIL",
-  "FINTUAL_USER_PASSWORD",
-  "FINTUAL_GOAL_ID",
-  "GMAIL_USER_EMAIL",
-  "GMAIL_APP_PASSWORD",
-  "GMAIL_IMAP_HOST",
-  "GMAIL_IMAP_PORT",
-  "FINTUAL_2FA_SENDER",
-  "FINTUAL_2FA_SUBJECT",
-] as const
+let configuredRedactionSecrets: string[] = []
+
+export function configureSensitiveValues(config: RuntimeConfig): void {
+  configuredRedactionSecrets = [
+    config.actual.password,
+    config.actual.serverUrl,
+    config.actual.syncId,
+    config.actual.fintualAccount,
+    config.fintual.email,
+    config.fintual.password,
+    config.fintual.goalId,
+    config.fintual.email2FA?.userEmail,
+    config.fintual.email2FA?.appPassword,
+  ].filter((value): value is string => Boolean(value))
+}
 
 export function getErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message) {
@@ -41,13 +41,8 @@ export function getErrorMessage(error: unknown): string {
 function redactSensitiveText(value: string): string {
   let redactedValue = value
 
-  for (const envName of SENSITIVE_ENV_NAMES) {
-    const envValue = getNormalizedEnvValue(envName)
-    if (!envValue) {
-      continue
-    }
-
-    redactedValue = redactedValue.split(envValue).join(`[redacted ${envName}]`)
+  for (const sensitiveValue of configuredRedactionSecrets) {
+    redactedValue = redactedValue.split(sensitiveValue).join("[redacted]")
   }
 
   redactedValue = redactedValue.replaceAll(
@@ -74,15 +69,6 @@ function getStructuredErrorMessage(error: Record<string, unknown>): string {
   }
 
   return parts.join(": ")
-}
-
-function getNormalizedEnvValue(name: string): string {
-  const value = process.env[name]
-  if (!value) {
-    return ""
-  }
-
-  return normalizeEnvValue(value)
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

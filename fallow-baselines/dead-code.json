@@ -13,9 +13,7 @@
   "unused_files": [],
   "unused_exports": [],
   "unused_types": [],
-  "private_type_leaks": [
-    "src/fintual/email-2fa.ts:get2FACodeFromEmail->Email2FAOptions"
-  ],
+  "private_type_leaks": [],
   "unused_dependencies": [],
   "unused_dev_dependencies": [],
   "circular_dependencies": [],

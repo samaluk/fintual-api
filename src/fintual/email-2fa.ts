@@ -2,37 +2,33 @@ import { Effect } from "effect"
 import { ImapFlow, type SearchObject } from "imapflow"
 import { simpleParser } from "mailparser"
 import { error, log, sleep, tryPromise, warn } from "../effect.ts"
-import { getEnv } from "../env.ts"
+import type { Email2FAConfig } from "../env.ts"
 import { getErrorMessage } from "../log.ts"
 
 const DEFAULT_TIMEOUT_MS = 10000
 const DEFAULT_POLL_INTERVAL_MS = 2000
 const MAX_RESULTS = 10
 
-const GMAIL_IMAP_HOST = getEnv("GMAIL_IMAP_HOST", "imap.gmail.com")
-const GMAIL_IMAP_PORT = Number.parseInt(getEnv("GMAIL_IMAP_PORT", "993"), 10)
-const GMAIL_IMAP_DEBUG = ["1", "true"].includes(getEnv("GMAIL_IMAP_DEBUG", "").toLowerCase())
-const GMAIL_USER_EMAIL = getEnv("GMAIL_USER_EMAIL")
-const GMAIL_APP_PASSWORD = getEnv("GMAIL_APP_PASSWORD")
-const FINTUAL_2FA_SENDER = getEnv("FINTUAL_2FA_SENDER", "notificaciones@fintual.com")
-
 /** Gmail can file 2FA under categories; IMAP search is per-folder. */
 const GMAIL_IMAP_SEARCH_PATHS = ["INBOX", "[Gmail]/All Mail", "[Gmail]/Spam"] as const
 
-interface Email2FAOptions {
+export interface Email2FAOptions {
   afterTimestamp: Date
   timeoutMs?: number
   pollIntervalMs?: number
 }
 
-export function get2FACodeFromEmail(options: Email2FAOptions): Effect.Effect<string | null, Error> {
+export function get2FACodeFromEmail(
+  config: Email2FAConfig | null,
+  options: Email2FAOptions,
+): Effect.Effect<string | null, Error> {
   const {
     afterTimestamp,
     timeoutMs = DEFAULT_TIMEOUT_MS,
     pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
   } = options
 
-  if (!GMAIL_USER_EMAIL || !GMAIL_APP_PASSWORD) {
+  if (!config) {
     return Effect.as(
       log("Gmail IMAP credentials not configured, skipping automatic 2FA retrieval"),
       null,
@@ -41,7 +37,7 @@ export function get2FACodeFromEmail(options: Email2FAOptions): Effect.Effect<str
 
   return Effect.gen(function* () {
     yield* log("Connecting to Gmail IMAP for automatic 2FA retrieval...")
-    const imapClient = createImapClient()
+    const imapClient = createImapClient(config)
     const startedAt = Date.now()
     const seenMessageKeys = new Set<string>()
 
@@ -52,7 +48,7 @@ export function get2FACodeFromEmail(options: Email2FAOptions): Effect.Effect<str
       })
 
       while (Date.now() - startedAt < timeoutMs) {
-        const code = yield* searchForCode(imapClient, afterTimestamp, seenMessageKeys)
+        const code = yield* searchForCode(config, imapClient, afterTimestamp, seenMessageKeys)
         if (code) {
           yield* log("2FA code retrieved from Gmail.")
           return code
@@ -73,25 +69,26 @@ export function get2FACodeFromEmail(options: Email2FAOptions): Effect.Effect<str
   })
 }
 
-function createImapClient(): ImapFlow {
+function createImapClient(config: Email2FAConfig): ImapFlow {
   return new ImapFlow({
-    host: GMAIL_IMAP_HOST,
-    port: GMAIL_IMAP_PORT,
+    host: config.host,
+    port: config.port,
     secure: true,
     auth: {
-      user: GMAIL_USER_EMAIL,
-      pass: GMAIL_APP_PASSWORD,
+      user: config.userEmail,
+      pass: config.appPassword,
     },
     logger: false,
   })
 }
 
 function searchForCode(
+  config: Email2FAConfig,
   imapClient: ImapFlow,
   afterTimestamp: Date,
   seenMessageKeys: Set<string>,
 ): Effect.Effect<string | null, Error> {
-  const paths = imapSearchMailboxes()
+  const paths = imapSearchMailboxes(config)
 
   return Effect.gen(function* () {
     for (const mailboxPath of paths) {
@@ -101,7 +98,7 @@ function searchForCode(
           catch: `Failed to lock Gmail IMAP mailbox ${mailboxPath}`,
         }),
         () =>
-          GMAIL_IMAP_DEBUG
+          config.debug
             ? Effect.as(log(`Gmail IMAP: skip missing mailbox ${mailboxPath}`), undefined)
             : Effect.succeed(undefined),
       )
@@ -111,8 +108,8 @@ function searchForCode(
 
       const code = yield* Effect.ensuring(
         Effect.gen(function* () {
-          const messageUids = yield* runMailboxSearch(imapClient, afterTimestamp)
-          if (GMAIL_IMAP_DEBUG) {
+          const messageUids = yield* runMailboxSearch(config, imapClient, afterTimestamp)
+          if (config.debug) {
             yield* log(
               `Gmail IMAP: ${mailboxPath} search -> ${messageUids === false ? "no match" : `${messageUids.length} uid(s)`}`,
             )
@@ -140,8 +137,8 @@ function searchForCode(
   })
 }
 
-function imapSearchMailboxes(): string[] {
-  if (isGmailImapHost(GMAIL_IMAP_HOST)) {
+function imapSearchMailboxes(config: Email2FAConfig): string[] {
+  if (isGmailImapHost(config.host)) {
     return [...GMAIL_IMAP_SEARCH_PATHS]
   }
   return ["INBOX"]
@@ -205,10 +202,11 @@ function extractCodeFromMailboxUids(
 }
 
 function runMailboxSearch(
+  config: Email2FAConfig,
   imapClient: ImapFlow,
   afterTimestamp: Date,
 ): Effect.Effect<number[] | false, Error> {
-  const queries = buildSearchQueries(afterTimestamp)
+  const queries = buildSearchQueries(config, afterTimestamp)
 
   return Effect.gen(function* () {
     for (const query of queries) {
@@ -248,20 +246,20 @@ function formatGmailAfterDate(d: Date): string {
   return `${yyyy}/${mm}/${dd}`
 }
 
-function buildSearchQueries(afterTimestamp: Date): SearchObject[] {
+function buildSearchQueries(config: Email2FAConfig, afterTimestamp: Date): SearchObject[] {
   const queries: SearchObject[] = []
 
-  if (isGmailImapHost(GMAIL_IMAP_HOST)) {
+  if (isGmailImapHost(config.host)) {
     const after = formatGmailAfterDate(afterTimestamp)
     queries.push({
-      gmraw: `from:${FINTUAL_2FA_SENDER} after:${after}`,
+      gmraw: `from:${config.sender} after:${after}`,
     })
     queries.push({
       gmraw: `from:fintual.com after:${after}`,
     })
     // Relative window avoids rare date/TZ mismatches between container and Gmail account settings.
     queries.push({
-      gmraw: `from:${FINTUAL_2FA_SENDER} newer_than:1d`,
+      gmraw: `from:${config.sender} newer_than:1d`,
     })
     queries.push({
       gmraw: `from:fintual.com newer_than:1d`,
@@ -269,7 +267,7 @@ function buildSearchQueries(afterTimestamp: Date): SearchObject[] {
   }
 
   queries.push({
-    from: FINTUAL_2FA_SENDER,
+    from: config.sender,
     since: afterTimestamp,
   })
 
