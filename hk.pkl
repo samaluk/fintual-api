@@ -35,6 +35,11 @@ local projectChecks = new Mapping<String, Step> {
 }
 
 hooks {
+    ["commit-msg"] {
+        steps = new Mapping<String, Step> {
+            ["conventional-commit"] = Builtins.check_conventional_commit
+        }
+    }
     ["pre-commit"] {
         fix = true
         stash = "git"

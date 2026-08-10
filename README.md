@@ -122,12 +122,14 @@ Fallow 3.14 runs type-aware dead-code, duplication, and health gates in CI. See 
 
 [`hk`](https://hk.jdx.dev/) keeps local commits and pushes aligned with CI:
 
+- `commit-msg` requires commit subjects to follow the [Conventional Commits](https://www.conventionalcommits.org/) format.
 - `pre-commit` checks staged TypeScript with Oxfmt and Oxlint in parallel. Safe fixes are applied and re-staged while unstaged changes are temporarily stashed.
 - `pre-push` checks the files being pushed with Oxfmt and Oxlint while running the full TypeScript and Fallow gates in parallel.
 
 Run the hooks explicitly when needed:
 
 ```bash
+hk run commit-msg .git/COMMIT_EDITMSG
 hk run pre-commit
 hk run pre-push
 hk check --all
