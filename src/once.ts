@@ -1,13 +1,18 @@
 import { pathToFileURL } from "node:url"
+import { config as loadDotEnv } from "dotenv"
 import { Effect } from "effect"
 import { log } from "./effect.ts"
+import { resolveRuntimeConfig } from "./env.ts"
 import { runJob } from "./job.ts"
-import { getErrorMessage } from "./log.ts"
-import "./env.ts"
+import { configureSensitiveValues, getErrorMessage } from "./log.ts"
+
+loadDotEnv()
 
 const main: Effect.Effect<void, Error> = Effect.gen(function* () {
+  const runtimeConfig = yield* resolveRuntimeConfig(process.env)
+  configureSensitiveValues(runtimeConfig)
   yield* log("Running task once...")
-  yield* runJob
+  yield* runJob(runtimeConfig)
   yield* log("Task completed.")
 })
 

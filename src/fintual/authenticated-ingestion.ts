@@ -1,6 +1,5 @@
 import { Effect } from "effect"
 import { tryPromise, trySync } from "../effect.ts"
-import { get2FACodeFromEmail } from "./email-2fa.ts"
 import {
   createGoalPerformanceRequest,
   type GoalPerformanceData,
@@ -16,7 +15,11 @@ const BROWSER_USER_AGENT =
 
 export interface AuthenticatedIngestionDependencies {
   fetch: typeof globalThis.fetch
-  get2FACode: typeof get2FACodeFromEmail
+  get2FACode: (options: {
+    afterTimestamp: Date
+    timeoutMs?: number
+    pollIntervalMs?: number
+  }) => Effect.Effect<string | null, Error>
 }
 
 export interface AuthenticatedIngestionOptions {
@@ -61,11 +64,6 @@ export function createAuthenticatedFintualIngestion(
     })
   }
 }
-
-export const fetchAuthenticatedGoalPerformance = createAuthenticatedFintualIngestion({
-  fetch: globalThis.fetch,
-  get2FACode: get2FACodeFromEmail,
-})
 
 class FintualHttpSession {
   private readonly cookies = new Map<string, string>()
@@ -120,7 +118,7 @@ function loadSignInPage(session: FintualHttpSession): Effect.Effect<void, Error>
 
 function authenticate(
   session: FintualHttpSession,
-  get2FACode: typeof get2FACodeFromEmail,
+  get2FACode: AuthenticatedIngestionDependencies["get2FACode"],
   email: string,
   password: string,
 ): Effect.Effect<void, Error> {

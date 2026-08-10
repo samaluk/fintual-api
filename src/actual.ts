@@ -3,15 +3,8 @@ import * as api from "@actual-app/api"
 import { Effect } from "effect"
 import * as v from "valibot"
 import { log, sleep, tryPromise, trySync, warn } from "./effect.ts"
-import { getEnv } from "./env.ts"
+import type { ActualConfig } from "./env.ts"
 import { getErrorMessage } from "./log.ts"
-
-const SERVER_URL = getEnv("ACTUAL_SERVER_URL")
-const PASSWORD = getEnv("ACTUAL_PASSWORD")
-const SYNC_ID = getEnv("ACTUAL_SYNC_ID")
-const FINTUAL_ACCOUNT = getEnv("ACTUAL_FINTUAL_ACCOUNT")
-const STARTING_DATE = getEnv("ACTUAL_STARTING_DATE", getEnv("STARTING_DATE", "2024-03-01"))
-const PAYEE = getEnv("ACTUAL_PAYEE", "Fintual")
 
 const ACTUAL_DATA_DIR = "./tmp/actual-data"
 const BALANCE_FILE_PATH = "./tmp/fintual-data/balance-2.json"
@@ -59,24 +52,20 @@ interface SyncCounts {
   deletedDuplicates: number
 }
 
-export const main: Effect.Effect<void, Error> = Effect.gen(function* () {
-  yield* assertActualEnvConfigured()
-  const syncCounts = yield* runActualSyncWithRetry(1)
-  yield* log(
-    `Actual sync finished. Created ${syncCounts.created} transactions, updated ${syncCounts.updated}, and deleted ${syncCounts.deletedDuplicates} duplicates.`,
-  )
-})
-
-function assertActualEnvConfigured(): Effect.Effect<void, Error> {
-  if (SERVER_URL && PASSWORD && SYNC_ID && FINTUAL_ACCOUNT && STARTING_DATE && PAYEE) {
-    return Effect.void
-  }
-
-  return Effect.fail(new Error("Missing Actual configuration environment variables"))
+export function main(config: ActualConfig): Effect.Effect<void, Error> {
+  return Effect.gen(function* () {
+    const syncCounts = yield* runActualSyncWithRetry(config, 1)
+    yield* log(
+      `Actual sync finished. Created ${syncCounts.created} transactions, updated ${syncCounts.updated}, and deleted ${syncCounts.deletedDuplicates} duplicates.`,
+    )
+  })
 }
 
-function runActualSyncWithRetry(attempt: number): Effect.Effect<SyncCounts, Error> {
-  return Effect.catchAll(runActualSyncAttempt(), (cause) => {
+function runActualSyncWithRetry(
+  config: ActualConfig,
+  attempt: number,
+): Effect.Effect<SyncCounts, Error> {
+  return Effect.catchAll(runActualSyncAttempt(config), (cause) => {
     const shouldRetry = isRetryableActualError(cause) && attempt < MAX_SYNC_ATTEMPTS
 
     if (!shouldRetry) {
@@ -89,22 +78,22 @@ function runActualSyncWithRetry(attempt: number): Effect.Effect<SyncCounts, Erro
         `Actual sync attempt ${attempt} failed with a retryable error: ${getErrorMessage(cause)}. Retrying in ${Math.round(retryDelayMs / 1000)}s.`,
       )
       yield* sleep(retryDelayMs)
-      return yield* runActualSyncWithRetry(attempt + 1)
+      return yield* runActualSyncWithRetry(config, attempt + 1)
     })
   })
 }
 
-function runActualSyncAttempt(): Effect.Effect<SyncCounts, Error> {
+function runActualSyncAttempt(config: ActualConfig): Effect.Effect<SyncCounts, Error> {
   return Effect.gen(function* () {
     yield* resetDataDirectory()
-    yield* assertActualServerReachable()
+    yield* assertActualServerReachable(config)
 
     yield* tryPromise({
       try: () =>
         api.init({
           dataDir: ACTUAL_DATA_DIR,
-          serverURL: SERVER_URL,
-          password: PASSWORD,
+          serverURL: config.serverUrl,
+          password: config.password,
         } satisfies ActualInitConfig),
       catch: "Failed to initialize Actual API",
     })
@@ -112,10 +101,10 @@ function runActualSyncAttempt(): Effect.Effect<SyncCounts, Error> {
     return yield* Effect.ensuring(
       Effect.gen(function* () {
         yield* tryPromise({
-          try: () => api.downloadBudget(SYNC_ID),
+          try: () => api.downloadBudget(config.syncId),
           catch: "Failed to download Actual budget",
         })
-        return yield* syncDailyVariationTransactions()
+        return yield* syncDailyVariationTransactions(config)
       }),
       Effect.ignore(
         tryPromise({
@@ -127,16 +116,16 @@ function runActualSyncAttempt(): Effect.Effect<SyncCounts, Error> {
   })
 }
 
-function syncDailyVariationTransactions(): Effect.Effect<SyncCounts, Error> {
+function syncDailyVariationTransactions(config: ActualConfig): Effect.Effect<SyncCounts, Error> {
   return Effect.gen(function* () {
     const endingDate = getTodayIsoDate()
     const transactions = yield* tryPromise({
-      try: () => api.getTransactions(FINTUAL_ACCOUNT, STARTING_DATE, endingDate),
+      try: () => api.getTransactions(config.fintualAccount, config.startingDate, endingDate),
       catch: "Failed to fetch Actual transactions",
     })
 
-    const balanceEntries = yield* normalizeBalanceEntries(yield* loadBalanceEntries())
-    const payeeId = yield* getPayeeId()
+    const balanceEntries = yield* normalizeBalanceEntries(yield* loadBalanceEntries(config))
+    const payeeId = yield* getPayeeId(config)
     const variationTransactionsByDate = groupVariationTransactionsByDate(transactions, payeeId)
     const processedDates = new Set<string>()
     const syncCounts: SyncCounts = {
@@ -152,7 +141,7 @@ function syncDailyVariationTransactions(): Effect.Effect<SyncCounts, Error> {
 
       if (existingTransactions.length === 0) {
         yield* tryPromise({
-          try: () => api.addTransactions(FINTUAL_ACCOUNT, [transaction]),
+          try: () => api.addTransactions(config.fintualAccount, [transaction]),
           catch: "Failed to add Actual transaction",
         })
         syncCounts.created += 1
@@ -206,7 +195,7 @@ function resetDataDirectory(): Effect.Effect<void, Error> {
   })
 }
 
-function loadBalanceEntries(): Effect.Effect<BalanceEntry[], Error> {
+function loadBalanceEntries(config: ActualConfig): Effect.Effect<BalanceEntry[], Error> {
   return Effect.gen(function* () {
     const parsedFile = yield* trySync({
       // oxlint-disable-next-line typescript/consistent-type-assertions
@@ -220,7 +209,7 @@ function loadBalanceEntries(): Effect.Effect<BalanceEntry[], Error> {
       return []
     }
 
-    const startingTimestamp = Date.parse(STARTING_DATE)
+    const startingTimestamp = Date.parse(config.startingDate)
     return validation.output.balance.filter((entry) => entry.date >= startingTimestamp)
   })
 }
@@ -358,13 +347,13 @@ function deleteDuplicateVariationTransactions(
   })
 }
 
-function getPayeeId(): Effect.Effect<string | undefined, Error> {
+function getPayeeId(config: ActualConfig): Effect.Effect<string | undefined, Error> {
   return Effect.gen(function* () {
     const payees = yield* tryPromise({
       try: () => api.getPayees(),
       catch: "Failed to fetch Actual payees",
     })
-    const payee = payees.find((candidate) => candidate.name === PAYEE)
+    const payee = payees.find((candidate) => candidate.name === config.payee)
 
     if (!payee) {
       yield* log("Configured payee not found")
@@ -412,8 +401,10 @@ function isRetryableActualError(error: unknown): boolean {
   return error.type === "PostError" && error.reason === "network-failure"
 }
 
-function assertActualServerReachable(): Effect.Effect<void, Error> {
-  const normalizedBaseUrl = SERVER_URL.endsWith("/") ? SERVER_URL.slice(0, -1) : SERVER_URL
+function assertActualServerReachable(config: ActualConfig): Effect.Effect<void, Error> {
+  const normalizedBaseUrl = config.serverUrl.endsWith("/")
+    ? config.serverUrl.slice(0, -1)
+    : config.serverUrl
   const healthUrl = `${normalizedBaseUrl}/health`
 
   return Effect.gen(function* () {
