@@ -11,7 +11,7 @@ export const TimeIntervalCode = {
   AllTime: "all_time",
 } as const
 
-type TimeIntervalCode = (typeof TimeIntervalCode)[keyof typeof TimeIntervalCode]
+export type TimeIntervalCode = (typeof TimeIntervalCode)[keyof typeof TimeIntervalCode]
 
 const NEW_PERFORMANCE_QUERY =
   "query GoalInvestedBalanceGraphDataPoints($goalId: ID!, $timeIntervalCode: String!) {\n  balanceGraphDataPoints: clGoalBalanceGraphDataPoints(\n    goalId: $goalId\n    timeIntervalCode: $timeIntervalCode\n  ) {\n    date\n    unrealizedCostBasisAmount\n    unrealizedGainOrLossAmount\n    realizedCostBasisAmount\n    realizedGainOrLossAmount\n    sharesCostBasisAmount\n    sharesValuationAmount\n    pendingFulfillmentReinvestmentDepositsCostBasisAmount\n    pendingFulfillmentReinvestmentDepositsAmount\n    withdrawnAmount\n    __typename\n  }\n}"
@@ -37,47 +37,37 @@ const newPerformanceSchema = v.object({
 
 export type GoalPerformanceData = v.InferOutput<typeof newPerformanceSchema>["data"]
 
-function parseGoalPerformanceJsonText(body: string): Effect.Effect<GoalPerformanceData | null> {
+export function parseGoalPerformanceResponseBody(
+  body: string,
+): Effect.Effect<GoalPerformanceData, Error> {
   return Effect.gen(function* () {
-    const parsedJson = yield* Effect.catchAll(
-      trySync({
-        // oxlint-disable-next-line typescript/consistent-type-assertions
-        try: () => JSON.parse(body) as unknown,
-        catch: "Failed to parse goal performance response body",
-      }),
-      (parseError) =>
-        Effect.as(
-          error(`Failed to parse goal performance response body: ${getErrorMessage(parseError)}`),
-          null,
-        ),
-    )
-
-    if (parsedJson === null) {
-      return null
-    }
+    const parsedJson = yield* trySync({
+      // oxlint-disable-next-line typescript/consistent-type-assertions
+      try: () => JSON.parse(body) as unknown,
+      catch: "Failed to parse goal performance response body",
+    })
 
     const parsedData = v.safeParse(newPerformanceSchema, parsedJson)
     if (!parsedData.success) {
-      yield* error(
-        `Failed to validate goal performance data: ${getValidationBodyPreview(parsedJson)}`,
+      return yield* Effect.fail(
+        new Error(`Failed to validate goal performance data: ${getValidationFailure(parsedJson)}`),
       )
-      return null
     }
 
     return parsedData.output.data
   })
 }
 
-function getValidationBodyPreview(parsedJson: unknown): string {
+function getValidationFailure(parsedJson: unknown): string {
   if (!isRecord(parsedJson)) {
-    return `unexpected response ${JSON.stringify(parsedJson).slice(0, 400)}`
+    return "response is not an object"
   }
 
   if ("errors" in parsedJson) {
-    return `GraphQL errors ${JSON.stringify(parsedJson.errors).slice(0, 400)}`
+    return "GraphQL response contains errors"
   }
 
-  return `response preview ${JSON.stringify(parsedJson).slice(0, 400)}`
+  return "response does not match the Goal Performance Data schema"
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -85,6 +75,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 const GQL_URL = "https://fintual.cl/gql/"
+
+export function createGoalPerformanceRequest(
+  goalId: string,
+  timeIntervalCode: TimeIntervalCode,
+): Record<string, unknown> {
+  return {
+    operationName: "GoalInvestedBalanceGraphDataPoints",
+    variables: {
+      goalId,
+      timeIntervalCode,
+    },
+    query: NEW_PERFORMANCE_QUERY,
+  }
+}
 
 /** GraphQL fetch using a raw `Cookie` header (see `docs/fintual-http-capture.md`). */
 export function getGoalPerformanceWithCookies(
@@ -103,14 +107,7 @@ export function getGoalPerformanceWithCookies(
             Referer: "https://fintual.cl/",
             ...(cookieHeader ? { Cookie: cookieHeader } : {}),
           },
-          body: JSON.stringify({
-            operationName: "GoalInvestedBalanceGraphDataPoints",
-            variables: {
-              goalId,
-              timeIntervalCode,
-            },
-            query: NEW_PERFORMANCE_QUERY,
-          }),
+          body: JSON.stringify(createGoalPerformanceRequest(goalId, timeIntervalCode)),
         }),
       catch: "Failed to fetch goal performance data",
     })
@@ -125,6 +122,8 @@ export function getGoalPerformanceWithCookies(
       return null
     }
 
-    return yield* parseGoalPerformanceJsonText(body)
+    return yield* Effect.catchAll(parseGoalPerformanceResponseBody(body), (cause) =>
+      Effect.as(error(getErrorMessage(cause)), null),
+    )
   })
 }
