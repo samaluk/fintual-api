@@ -11,6 +11,7 @@ The repo intentionally supports only two flows:
 
 - Node.js 24+
 - pnpm
+- [hk](https://hk.jdx.dev/) 1.54+
 - Fintual credentials
 - Actual Budget server credentials
 - Gmail app password for unattended 2FA
@@ -22,6 +23,14 @@ The repo intentionally supports only two flows:
 ```bash
 pnpm install
 ```
+
+1. Enable the repository's Git hooks. With Git 2.54+, the recommended one-time setup is:
+
+```bash
+hk install --global
+```
+
+   For an installation scoped to this clone instead, run `hk install`.
 
 1. Create a local env file:
 
@@ -108,6 +117,21 @@ Details and observed endpoints are in [`docs/fintual-http-capture.md`](docs/fint
 ## Quality ratchet
 
 Fallow 3.14 runs type-aware dead-code, duplication, and health gates in CI. See [`docs/fallow.md`](docs/fallow.md).
+
+## Git hooks
+
+[`hk`](https://hk.jdx.dev/) keeps local commits and pushes aligned with CI:
+
+- `pre-commit` checks staged TypeScript with Oxfmt and Oxlint in parallel. Safe fixes are applied and re-staged while unstaged changes are temporarily stashed.
+- `pre-push` checks the files being pushed with Oxfmt and Oxlint while running the full TypeScript and Fallow gates in parallel.
+
+Run the hooks explicitly when needed:
+
+```bash
+hk run pre-commit
+hk run pre-push
+hk check --all
+```
 
 ## Docker Image
 

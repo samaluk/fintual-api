@@ -1,0 +1,53 @@
+amends "package://github.com/jdx/hk/releases/download/v1.54.1/hk@1.54.1#/Config.pkl"
+import "package://github.com/jdx/hk/releases/download/v1.54.1/hk@1.54.1#/Builtins.pkl"
+
+local sourceGlobs = List("src/**/*.ts")
+
+local sourceChecks = new Mapping<String, Step> {
+    ["oxfmt"] = (Builtins.oxfmt) {
+        glob = sourceGlobs
+        prefix = "pnpm exec"
+        check_first = true
+        // These built-in fixtures cannot resolve repo-local pnpm binaries from their temp dirs.
+        tests = new Mapping<String, StepTest> {}
+    }
+    ["oxlint"] = (Builtins.ox_lint) {
+        glob = sourceGlobs
+        prefix = "pnpm exec"
+        check_first = true
+        // These built-in fixtures cannot resolve repo-local pnpm binaries from their temp dirs.
+        tests = new Mapping<String, StepTest> {}
+    }
+}
+
+local projectChecks = new Mapping<String, Step> {
+    ...sourceChecks
+    ["typecheck"] {
+        check = new Command {
+            argv = List("pnpm", "run", "typecheck")
+        }
+    }
+    ["fallow"] {
+        check = new Command {
+            argv = List("pnpm", "run", "fallow:ci")
+        }
+    }
+}
+
+hooks {
+    ["pre-commit"] {
+        fix = true
+        stash = "git"
+        steps = sourceChecks
+    }
+    ["pre-push"] {
+        steps = projectChecks
+    }
+    ["fix"] {
+        fix = true
+        steps = sourceChecks
+    }
+    ["check"] {
+        steps = projectChecks
+    }
+}
