@@ -62,6 +62,19 @@ test("uses legacy starting date and enables email 2FA when both credentials are 
   })
 })
 
+test("preserves quoted-empty values instead of falling back to defaults", async () => {
+  const configuration = await Effect.runPromise(
+    resolveRuntimeConfig({
+      ...requiredEnvironment(),
+      ACTUAL_PAYEE: "''",
+      STARTING_DATE: "''",
+    }),
+  )
+
+  expect(configuration.actual.payee).toBe("")
+  expect(configuration.actual.startingDate).toBe("")
+})
+
 test("reports all missing required runtime values", async () => {
   const result = await Effect.runPromise(Effect.result(resolveRuntimeConfig({})))
 
