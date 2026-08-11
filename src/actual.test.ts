@@ -1,6 +1,7 @@
+import { it } from "@effect/vitest"
 import { Duration, Effect, Fiber, Redacted, Result, Schedule } from "effect"
 import { TestClock } from "effect/testing"
-import { afterEach, expect, test, vi } from "vitest"
+import { afterEach, expect, vi } from "vitest"
 
 const actualApiMock = vi.hoisted(() => ({
   init: vi.fn(),
@@ -60,146 +61,156 @@ const SNAPSHOT: PerformanceSnapshot = {
   ],
 }
 
-test("synchronizes through one service and shuts down the Actual session once", async () => {
-  const calls: string[] = []
-  const client = scriptedClient(calls)
+it.effect("synchronizes through one service and shuts down the Actual session once", () =>
+  Effect.gen(function* () {
+    const calls: string[] = []
+    const client = scriptedClient(calls)
 
-  await Effect.runPromise(synchronizationProgram([client], calls))
+    yield* synchronizationProgram([client], calls)
 
-  expect(calls).toEqual([
-    "reset",
-    "health",
-    "download",
-    "transactions",
-    "payees",
-    "create:2026-01-05",
-    "sync",
-    "shutdown",
-  ])
-})
+    expect(calls).toEqual([
+      "reset",
+      "health",
+      "download",
+      "transactions",
+      "payees",
+      "create:2026-01-05",
+      "sync",
+      "shutdown",
+    ])
+  }),
+)
 
-test("retries a failed mutation as a fresh Synchronization Attempt", async () => {
-  const calls: string[] = []
-  const importedTransaction = {
-    id: "created-after-timeout",
-    date: "2026-01-05",
-    notes: "Variation",
-    payee: "payee-id",
-    imported_id: "fintual-variation:2026-01-05",
-  }
-  const secondAttemptTransactions: Array<typeof importedTransaction> = []
-  const firstAttempt = scriptedClient(calls, {
-    create: (_accountId, transaction) => {
-      calls.push(`create:${transaction.date}`)
-      secondAttemptTransactions.push(importedTransaction)
-      return Effect.fail(
-        new ActualTransactionCreationFailure({
-          cause: { code: "network-failure" },
-          retryable: true,
-        }),
-      )
-    },
-  })
-  const secondAttempt = scriptedClient(calls, {
-    transactions: secondAttemptTransactions,
-  })
-
-  await Effect.runPromise(
-    synchronizationProgram([firstAttempt, secondAttempt], calls, { retries: 1 }),
-  )
-
-  expect(calls).toEqual([
-    "reset",
-    "health",
-    "download",
-    "transactions",
-    "payees",
-    "create:2026-01-05",
-    "shutdown",
-    "reset",
-    "health",
-    "download",
-    "transactions",
-    "payees",
-    "update:created-after-timeout",
-    "sync",
-    "shutdown",
-  ])
-})
-
-test("does not retry a non-retryable Actual failure", async () => {
-  const calls: string[] = []
-  const client: ActualClient = {
-    ...scriptedClient(calls),
-    downloadBudget: () =>
-      Effect.gen(function* () {
-        calls.push("download")
-        return yield* new ActualBudgetDownloadFailure({
-          cause: { code: "budget-not-found" },
-          retryable: false,
-        })
-      }),
-  }
-
-  await expect(
-    Effect.runPromise(synchronizationProgram([client], calls, { retries: 3 })),
-  ).rejects.toMatchObject({
-    _tag: "ActualBudgetDownloadFailure",
-    retryable: false,
-  })
-  expect(calls).toEqual(["reset", "health", "download", "shutdown"])
-})
-
-test("the live Actual adapter preserves stable SDK network codes", async () => {
-  actualApiMock.init.mockResolvedValue({})
-  actualApiMock.downloadBudget.mockRejectedValue({ code: "network-failure" })
-
-  const result = await Effect.runPromise(
-    Effect.gen(function* () {
-      const factory = yield* ActualClientFactory
-      const client = yield* factory.acquire(CONFIG)
-      return yield* Effect.result(client.downloadBudget(CONFIG.syncId))
-    }).pipe(Effect.provide(ActualClientFactory.live)),
-  )
-
-  expect(Result.isFailure(result)).toBe(true)
-  expect(actualApiMock.init).toHaveBeenCalledWith(expect.objectContaining({ password: "secret" }))
-  if (Result.isFailure(result)) {
-    expect(result.failure).toMatchObject({
-      _tag: "ActualBudgetDownloadFailure",
-      cause: { code: "network-failure" },
-      retryable: true,
+it.effect("retries a failed mutation as a fresh Synchronization Attempt", () =>
+  Effect.gen(function* () {
+    const calls: string[] = []
+    const importedTransaction = {
+      id: "created-after-timeout",
+      date: "2026-01-05",
+      notes: "Variation",
+      payee: "payee-id",
+      imported_id: "fintual-variation:2026-01-05",
+    }
+    const secondAttemptTransactions: Array<typeof importedTransaction> = []
+    const firstAttempt = scriptedClient(calls, {
+      create: (_accountId, transaction) => {
+        calls.push(`create:${transaction.date}`)
+        secondAttemptTransactions.push(importedTransaction)
+        return Effect.fail(
+          new ActualTransactionCreationFailure({
+            cause: { code: "network-failure" },
+            retryable: true,
+          }),
+        )
+      },
     })
-  }
-})
+    const secondAttempt = scriptedClient(calls, {
+      transactions: secondAttemptTransactions,
+    })
 
-test("health checks normalize the server URL and classify HTTP failures", async () => {
-  const urls: string[] = []
-  const fetchRequest: typeof globalThis.fetch = async (input) => {
-    urls.push(typeof input === "string" ? input : input instanceof URL ? input.href : input.url)
-    return new Response("", { status: 503 })
-  }
-  const program = Effect.gen(function* () {
-    const healthCheck = yield* ActualHealthCheck
-    yield* healthCheck.check("https://actual.example.test/")
-  }).pipe(Effect.provide(ActualHealthCheck.layer(fetchRequest)))
+    yield* synchronizationProgram([firstAttempt, secondAttempt], calls, { retries: 1 })
 
-  await expect(Effect.runPromise(program)).rejects.toMatchObject({
-    _tag: "ActualHealthCheckFailure",
-    status: 503,
-    retryable: true,
-    url: "https://actual.example.test/health",
-  })
-  expect(urls).toEqual(["https://actual.example.test/health"])
-})
+    expect(calls).toEqual([
+      "reset",
+      "health",
+      "download",
+      "transactions",
+      "payees",
+      "create:2026-01-05",
+      "shutdown",
+      "reset",
+      "health",
+      "download",
+      "transactions",
+      "payees",
+      "update:created-after-timeout",
+      "sync",
+      "shutdown",
+    ])
+  }),
+)
 
-test("health-check timeout is controlled by the Effect Clock", async () => {
-  const fetchRequest: typeof globalThis.fetch = async () => new Promise<Response>(() => {})
-  const healthCheck = Effect.gen(function* () {
-    const service = yield* ActualHealthCheck
-    yield* service.check("https://actual.example.test")
-  }).pipe(Effect.provide(ActualHealthCheck.layer(fetchRequest)))
-  const program = Effect.gen(function* () {
+it.effect("does not retry a non-retryable Actual failure", () =>
+  Effect.gen(function* () {
+    const calls: string[] = []
+    const client: ActualClient = {
+      ...scriptedClient(calls),
+      downloadBudget: () =>
+        Effect.gen(function* () {
+          calls.push("download")
+          return yield* new ActualBudgetDownloadFailure({
+            cause: { code: "budget-not-found" },
+            retryable: false,
+          })
+        }),
+    }
+
+    const error = yield* Effect.flip(synchronizationProgram([client], calls, { retries: 3 }))
+
+    expect(error).toMatchObject({
+      _tag: "ActualBudgetDownloadFailure",
+      retryable: false,
+    })
+    expect(calls).toEqual(["reset", "health", "download", "shutdown"])
+  }),
+)
+
+it.effect("the live Actual adapter preserves stable SDK network codes", () =>
+  Effect.gen(function* () {
+    actualApiMock.init.mockResolvedValue({})
+    actualApiMock.downloadBudget.mockRejectedValue({ code: "network-failure" })
+
+    const result = yield* Effect.result(
+      Effect.gen(function* () {
+        const factory = yield* ActualClientFactory
+        const client = yield* factory.acquire(CONFIG)
+        return yield* client.downloadBudget(CONFIG.syncId)
+      }).pipe(Effect.provide(ActualClientFactory.live)),
+    )
+
+    expect(Result.isFailure(result)).toBe(true)
+    expect(actualApiMock.init).toHaveBeenCalledWith(expect.objectContaining({ password: "secret" }))
+    if (Result.isFailure(result)) {
+      expect(result.failure).toMatchObject({
+        _tag: "ActualBudgetDownloadFailure",
+        cause: { code: "network-failure" },
+        retryable: true,
+      })
+    }
+  }),
+)
+
+it.effect("health checks normalize the server URL and classify HTTP failures", () =>
+  Effect.gen(function* () {
+    const urls: string[] = []
+    const fetchRequest: typeof globalThis.fetch = async (input) => {
+      urls.push(typeof input === "string" ? input : input instanceof URL ? input.href : input.url)
+      return new Response("", { status: 503 })
+    }
+    const program = Effect.gen(function* () {
+      const healthCheck = yield* ActualHealthCheck
+      yield* healthCheck.check("https://actual.example.test/")
+    }).pipe(Effect.provide(ActualHealthCheck.layer(fetchRequest)))
+
+    const error = yield* Effect.flip(program)
+
+    expect(error).toMatchObject({
+      _tag: "ActualHealthCheckFailure",
+      status: 503,
+      retryable: true,
+      url: "https://actual.example.test/health",
+    })
+    expect(urls).toEqual(["https://actual.example.test/health"])
+  }),
+)
+
+it.effect("health-check timeout is controlled by the Effect Clock", () =>
+  Effect.gen(function* () {
+    const fetchRequest: typeof globalThis.fetch = async () => new Promise<Response>(() => {})
+    const healthCheck = Effect.gen(function* () {
+      const service = yield* ActualHealthCheck
+      yield* service.check("https://actual.example.test")
+    }).pipe(Effect.provide(ActualHealthCheck.layer(fetchRequest)))
     const fiber = yield* Effect.forkChild(healthCheck)
     yield* TestClock.adjust(10_000)
     const result = yield* Effect.result(Fiber.join(fiber))
@@ -211,47 +222,41 @@ test("health-check timeout is controlled by the Effect Clock", async () => {
         retryable: true,
       })
     }
-  }).pipe(Effect.provide(TestClock.layer()))
+  }),
+)
 
-  await Effect.runPromise(program)
-})
+it.effect("uses the Effect Clock for the transaction end date", () =>
+  Effect.gen(function* () {
+    const calls: string[] = []
+    const endingDates: string[] = []
+    const client = scriptedClient(calls, {
+      onTransactions: (_startDate, endDate) => endingDates.push(endDate),
+    })
 
-test("uses the Effect Clock for the transaction end date", async () => {
-  const calls: string[] = []
-  const endingDates: string[] = []
-  const client = scriptedClient(calls, {
-    onTransactions: (_startDate, endDate) => endingDates.push(endDate),
-  })
-  const synchronization = synchronizationProgram([client], calls)
-  const program = Effect.gen(function* () {
     yield* TestClock.setTime(Date.parse("2026-02-03T12:00:00Z"))
-    yield* synchronization
-  }).pipe(Effect.provide(TestClock.layer()))
+    yield* synchronizationProgram([client], calls)
 
-  await Effect.runPromise(program)
+    expect(endingDates).toEqual(["2026-02-03"])
+  }),
+)
 
-  expect(endingDates).toEqual(["2026-02-03"])
-})
-
-test("shuts down the scoped Actual session when the workflow is interrupted", async () => {
-  const calls: string[] = []
-  const client = scriptedClient(calls, {
-    download: () =>
-      Effect.gen(function* () {
-        calls.push("download")
-        yield* Effect.never
-      }),
-  })
-  const program = Effect.gen(function* () {
+it.effect("shuts down the scoped Actual session when the workflow is interrupted", () =>
+  Effect.gen(function* () {
+    const calls: string[] = []
+    const client = scriptedClient(calls, {
+      download: () =>
+        Effect.gen(function* () {
+          calls.push("download")
+          yield* Effect.never
+        }),
+    })
     const fiber = yield* Effect.forkChild(synchronizationProgram([client], calls))
     yield* Effect.yieldNow
     yield* Fiber.interrupt(fiber)
-  })
 
-  await Effect.runPromise(program)
-
-  expect(calls).toEqual(["reset", "health", "download", "shutdown"])
-})
+    expect(calls).toEqual(["reset", "health", "download", "shutdown"])
+  }),
+)
 
 function synchronizationProgram(
   clients: ReadonlyArray<ActualClient>,
