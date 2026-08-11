@@ -238,9 +238,9 @@ describe("retrieveEmail2FACode recoverability", () => {
 
     const exit = await runRetrieval(
       GMAIL_CONFIG,
-      { afterTimestamp: AFTER_TIMESTAMP, pollIntervalMs: 2_000, timeoutMs: 4_000 },
+      { afterTimestamp: AFTER_TIMESTAMP, pollIntervalMs: 2_000, timeoutMs: 5_000 },
       fake.client,
-      () => TestClock.adjust("4 seconds"),
+      () => TestClock.adjust("5 seconds"),
     )
 
     expect(failureOf(exit)).toBeInstanceOf(TimedOut)
