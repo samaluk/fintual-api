@@ -1,6 +1,7 @@
 ---
 title: 'Documentation-only PR accidentally closed an unimplemented architecture issue'
 severity: 'major'
+issue: 'samaluk/fintual-api#319'
 ---
 
 ## Expected Behavior
