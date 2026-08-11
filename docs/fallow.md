@@ -7,7 +7,6 @@
 `.fallowrc.json` declares the analysis surface and the audit gate:
 
 - `entry` — runtime entry points (`src/once.ts`, `bin/**/*.mjs`)
-- `ignorePatterns` — `scripts/**`, `.github/**`
 - `duplicates` — semantic mode, `minLines: 8`, `minTokens: 60`, `minOccurrences: 3`
 - `health` — cyclomatic (13), cognitive (16), CRAP (157), unit size (60)
 - `audit` — `gate: new-only` with baselines for dead code, health, and duplication

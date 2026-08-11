@@ -4,10 +4,6 @@
     "src/once.ts",
     "bin/**/*.mjs"
   ],
-  "ignorePatterns": [
-    "scripts/**",
-    ".github/**"
-  ],
   "dynamicallyLoaded": [
     "bin/fintual-goal-performance.graphql"
   ],
