@@ -1,24 +1,31 @@
-import { Effect, Layer } from "effect"
+import { Effect } from "effect"
 import { describe, expect, test } from "vitest"
 import { FintualConfigService } from "../env.ts"
 import { SnapshotWriter, type PerformanceSnapshot } from "../performance-snapshot.ts"
 import { FetchService } from "./authenticated-ingestion.ts"
 import { Email2FAService } from "./email-2fa.ts"
-import { Email2FACode } from "./email-2fa/retrieve.ts"
-import { Email2FAFailure, SnapshotWriteFailure } from "./fintual-error.ts"
+import { Email2FACode, Operational, TimedOut } from "./email-2fa/retrieve.ts"
+import { SnapshotWriteFailure } from "./fintual-error.ts"
 import { FintualPerformance } from "./performance.ts"
 
 const CONFIG = {
   email: "investor@example.com",
   password: "secret-password",
   goalId: "goal-123",
-  email2FA: null,
+  email2FA: {
+    userEmail: "inbox@example.com",
+    appPassword: "app-password",
+    host: "imap.example.com",
+    port: 993,
+    debug: false,
+    sender: "notifications@example.com",
+  },
 }
 
 interface TestOverrides {
   get2FACode?: Email2FAService["Service"]["get2FACode"]
   write?: SnapshotWriter["Service"]["write"]
-  useLiveEmail2FALayer?: boolean
+  config?: typeof CONFIG | (Omit<typeof CONFIG, "email2FA"> & { email2FA: null })
 }
 
 function performanceProgram(script: FetchScript, overrides: TestOverrides = {}) {
@@ -27,21 +34,13 @@ function performanceProgram(script: FetchScript, overrides: TestOverrides = {}) 
     return yield* service.fetchPerformanceSnapshot()
   })
 
-  if (overrides.useLiveEmail2FALayer && overrides.get2FACode) {
-    throw new Error("get2FACode cannot override the live email 2FA layer")
-  }
-
-  const email2FALayer = overrides.useLiveEmail2FALayer
-    ? Email2FAService.layer
-    : Layer.succeed(Email2FAService, {
-        get2FACode: overrides.get2FACode ?? (() => Effect.succeed(Email2FACode.make("123456"))),
-      })
-
   return program.pipe(
     Effect.provide(FintualPerformance.layer),
-    Effect.provide(email2FALayer),
-    Effect.provideService(FintualConfigService, CONFIG),
+    Effect.provideService(FintualConfigService, overrides.config ?? CONFIG),
     Effect.provide(FetchService.layer(script.fetch)),
+    Effect.provideService(Email2FAService, {
+      get2FACode: overrides.get2FACode ?? (() => Effect.succeed(Email2FACode.make("123456"))),
+    }),
     Effect.provideService(SnapshotWriter, {
       write: overrides.write ?? (() => Effect.void),
     }),
@@ -99,27 +98,61 @@ test("completes email 2FA before it requests Goal Performance Data", async () =>
 describe("fails when email 2FA cannot produce a code", () => {
   test("login requires 2FA but Gmail credentials are not configured", async () => {
     const script = createFetchScript([response(""), response("{}", 201)])
+    let codeRequests = 0
 
     await expect(
-      Effect.runPromise(performanceProgram(script, { useLiveEmail2FALayer: true })),
-    ).rejects.toMatchObject({ _tag: "Email2FAFailure" })
+      Effect.runPromise(
+        performanceProgram(script, {
+          config: { ...CONFIG, email2FA: null },
+          get2FACode: () => {
+            codeRequests += 1
+            return Effect.succeed(Email2FACode.make("123456"))
+          },
+        }),
+      ),
+    ).rejects.toMatchObject({
+      _tag: "Email2FAFailure",
+      stage: "Fintual email 2FA",
+      message: "Fintual email 2FA: Gmail IMAP credentials not configured",
+    })
+    expect(codeRequests).toBe(0)
     expect(script.requests).toHaveLength(2)
   })
 
-  test("code retrieval failure", async () => {
+  test("code retrieval times out", async () => {
     const script = createFetchScript([response(""), response("{}", 201)])
 
     await expect(
       Effect.runPromise(
         performanceProgram(script, {
-          get2FACode: () =>
-            Effect.fail(new Email2FAFailure({ cause: new Error("IMAP connection refused") })),
+          get2FACode: () => Effect.fail(new TimedOut()),
+        }),
+      ),
+    ).rejects.toMatchObject({
+      _tag: "Email2FAFailure",
+      stage: "Fintual email 2FA",
+      message: "Fintual email 2FA: no code received before timeout",
+    })
+  })
+
+  test("operational failure preserves its IMAP cause and sign-in stage", async () => {
+    const script = createFetchScript([response(""), response("{}", 201)])
+    const imapCause = new Error("IMAP connection refused")
+
+    await expect(
+      Effect.runPromise(
+        performanceProgram(script, {
+          get2FACode: () => Effect.fail(new Operational({ cause: imapCause })),
         }),
       ),
     ).rejects.toSatisfy((error) => {
-      expect(error).toMatchObject({ _tag: "Email2FAFailure" })
+      expect(error).toMatchObject({
+        _tag: "Email2FAFailure",
+        stage: "Fintual email 2FA",
+        cause: imapCause,
+      })
       if (error instanceof Error) {
-        expect(error.cause).toBeInstanceOf(Error)
+        expect(error.cause).toBe(imapCause)
       }
       return true
     })

@@ -1,5 +1,5 @@
-import { Context, Effect, Layer } from "effect"
-import { FintualConfigService } from "../env.ts"
+import { Context, DateTime, Effect, Layer } from "effect"
+import { FintualConfigService, type FintualConfig } from "../env.ts"
 import { getErrorMessage } from "../log.ts"
 import {
   SnapshotWriter,
@@ -10,6 +10,7 @@ import { FetchService, FINTUAL_ORIGIN } from "./authenticated-ingestion.ts"
 import { Email2FAService } from "./email-2fa.ts"
 import {
   HttpTransportFailure,
+  Email2FAFailure,
   LoginFailed,
   MalformedGoalPerformanceData,
   MalformedPerformanceSnapshot,
@@ -25,7 +26,7 @@ import {
   type TimeIntervalCode as GoalPerformanceTimeInterval,
 } from "./new-performance.ts"
 
-const HTTP_2FA_EMAIL_TIMEOUT_MS = 120_000
+const EMAIL_2FA_STAGE = "Fintual email 2FA"
 
 export class FintualPerformance extends Context.Service<
   FintualPerformance,
@@ -44,7 +45,7 @@ export class FintualPerformance extends Context.Service<
       const fetchPerformanceSnapshot = Effect.fn("FintualPerformance.fetchPerformanceSnapshot")(
         function* () {
           yield* loadSignInPage(fetchService)
-          yield* authenticate(fetchService, email2FAService, config.email, config.password)
+          yield* authenticate(fetchService, email2FAService, config)
 
           const reference = yield* fetchGoalPerformanceData(
             fetchService,
@@ -108,66 +109,81 @@ function loadSignInPage(session: FetchService["Service"]): Effect.Effect<void, F
   })
 }
 
-function authenticate(
+const authenticate = Effect.fn("authenticate")(function* (
   session: FetchService["Service"],
   email2FAService: Email2FAService["Service"],
-  email: string,
-  password: string,
-): Effect.Effect<void, FintualError> {
-  return Effect.gen(function* () {
-    const loginResponse = yield* session.request(
-      "/auth/sessions/initiate_login",
-      {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Referer: `${FINTUAL_ORIGIN}/f/sign-in/`,
-        },
-        body: JSON.stringify({ email, password }),
+  config: FintualConfig,
+): Effect.fn.Return<void, FintualError> {
+  const loginResponse = yield* session.request(
+    "/auth/sessions/initiate_login",
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Referer: `${FINTUAL_ORIGIN}/f/sign-in/`,
       },
-      "Fintual login",
-    )
-    yield* readResponseBody(loginResponse, "Fintual login")
+      body: JSON.stringify({ email: config.email, password: config.password }),
+    },
+    "Fintual login",
+  )
+  yield* readResponseBody(loginResponse, "Fintual login")
 
-    if (loginResponse.status === 200) {
-      return
-    }
+  if (loginResponse.status === 200) {
+    return
+  }
 
-    if (loginResponse.status === 401) {
-      return yield* Effect.fail(new LoginFailed({ status: loginResponse.status }))
-    }
+  if (loginResponse.status === 401) {
+    return yield* Effect.fail(new LoginFailed({ status: loginResponse.status }))
+  }
 
-    if (loginResponse.status !== 201) {
-      return yield* failUnexpectedStatus("Fintual login", loginResponse.status)
-    }
+  if (loginResponse.status !== 201) {
+    return yield* failUnexpectedStatus("Fintual login", loginResponse.status)
+  }
 
-    const loginStartedAt = new Date()
-    const code = yield* email2FAService.get2FACode({
-      afterTimestamp: loginStartedAt,
-      timeoutMs: HTTP_2FA_EMAIL_TIMEOUT_MS,
+  if (!config.email2FA) {
+    return yield* new Email2FAFailure({
+      stage: EMAIL_2FA_STAGE,
+      cause: new Error("Fintual email 2FA: Gmail IMAP credentials not configured"),
     })
+  }
 
-    const finalizeResponse = yield* session.request(
-      "/auth/sessions/finalize_login_web",
-      {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Referer: `${FINTUAL_ORIGIN}/f/sign-in/`,
-        },
-        body: JSON.stringify({ email, password, code }),
-      },
-      "Fintual email 2FA",
+  const loginStartedAt = yield* DateTime.now
+  const code = yield* email2FAService
+    .get2FACode(config.email2FA, { afterTimestamp: DateTime.toDate(loginStartedAt) })
+    .pipe(
+      Effect.catchTags({
+        TimedOut: () =>
+          Effect.fail(
+            new Email2FAFailure({
+              stage: EMAIL_2FA_STAGE,
+              cause: new Error("Fintual email 2FA: no code received before timeout"),
+            }),
+          ),
+        Operational: (failure) =>
+          Effect.fail(new Email2FAFailure({ stage: EMAIL_2FA_STAGE, cause: failure.cause })),
+      }),
     )
-    yield* readResponseBody(finalizeResponse, "Fintual email 2FA")
 
-    if (!finalizeResponse.ok) {
-      return yield* failUnexpectedStatus("Fintual email 2FA", finalizeResponse.status)
-    }
-  })
-}
+  const finalizeResponse = yield* session.request(
+    "/auth/sessions/finalize_login_web",
+    {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        Referer: `${FINTUAL_ORIGIN}/f/sign-in/`,
+      },
+      body: JSON.stringify({ email: config.email, password: config.password, code }),
+    },
+    EMAIL_2FA_STAGE,
+  )
+  yield* readResponseBody(finalizeResponse, EMAIL_2FA_STAGE)
+
+  if (!finalizeResponse.ok) {
+    return yield* failUnexpectedStatus(EMAIL_2FA_STAGE, finalizeResponse.status)
+  }
+})
 
 function fetchGoalPerformanceData(
   session: FetchService["Service"],
