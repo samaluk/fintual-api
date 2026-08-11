@@ -37,6 +37,7 @@ class UnexpectedFailure extends Schema.TaggedError<UnexpectedFailure>()("Unexpec
   }
 
   override get name(): string {
+    // Keep Cause.pretty's prefix as `Error:` so the render assertion stays faithful.
     return "Error"
   }
 }
