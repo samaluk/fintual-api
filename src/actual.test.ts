@@ -1,6 +1,20 @@
 import { Duration, Effect, Fiber, Result, Schedule } from "effect"
 import { TestClock } from "effect/testing"
-import { expect, test } from "vitest"
+import { afterEach, expect, test, vi } from "vitest"
+
+const actualApiMock = vi.hoisted(() => ({
+  init: vi.fn(),
+  downloadBudget: vi.fn(),
+  getTransactions: vi.fn(),
+  getPayees: vi.fn(),
+  addTransactions: vi.fn(),
+  updateTransaction: vi.fn(),
+  deleteTransaction: vi.fn(),
+  sync: vi.fn(),
+  shutdown: vi.fn(),
+}))
+
+vi.mock("@actual-app/api", () => actualApiMock)
 import { ActualConfigService, ActualSynchronization } from "./actual.ts"
 import {
   ActualBudgetDownloadFailure,
@@ -14,6 +28,10 @@ import { ActualRetryPolicy } from "./actual/retry-policy.ts"
 import type { ActualError } from "./actual/actual-error.ts"
 import type { ActualConfig } from "./env.ts"
 import type { PerformanceSnapshot } from "./performance-snapshot.ts"
+
+afterEach(() => {
+  vi.resetAllMocks()
+})
 
 const CONFIG: ActualConfig = {
   serverUrl: "https://actual.example.test/",
@@ -130,6 +148,28 @@ test("does not retry a non-retryable Actual failure", async () => {
     retryable: false,
   })
   expect(calls).toEqual(["reset", "health", "download", "shutdown"])
+})
+
+test("the live Actual adapter preserves stable SDK network codes", async () => {
+  actualApiMock.init.mockResolvedValue({})
+  actualApiMock.downloadBudget.mockRejectedValue({ code: "network-failure" })
+
+  const result = await Effect.runPromise(
+    Effect.gen(function* () {
+      const factory = yield* ActualClientFactory
+      const client = yield* factory.acquire(CONFIG)
+      return yield* Effect.result(client.downloadBudget(CONFIG.syncId))
+    }).pipe(Effect.provide(ActualClientFactory.live)),
+  )
+
+  expect(Result.isFailure(result)).toBe(true)
+  if (Result.isFailure(result)) {
+    expect(result.failure).toMatchObject({
+      _tag: "ActualBudgetDownloadFailure",
+      cause: { code: "network-failure" },
+      retryable: true,
+    })
+  }
 })
 
 test("health checks normalize the server URL and classify HTTP failures", async () => {

@@ -13,11 +13,7 @@ const actualRetrySchedule: ActualRetrySchedule = Schedule.max([
     Schedule.spaced(Duration.millis(MAX_RETRY_DELAY_MS)),
   ]),
   Schedule.recurs(MAX_SYNC_ATTEMPTS - 1),
-]).pipe(
-  Schedule.jittered,
-  Schedule.setInputType<ActualError>(),
-  Schedule.while(({ input }) => input.retryable),
-)
+]).pipe(Schedule.jittered, Schedule.setInputType<ActualError>())
 
 export class ActualRetryPolicy extends Context.Service<
   ActualRetryPolicy,

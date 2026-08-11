@@ -181,9 +181,5 @@ function isRetryableActualCause(cause: unknown): boolean {
     return false
   }
 
-  return (
-    cause.code === "network-failure" ||
-    cause.reason === "network-failure" ||
-    (cause.type === "PostError" && cause.reason === "network-failure")
-  )
+  return cause.code === "network-failure" || cause.reason === "network-failure"
 }

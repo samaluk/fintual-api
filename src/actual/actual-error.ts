@@ -158,5 +158,4 @@ export type ActualError =
   | ActualTransactionUpdateFailure
   | ActualDuplicateDeletionFailure
   | ActualSyncFailure
-  | ActualShutdownFailure
   | ActualInvalidStartingDate
