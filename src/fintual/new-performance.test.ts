@@ -37,7 +37,31 @@ test("fails when the Goal Performance Data response has an invalid shape", async
   ).rejects.toThrow("response does not match the Goal Performance Data schema")
 })
 
-function goalPerformanceResponse(): Record<string, unknown> {
+test("fails when the GraphQL response contains errors", async () => {
+  await expect(
+    Effect.runPromise(
+      parseGoalPerformanceResponseBody(
+        JSON.stringify({ ...goalPerformanceResponse(), errors: [{ message: "request failed" }] }),
+      ),
+    ),
+  ).rejects.toThrow("GraphQL response contains errors")
+})
+
+test("preserves non-finite wire amounts for snapshot validation", async () => {
+  const response = goalPerformanceResponse()
+  const body = JSON.stringify(response).replace(
+    '"unrealizedCostBasisAmount":100',
+    '"unrealizedCostBasisAmount":1e400',
+  )
+
+  const result = await Effect.runPromise(parseGoalPerformanceResponseBody(body))
+
+  expect(result.balanceGraphDataPoints[0]?.unrealizedCostBasisAmount).toBe(Number.POSITIVE_INFINITY)
+})
+
+function goalPerformanceResponse(): {
+  data: { balanceGraphDataPoints: Array<Record<string, unknown>> }
+} {
   return {
     data: {
       balanceGraphDataPoints: [
