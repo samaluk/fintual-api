@@ -1,0 +1,5 @@
+# Typed failures at domain seams
+
+The old `src/effect.ts` aliases wrapped every third-party rejection in a plain `Error`, erasing domain distinctions and forcing consumers like the Actual retry classifier to string-match messages. We delete the generic aliases and model expected failures per domain seam (Actual, Fintual HTTP, IMAP, configuration, snapshot artifact) as `Schema.TaggedErrorClass` values, preserving the existing message wording verbatim and keeping the original failure in `cause`. Retryability and other control-flow decisions are computed at the seam where the third-party rejection is visible and carried on the error; consumers use `catchTag`/`catchIf` and never inspect message text. Per-seam implementations land with the domain issues (Actual: #286, Fintual/artifact: #283, IMAP: #284); this decision is the shared convention.
+
+Considered and rejected: a single shared tagged error with a source field (loses per-domain recovery), and keeping plain `Error`s with string classification (the status quo, and the source of the retry bug where the record-shaped `PostError` branch was dead).
