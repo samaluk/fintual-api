@@ -28,7 +28,7 @@ export class MissingServerExtension extends Schema.TaggedError<MissingServerExte
     cause: Schema.Defect(),
   },
 ) {
-  get message(): string {
+  override get message(): string {
     return getErrorMessage(this.cause)
   }
 }

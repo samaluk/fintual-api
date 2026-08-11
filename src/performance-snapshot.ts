@@ -30,7 +30,7 @@ class PerformanceSnapshotValidationError extends Schema.TaggedError<PerformanceS
     issues: Schema.String,
   },
 ) {
-  get message(): string {
+  override get message(): string {
     return `Fintual performance snapshot is invalid: ${this.issues}`
   }
 }
