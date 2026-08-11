@@ -1,55 +1,50 @@
-# Actual synchronization is a scoped Effect workflow
-
-Actual synchronization exposes one application-facing operation:
-`ActualSynchronization.synchronize(snapshot)`. The process entrypoint keeps its
-existing `main(config, snapshot)` shape and only provides the configuration and
-live layers needed by that service.
-
-The Actual SDK singleton is an adapter behind `ActualClientFactory`. Each
-Synchronization Attempt acquires the client in an Effect `Scope` and releases
-it exactly once through `shutdown`, including failure and interruption paths.
-Filesystem reset and the `/health` request are separate adapters so tests can
-replace production filesystem and network behavior without touching the
-workflow.
-
-The retryable unit is the complete Synchronization Attempt:
-
-```text
-reset → health check → initialize → download budget → read state → plan
-      → apply mutations → sync → shutdown
-```
-
-Every retry acquires a fresh client and re-derives the Reconciliation Plan from
-freshly downloaded state. Imported ids make a mutation whose response was lost
-safe to reconcile on the next attempt.
-
-Expected Actual failures are tagged errors. The adapters preserve the original
-cause and compute a `retryable` field from stable Actual error codes or HTTP
-status classes. The orchestration layer never classifies failures by message.
-Effect `Schedule` supplies the five-attempt cap, capped exponential backoff,
-jitter, Clock/Random integration, and retry logging. Current-date lookup uses
-Effect `DateTime` so workflow tests can control it with `TestClock`.
+# Actual synchronization is a scoped Effect service
 
 ## Status
 
-accepted
+Accepted
 
-## Considered Options
+## Context
 
-- **Manual recursive retry around the SDK singleton** — rejected: it kept
-  lifecycle, retry policy, and failure classification coupled and reused a
-  potentially dirty singleton across attempts.
-- **A single shared Actual error with an operation field** — rejected: the
-  domain convention calls for discoverable failure variants at meaningful
-  operation boundaries.
-- **Passing production dependencies as ordinary function arguments** —
-  rejected: Effect services and Layers keep the public synchronization seam
-  small while making deterministic workflow adapters explicit.
+Synchronizing a snapshot to Actual combines filesystem preparation, a health check, SDK resource management, remote reads, reconciliation policy, mutations, final sync, retry, and cleanup. Retrying only part of that sequence or reusing a failed SDK singleton can apply a plan derived from stale state.
+
+## Decision
+
+`ActualSynchronization` is a `Context.Service` exposing one named operation:
+
+```text
+synchronize(snapshot): Effect<void, ActualSynchronizationError>
+```
+
+Its live layer acquires validated Actual configuration and the `ActualClientFactory`, `ActualFileSystem`, `ActualHealthCheck`, and retry-policy services. The public method has no remaining environment requirements. The application entry point calls this service; no parallel plain-function API is retained.
+
+Each synchronization attempt executes this complete unit:
+
+```text
+reset -> health check -> acquire client -> download -> read -> plan
+      -> apply mutations -> sync -> release client
+```
+
+The client is acquired with `Effect.acquireRelease` inside an attempt-local `Scope`. A retry therefore gets a fresh client, downloads fresh state, and derives a fresh reconciliation plan. The release finalizer is uninterruptible and never leaks a resource. Cleanup failures are recorded through Effect observability without replacing an already meaningful domain failure; the finalizer itself has no typed failure channel.
+
+Reconciliation is pure domain policy over Schema-validated values. Its action algebra uses exhaustive tagged variants. Imported identifiers make recovery after an ambiguous mutation response idempotent on the next full attempt.
+
+Adapters map SDK, filesystem, and HTTP failures to operation-specific `Schema.TaggedErrorClass` values and attach structured retryability derived from stable codes and status classes. The orchestration layer never parses messages. The health adapter uses Effect `HttpClient`, including cancellation and timeout.
+
+Retry wraps the entire scoped attempt. A bounded `Schedule` supplies capped exponential backoff, jitter, retry logging, and the attempt limit. Only failures classified as retryable enter the schedule, and only because the complete attempt is safe to repeat. Dates, timeout, backoff, and jitter use Effect `DateTime`, `Clock`, and `Random` services.
+
+Tests use the service with explicit fake layers and deterministic `TestClock`/`TestRandom` control. They assert the attempt boundary, fresh acquisition, finalization, retry cap, backoff, idempotent reconciliation, and non-retryable short circuit.
+
+## Considered options
+
+- **Manual recursion around a shared SDK singleton** — rejected because it couples lifecycle and retry policy and can reuse contaminated state.
+- **Retry only the failed SDK call** — rejected because the reconciliation plan may already be stale or the remote mutation may have succeeded despite a lost response.
+- **Pass adapters and configuration as function arguments** — rejected because they are service implementation dependencies supplied by layers.
+- **Classify failures from messages in orchestration** — rejected because message text is neither stable nor domain-owned.
 
 ## Consequences
 
-- The Actual workflow can be tested end-to-end through one service method.
-- Shutdown, retry limits, backoff, and health-check timeout behavior are
-  observable without a live Actual server.
-- The SDK remains an external singleton, but its lifetime is bounded to one
-  attempt and never leaks into the reconciliation policy.
+- The retry boundary matches the consistency boundary.
+- Every attempt has isolated resource lifetime and freshly derived state.
+- The workflow is testable end to end without a live Actual server, filesystem, real clock, or process environment.
+- Vendor and platform details remain in replaceable leaf layers while reconciliation stays pure.
