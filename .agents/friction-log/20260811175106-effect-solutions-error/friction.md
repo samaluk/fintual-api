@@ -1,6 +1,7 @@
 ---
 title: 'effect-solutions error guide uses an API absent from pinned Effect'
 severity: 'minor'
+issue: 'samaluk/fintual-api#349'
 ---
 
 ## Expected Behavior
