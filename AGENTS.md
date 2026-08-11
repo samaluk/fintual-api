@@ -26,6 +26,11 @@ Domain documentation uses a single-context layout. See `docs/agents/domain.md`.
 
 Tests favor readable, behavior-focused workflows with explicit setup. See `docs/agents/testing-principles.md`.
 
+### Delivery workflow
+
+Plan commits, run diagnostic probes, verify changes, and publish issues and PRs
+according to `docs/agents/delivery-workflow.md`.
+
 ### Verification
 
 Do not routinely run typechecks, Fallow, formatting, linting, or the full test
