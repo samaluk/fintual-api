@@ -276,6 +276,31 @@ describe("retrieveEmail2FACode recoverability", () => {
     expect(countOps(fake.ops, "logout")).toBe(1)
   })
 
+  test("retries a message fetch failure on the next poll", async () => {
+    let fetches = 0
+    const fake = createFakeClient({
+      search: () => [111],
+      fetchOne: () => {
+        fetches += 1
+        return fetches === 1 ? new Error("message stream broken") : messageWithCode("111111")
+      },
+    })
+
+    const exit = await runRetrieval(
+      NON_GMAIL_CONFIG,
+      { afterTimestamp: AFTER_TIMESTAMP, pollIntervalMs: 2_000 },
+      fake.client,
+      () => TestClock.adjust("2 seconds"),
+    )
+
+    expect(Exit.isSuccess(exit)).toBe(true)
+    if (Exit.isSuccess(exit)) {
+      expect(exit.value).toBe(Email2FACode.make("111111"))
+    }
+    expect(countOps(fake.ops, "fetchOne:111")).toBe(2)
+    expect(countOps(fake.ops, "logout")).toBe(1)
+  })
+
   test("surfaces a search failure as Operational", async () => {
     const fake = createFakeClient({ search: () => new Error("IMAP search failed") })
 

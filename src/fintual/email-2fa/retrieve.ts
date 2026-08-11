@@ -261,12 +261,12 @@ function extractCodeFromMailboxUids(
       if (seenMessageKeys.has(key)) {
         continue
       }
-      seenMessageKeys.add(key)
 
       const message = yield* Effect.catch(imapClient.fetchOne(uid), () => Effect.succeed(null))
       if (!message || !message.source) {
         continue
       }
+      seenMessageKeys.add(key)
 
       const internalDate =
         typeof message.internalDate === "string"
