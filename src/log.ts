@@ -46,7 +46,7 @@ export function toError(error: unknown, message: string | ((error: unknown) => s
   return new Error(`${message}: ${getErrorMessage(error)}`, { cause: error })
 }
 
-function redactSensitiveText(value: string): string {
+export function redactSensitiveText(value: string): string {
   let redactedValue = value
 
   for (const sensitiveValue of configuredRedactionSecrets) {
