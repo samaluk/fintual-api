@@ -1,3 +1,4 @@
+import { it } from "@effect/vitest"
 import { Effect } from "effect"
 import { expect, test } from "vitest"
 import {
@@ -16,66 +17,79 @@ test("creates a Goal Performance Data request for the selected Fintual interval"
   })
 })
 
-test("parses valid Goal Performance Data", async () => {
-  const result = await Effect.runPromise(
-    parseGoalPerformanceResponseBody(JSON.stringify(goalPerformanceResponse())),
-  )
+it.effect("parses valid Goal Performance Data", () =>
+  Effect.gen(function* () {
+    const result = yield* parseGoalPerformanceResponseBody(
+      JSON.stringify(goalPerformanceResponse()),
+    )
 
-  expect(result.balanceGraphDataPoints).toHaveLength(1)
-  expect(result.balanceGraphDataPoints[0]?.date).toBe("2026-08-01")
-})
-
-test("fails when the Goal Performance Data response is malformed JSON", async () => {
-  await expect(Effect.runPromise(parseGoalPerformanceResponseBody("{"))).rejects.toThrow(
-    "Failed to parse goal performance response body",
-  )
-})
-
-test("fails when the Goal Performance Data response has an invalid shape", async () => {
-  await expect(
-    Effect.runPromise(parseGoalPerformanceResponseBody(JSON.stringify({ data: {} }))),
-  ).rejects.toThrow("response does not match the Goal Performance Data schema")
-})
-
-test.each(["2026-13-45", "2026-02-31", "2025-02-29"])(
-  "fails when a Goal Performance Data date is not a valid ISO date: %s",
-  async (date) => {
-    const response = goalPerformanceResponse()
-    const point = response.data.balanceGraphDataPoints[0]
-    if (!point) {
-      throw new Error("expected a performance point")
-    }
-    point.date = date
-
-    await expect(
-      Effect.runPromise(parseGoalPerformanceResponseBody(JSON.stringify(response))),
-    ).rejects.toThrow("response does not match the Goal Performance Data schema")
-  },
+    expect(result.balanceGraphDataPoints).toHaveLength(1)
+    expect(result.balanceGraphDataPoints[0]?.date).toBe("2026-08-01")
+  }),
 )
 
-test("fails when the GraphQL response contains errors", async () => {
-  const response = {
-    ...goalPerformanceResponse(),
-    errors: [{ message: "request failed" }],
-  }
-  const body = JSON.stringify(response)
+it.effect("fails when the Goal Performance Data response is malformed JSON", () =>
+  Effect.gen(function* () {
+    const error = yield* Effect.flip(parseGoalPerformanceResponseBody("{"))
 
-  await expect(Effect.runPromise(parseGoalPerformanceResponseBody(body))).rejects.toThrow(
-    "GraphQL response contains errors",
-  )
-})
+    expect(error.message).toContain("Failed to parse goal performance response body")
+  }),
+)
 
-test("preserves non-finite wire amounts for snapshot validation", async () => {
-  const response = goalPerformanceResponse()
-  const body = JSON.stringify(response).replace(
-    '"unrealizedCostBasisAmount":100',
-    '"unrealizedCostBasisAmount":1e400',
-  )
+it.effect("fails when the Goal Performance Data response has an invalid shape", () =>
+  Effect.gen(function* () {
+    const error = yield* Effect.flip(parseGoalPerformanceResponseBody(JSON.stringify({ data: {} })))
 
-  const result = await Effect.runPromise(parseGoalPerformanceResponseBody(body))
+    expect(error.message).toContain("response does not match the Goal Performance Data schema")
+  }),
+)
 
-  expect(result.balanceGraphDataPoints[0]?.unrealizedCostBasisAmount).toBe(Number.POSITIVE_INFINITY)
-})
+it.effect.each(["2026-13-45", "2026-02-31", "2025-02-29"])(
+  "fails when a Goal Performance Data date is not a valid ISO date: %s",
+  (date) =>
+    Effect.gen(function* () {
+      const response = goalPerformanceResponse()
+      const point = response.data.balanceGraphDataPoints[0]
+      if (!point) {
+        throw new Error("expected a performance point")
+      }
+      point.date = date
+
+      const error = yield* Effect.flip(parseGoalPerformanceResponseBody(JSON.stringify(response)))
+
+      expect(error.message).toContain("response does not match the Goal Performance Data schema")
+    }),
+)
+
+it.effect("fails when the GraphQL response contains errors", () =>
+  Effect.gen(function* () {
+    const response = {
+      ...goalPerformanceResponse(),
+      errors: [{ message: "request failed" }],
+    }
+    const body = JSON.stringify(response)
+
+    const error = yield* Effect.flip(parseGoalPerformanceResponseBody(body))
+
+    expect(error.message).toContain("GraphQL response contains errors")
+  }),
+)
+
+it.effect("preserves non-finite wire amounts for snapshot validation", () =>
+  Effect.gen(function* () {
+    const response = goalPerformanceResponse()
+    const body = JSON.stringify(response).replace(
+      '"unrealizedCostBasisAmount":100',
+      '"unrealizedCostBasisAmount":1e400',
+    )
+
+    const result = yield* parseGoalPerformanceResponseBody(body)
+
+    expect(result.balanceGraphDataPoints[0]?.unrealizedCostBasisAmount).toBe(
+      Number.POSITIVE_INFINITY,
+    )
+  }),
+)
 
 function goalPerformanceResponse(): {
   data: { balanceGraphDataPoints: Array<Record<string, unknown>> }

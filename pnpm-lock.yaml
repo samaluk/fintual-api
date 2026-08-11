@@ -27,6 +27,9 @@ importers:
         specifier: 3.9.15
         version: 3.9.15
     devDependencies:
+      '@effect/vitest':
+        specifier: 4.0.0-beta.106
+        version: 4.0.0-beta.106(effect@4.0.0-beta.106)(vitest@4.1.10(@types/node@24.13.3)(vite@8.2.1(@types/node@24.13.3)))
       '@types/mailparser':
         specifier: 3.4.6
         version: 3.4.6
@@ -79,6 +82,12 @@ packages:
     peerDependencies:
       effect: ^4.0.0-beta.106
       ioredis: '>=5.7.0 <6.0.0'
+
+  '@effect/vitest@4.0.0-beta.106':
+    resolution: {integrity: sha512-0w799orFqjFNlKh9GrnzMIJLn2/uPaVu8qmT3hJKkYxS46tUS9ZbfjeYNsd1BddvY+3sdS/vXVpnTE64z6+QaQ==}
+    peerDependencies:
+      effect: ^4.0.0-beta.106
+      vitest: '>=4.1.0 <5.0.0'
 
   '@fallow-cli/darwin-arm64@3.14.0':
     resolution: {integrity: sha512-seaix3OqADcq90PkPOOPrN8Jl7QZDGjFziHA85Ikp+lGSHVjJ2IMyGh/QKLhvi9Q6Ha3Y//F0+PFFGNd0Gi4mw==}
@@ -1530,6 +1539,11 @@ snapshots:
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
+
+  '@effect/vitest@4.0.0-beta.106(effect@4.0.0-beta.106)(vitest@4.1.10(@types/node@24.13.3)(vite@8.2.1(@types/node@24.13.3)))':
+    dependencies:
+      effect: 4.0.0-beta.106
+      vitest: 4.1.10(@types/node@24.13.3)(vite@8.2.1(@types/node@24.13.3))
 
   '@fallow-cli/darwin-arm64@3.14.0':
     optional: true

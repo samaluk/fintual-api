@@ -1,7 +1,8 @@
 import * as fs from "node:fs"
 import * as path from "node:path"
+import { it } from "@effect/vitest"
 import { Effect } from "effect"
-import { expect, test } from "vitest"
+import { expect } from "vitest"
 import {
   PERFORMANCE_SNAPSHOT_PATH,
   validatePerformanceSnapshot,
@@ -9,95 +10,117 @@ import {
   type PerformanceSnapshot,
 } from "./performance-snapshot.ts"
 
-test("rejects a balance entry with a non-finite date and reports the failing field", async () => {
-  const invalidSnapshot = {
-    ...performanceSnapshot(),
-    balance: [{ date: Number.POSITIVE_INFINITY, value: 1100, difference: 50, real_difference: 50 }],
-  }
+it.effect("rejects a balance entry with a non-finite date and reports the failing field", () =>
+  Effect.gen(function* () {
+    const invalidSnapshot = {
+      ...performanceSnapshot(),
+      balance: [
+        { date: Number.POSITIVE_INFINITY, value: 1100, difference: 50, real_difference: 50 },
+      ],
+    }
 
-  await expect(Effect.runPromise(validatePerformanceSnapshot(invalidSnapshot))).rejects.toThrow(
-    /Fintual performance snapshot is invalid: .*balance/,
-  )
-})
+    const error = yield* Effect.flip(validatePerformanceSnapshot(invalidSnapshot))
 
-test("rejects a deposit entry with a non-finite value and reports the failing field", async () => {
-  const invalidSnapshot = {
-    ...performanceSnapshot(),
-    deposits: [{ date: 1780264800000, value: Number.NEGATIVE_INFINITY, difference: 50 }],
-  }
+    expect(error.message).toMatch(/Fintual performance snapshot is invalid: .*balance/)
+  }),
+)
 
-  await expect(Effect.runPromise(validatePerformanceSnapshot(invalidSnapshot))).rejects.toThrow(
-    /Fintual performance snapshot is invalid: .*deposits/,
-  )
-})
+it.effect("rejects a deposit entry with a non-finite value and reports the failing field", () =>
+  Effect.gen(function* () {
+    const invalidSnapshot = {
+      ...performanceSnapshot(),
+      deposits: [{ date: 1780264800000, value: Number.NEGATIVE_INFINITY, difference: 50 }],
+    }
 
-test("rejects when deposits is not an array and reports the failing field", async () => {
-  const invalidSnapshot = {
-    ...performanceSnapshot(),
-    deposits: {},
-  }
+    const error = yield* Effect.flip(validatePerformanceSnapshot(invalidSnapshot))
 
-  await expect(Effect.runPromise(validatePerformanceSnapshot(invalidSnapshot))).rejects.toThrow(
-    /Fintual performance snapshot is invalid: .*deposits/,
-  )
-})
+    expect(error.message).toMatch(/Fintual performance snapshot is invalid: .*deposits/)
+  }),
+)
 
-test("rejects an empty balance and reports the failing field", async () => {
-  const invalidSnapshot = {
-    ...performanceSnapshot(),
-    balance: [],
-  }
+it.effect("rejects when deposits is not an array and reports the failing field", () =>
+  Effect.gen(function* () {
+    const invalidSnapshot = {
+      ...performanceSnapshot(),
+      deposits: {},
+    }
 
-  await expect(Effect.runPromise(validatePerformanceSnapshot(invalidSnapshot))).rejects.toThrow(
-    /Fintual performance snapshot is invalid: .*balance/,
-  )
-})
+    const error = yield* Effect.flip(validatePerformanceSnapshot(invalidSnapshot))
 
-test("rejects an empty deposits and reports the failing field", async () => {
-  const invalidSnapshot = {
-    ...performanceSnapshot(),
-    deposits: [],
-  }
+    expect(error.message).toMatch(/Fintual performance snapshot is invalid: .*deposits/)
+  }),
+)
 
-  await expect(Effect.runPromise(validatePerformanceSnapshot(invalidSnapshot))).rejects.toThrow(
-    /Fintual performance snapshot is invalid: .*deposits/,
-  )
-})
+it.effect("rejects an empty balance and reports the failing field", () =>
+  Effect.gen(function* () {
+    const invalidSnapshot = {
+      ...performanceSnapshot(),
+      balance: [],
+    }
 
-test("returns the validated snapshot for valid data", async () => {
-  const snapshot = performanceSnapshot()
+    const error = yield* Effect.flip(validatePerformanceSnapshot(invalidSnapshot))
 
-  await expect(Effect.runPromise(validatePerformanceSnapshot(snapshot))).resolves.toEqual(snapshot)
-})
+    expect(error.message).toMatch(/Fintual performance snapshot is invalid: .*balance/)
+  }),
+)
 
-test("writes a valid Performance Snapshot to the snapshot file", async () => {
-  const originalContents = readFileIfPresent(PERFORMANCE_SNAPSHOT_PATH)
+it.effect("rejects an empty deposits and reports the failing field", () =>
+  Effect.gen(function* () {
+    const invalidSnapshot = {
+      ...performanceSnapshot(),
+      deposits: [],
+    }
 
-  try {
-    await Effect.runPromise(writePerformanceSnapshot(performanceSnapshot()))
+    const error = yield* Effect.flip(validatePerformanceSnapshot(invalidSnapshot))
 
-    const writtenSnapshot: unknown = JSON.parse(fs.readFileSync(PERFORMANCE_SNAPSHOT_PATH, "utf-8"))
-    expect(writtenSnapshot).toEqual(performanceSnapshot())
-  } finally {
-    restoreFile(PERFORMANCE_SNAPSHOT_PATH, originalContents)
-  }
-})
+    expect(error.message).toMatch(/Fintual performance snapshot is invalid: .*deposits/)
+  }),
+)
 
-test("fails when the Performance Snapshot cannot be written", async () => {
-  const snapshotPath = PERFORMANCE_SNAPSHOT_PATH
-  const originalContents = readFileIfPresent(snapshotPath)
-  fs.mkdirSync(path.dirname(snapshotPath), { recursive: true })
+it.effect("returns the validated snapshot for valid data", () =>
+  Effect.gen(function* () {
+    const snapshot = performanceSnapshot()
 
-  try {
-    fs.mkdirSync(snapshotPath, { recursive: true })
-    await expect(
-      Effect.runPromise(writePerformanceSnapshot(performanceSnapshot())),
-    ).rejects.toThrow("Failed to write performance snapshot artifact")
-  } finally {
-    fs.rmSync(snapshotPath, { force: true, recursive: true })
-    restoreFile(snapshotPath, originalContents)
-  }
-})
+    const validated = yield* validatePerformanceSnapshot(snapshot)
+
+    expect(validated).toEqual(snapshot)
+  }),
+)
+
+it.effect("writes a valid Performance Snapshot to the snapshot file", () =>
+  Effect.gen(function* () {
+    const originalContents = readFileIfPresent(PERFORMANCE_SNAPSHOT_PATH)
+
+    try {
+      yield* writePerformanceSnapshot(performanceSnapshot())
+
+      const writtenSnapshot: unknown = JSON.parse(
+        fs.readFileSync(PERFORMANCE_SNAPSHOT_PATH, "utf-8"),
+      )
+      expect(writtenSnapshot).toEqual(performanceSnapshot())
+    } finally {
+      restoreFile(PERFORMANCE_SNAPSHOT_PATH, originalContents)
+    }
+  }),
+)
+
+it.effect("fails when the Performance Snapshot cannot be written", () =>
+  Effect.gen(function* () {
+    const snapshotPath = PERFORMANCE_SNAPSHOT_PATH
+    const originalContents = readFileIfPresent(snapshotPath)
+    fs.mkdirSync(path.dirname(snapshotPath), { recursive: true })
+
+    try {
+      fs.mkdirSync(snapshotPath, { recursive: true })
+      const error = yield* Effect.flip(writePerformanceSnapshot(performanceSnapshot()))
+
+      expect(error.message).toContain("Failed to write performance snapshot artifact")
+    } finally {
+      fs.rmSync(snapshotPath, { force: true, recursive: true })
+      restoreFile(snapshotPath, originalContents)
+    }
+  }),
+)
 
 function readFileIfPresent(filePath: string): string | null {
   if (!fs.existsSync(filePath)) {
