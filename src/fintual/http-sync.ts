@@ -1,9 +1,8 @@
 import { Effect } from "effect"
-import { error, log, trySync } from "../effect.ts"
+import { error, trySync } from "../effect.ts"
 import type { FintualConfig } from "../env.ts"
 import { getErrorMessage } from "../log.ts"
 import {
-  PERFORMANCE_SNAPSHOT_PATH,
   validatePerformanceSnapshot,
   writePerformanceSnapshot,
   type PerformanceSnapshot,
@@ -40,7 +39,6 @@ function fetchFintualPerformanceHttp(
 
     const validatedSnapshot = yield* validatePerformanceSnapshot(snapshot)
     yield* writePerformanceSnapshot(validatedSnapshot)
-    yield* log(`Performance snapshot saved to ${PERFORMANCE_SNAPSHOT_PATH}`)
 
     return validatedSnapshot
   })

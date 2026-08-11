@@ -1,7 +1,7 @@
 import * as fs from "node:fs"
 import { Effect } from "effect"
 import * as v from "valibot"
-import { trySync, warn } from "./effect.ts"
+import { log, trySync, warn } from "./effect.ts"
 import { getErrorMessage } from "./log.ts"
 
 const SNAPSHOT_DATA_DIR = "./tmp/fintual-data"
@@ -40,7 +40,7 @@ export function validatePerformanceSnapshot(
 }
 
 export function writePerformanceSnapshot(snapshot: PerformanceSnapshot): Effect.Effect<void> {
-  return Effect.catch(
+  return Effect.matchEffect(
     trySync({
       try: () => {
         fs.mkdirSync(SNAPSHOT_DATA_DIR, { recursive: true })
@@ -48,6 +48,9 @@ export function writePerformanceSnapshot(snapshot: PerformanceSnapshot): Effect.
       },
       catch: "Failed to write performance snapshot artifact",
     }),
-    (cause) => warn(getErrorMessage(cause)),
+    {
+      onFailure: (cause) => warn(getErrorMessage(cause)),
+      onSuccess: () => log(`Performance snapshot saved to ${PERFORMANCE_SNAPSHOT_PATH}`),
+    },
   )
 }
