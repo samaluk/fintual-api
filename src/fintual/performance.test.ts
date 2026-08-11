@@ -1,5 +1,6 @@
+import { it } from "@effect/vitest"
 import { Effect, Redacted } from "effect"
-import { describe, expect, test } from "vitest"
+import { describe, expect } from "vitest"
 import { FintualConfigService, type FintualConfig } from "../env.ts"
 import { SnapshotWriter, type PerformanceSnapshot } from "../performance-snapshot.ts"
 import { FetchService } from "./authenticated-ingestion.ts"
@@ -47,64 +48,66 @@ function performanceProgram(script: FetchScript, overrides: TestOverrides = {}) 
   )
 }
 
-test("returns a validated Performance Snapshot after direct login", async () => {
-  const written: PerformanceSnapshot[] = []
-  const script = createFetchScript([
-    response("", 200, "session=sign-in"),
-    response("{}", 200, "auth=direct"),
-    goalPerformanceResponse("2026-01-01", { costBasis: 80, valuation: 100 }, "graph=reference"),
-    goalPerformanceResponse("2026-07-01", { costBasis: 90, valuation: 115 }),
-  ])
+it.effect("returns a validated Performance Snapshot after direct login", () =>
+  Effect.gen(function* () {
+    const written: PerformanceSnapshot[] = []
+    const script = createFetchScript([
+      response("", 200, "session=sign-in"),
+      response("{}", 200, "auth=direct"),
+      goalPerformanceResponse("2026-01-01", { costBasis: 80, valuation: 100 }, "graph=reference"),
+      goalPerformanceResponse("2026-07-01", { costBasis: 90, valuation: 115 }),
+    ])
 
-  const snapshot = await Effect.runPromise(
-    performanceProgram(script, { write: (value) => Effect.sync(() => written.push(value)) }),
-  )
+    const snapshot = yield* performanceProgram(script, {
+      write: (value) => Effect.sync(() => written.push(value)),
+    })
 
-  expect(snapshot).toEqual({
-    balance: [{ date: Date.parse("2026-07-01"), value: 115, difference: 5, real_difference: 5 }],
-    deposits: [{ date: Date.parse("2026-07-01"), value: 90, difference: 10 }],
-  })
-  expect(written).toEqual([snapshot])
-  expect(script.requests).toHaveLength(4)
-  expect(requestBody(script.requests[1])).toContain('"password":"secret-password"')
-  expect(requestBody(script.requests[2])).toMatch(/"timeIntervalCode":"last_six_months"/)
-  expect(requestBody(script.requests[3])).toMatch(/"timeIntervalCode":"last_month"/)
-})
+    expect(snapshot).toEqual({
+      balance: [{ date: Date.parse("2026-07-01"), value: 115, difference: 5, real_difference: 5 }],
+      deposits: [{ date: Date.parse("2026-07-01"), value: 90, difference: 10 }],
+    })
+    expect(written).toEqual([snapshot])
+    expect(script.requests).toHaveLength(4)
+    expect(requestBody(script.requests[1])).toContain('"password":"secret-password"')
+    expect(requestBody(script.requests[2])).toMatch(/"timeIntervalCode":"last_six_months"/)
+    expect(requestBody(script.requests[3])).toMatch(/"timeIntervalCode":"last_month"/)
+  }),
+)
 
-test("completes email 2FA before it requests Goal Performance Data", async () => {
-  const script = createFetchScript([
-    response("", 200, "session=sign-in"),
-    response("{}", 201, "challenge=email"),
-    response("{}", 200, "auth=two-factor"),
-    goalPerformanceResponse("2026-01-01"),
-    goalPerformanceResponse("2026-07-01"),
-  ])
-  let codeRequests = 0
+it.effect("completes email 2FA before it requests Goal Performance Data", () =>
+  Effect.gen(function* () {
+    const script = createFetchScript([
+      response("", 200, "session=sign-in"),
+      response("{}", 201, "challenge=email"),
+      response("{}", 200, "auth=two-factor"),
+      goalPerformanceResponse("2026-01-01"),
+      goalPerformanceResponse("2026-07-01"),
+    ])
+    let codeRequests = 0
 
-  const snapshot = await Effect.runPromise(
-    performanceProgram(script, {
+    const snapshot = yield* performanceProgram(script, {
       get2FACode: () => {
         codeRequests += 1
         return Effect.succeed(Email2FACode.make("123456"))
       },
-    }),
-  )
+    })
 
-  expect(snapshot.balance).toHaveLength(1)
-  expect(codeRequests).toBe(1)
-  expect(requestBody(script.requests[1])).toContain('"password":"secret-password"')
-  expect(requestBody(script.requests[2])).toContain('"password":"secret-password"')
-  expect(requestBody(script.requests[2])).toMatch(/"code":"123456"/)
-  expect(script.requests[3]?.url ?? "").toMatch(/\/gql\/$/)
-})
+    expect(snapshot.balance).toHaveLength(1)
+    expect(codeRequests).toBe(1)
+    expect(requestBody(script.requests[1])).toContain('"password":"secret-password"')
+    expect(requestBody(script.requests[2])).toContain('"password":"secret-password"')
+    expect(requestBody(script.requests[2])).toMatch(/"code":"123456"/)
+    expect(script.requests[3]?.url ?? "").toMatch(/\/gql\/$/)
+  }),
+)
 
 describe("fails when email 2FA cannot produce a code", () => {
-  test("login requires 2FA but Gmail credentials are not configured", async () => {
-    const script = createFetchScript([response(""), response("{}", 201)])
-    let codeRequests = 0
+  it.effect("login requires 2FA but Gmail credentials are not configured", () =>
+    Effect.gen(function* () {
+      const script = createFetchScript([response(""), response("{}", 201)])
+      let codeRequests = 0
 
-    await expect(
-      Effect.runPromise(
+      const error = yield* Effect.flip(
         performanceProgram(script, {
           config: { ...CONFIG, email2FA: null },
           get2FACode: () => {
@@ -112,43 +115,47 @@ describe("fails when email 2FA cannot produce a code", () => {
             return Effect.succeed(Email2FACode.make("123456"))
           },
         }),
-      ),
-    ).rejects.toMatchObject({
-      _tag: "Email2FAFailure",
-      stage: "Fintual email 2FA",
-      message: "Fintual email 2FA: Gmail IMAP credentials not configured",
-    })
-    expect(codeRequests).toBe(0)
-    expect(script.requests).toHaveLength(2)
-  })
+      )
 
-  test("code retrieval times out", async () => {
-    const script = createFetchScript([response(""), response("{}", 201)])
+      expect(error).toMatchObject({
+        _tag: "Email2FAFailure",
+        stage: "Fintual email 2FA",
+        message: "Fintual email 2FA: Gmail IMAP credentials not configured",
+      })
+      expect(codeRequests).toBe(0)
+      expect(script.requests).toHaveLength(2)
+    }),
+  )
 
-    await expect(
-      Effect.runPromise(
+  it.effect("code retrieval times out", () =>
+    Effect.gen(function* () {
+      const script = createFetchScript([response(""), response("{}", 201)])
+
+      const error = yield* Effect.flip(
         performanceProgram(script, {
           get2FACode: () => Effect.fail(new TimedOut()),
         }),
-      ),
-    ).rejects.toMatchObject({
-      _tag: "Email2FAFailure",
-      stage: "Fintual email 2FA",
-      message: "Fintual email 2FA: no code received before timeout",
-    })
-  })
+      )
 
-  test("operational failure preserves its IMAP cause and sign-in stage", async () => {
-    const script = createFetchScript([response(""), response("{}", 201)])
-    const imapCause = new Error("IMAP connection refused")
+      expect(error).toMatchObject({
+        _tag: "Email2FAFailure",
+        stage: "Fintual email 2FA",
+        message: "Fintual email 2FA: no code received before timeout",
+      })
+    }),
+  )
 
-    await expect(
-      Effect.runPromise(
+  it.effect("operational failure preserves its IMAP cause and sign-in stage", () =>
+    Effect.gen(function* () {
+      const script = createFetchScript([response(""), response("{}", 201)])
+      const imapCause = new Error("IMAP connection refused")
+
+      const error = yield* Effect.flip(
         performanceProgram(script, {
           get2FACode: () => Effect.fail(new Operational({ cause: imapCause })),
         }),
-      ),
-    ).rejects.toSatisfy((error) => {
+      )
+
       expect(error).toMatchObject({
         _tag: "Email2FAFailure",
         stage: "Fintual email 2FA",
@@ -157,24 +164,29 @@ describe("fails when email 2FA cannot produce a code", () => {
       if (error instanceof Error) {
         expect(error.cause).toBe(imapCause)
       }
-      return true
+    }),
+  )
+})
+
+it.effect("fails with LoginFailed on a 401 initiate_login response", () =>
+  Effect.gen(function* () {
+    const script = createFetchScript([response(""), response("{}", 401)])
+
+    const error = yield* Effect.flip(performanceProgram(script))
+
+    expect(error).toMatchObject({
+      _tag: "LoginFailed",
+      status: 401,
     })
-  })
-})
+  }),
+)
 
-test("fails with LoginFailed on a 401 initiate_login response", async () => {
-  const script = createFetchScript([response(""), response("{}", 401)])
+it.effect("fails on an unexpected login response without exposing its body", () =>
+  Effect.gen(function* () {
+    const script = createFetchScript([response(""), response("session-token=secret", 418)])
 
-  await expect(Effect.runPromise(performanceProgram(script))).rejects.toMatchObject({
-    _tag: "LoginFailed",
-    status: 401,
-  })
-})
+    const error = yield* Effect.flip(performanceProgram(script))
 
-test("fails on an unexpected login response without exposing its body", async () => {
-  const script = createFetchScript([response(""), response("session-token=secret", 418)])
-
-  await expect(Effect.runPromise(performanceProgram(script))).rejects.toSatisfy((error) => {
     expect(error).toMatchObject({
       _tag: "UnexpectedHttpStatus",
       stage: "Fintual login",
@@ -184,42 +196,51 @@ test("fails on an unexpected login response without exposing its body", async ()
     if (error instanceof Error) {
       expect(error.message).not.toContain("secret")
     }
-    return true
-  })
-})
+  }),
+)
 
 describe("fails atomically when a Goal Performance Data request fails", () => {
-  test("reference request", async () => {
-    const script = createFetchScript([response(""), response("{}"), response("{}", 503)])
+  it.effect("reference request", () =>
+    Effect.gen(function* () {
+      const script = createFetchScript([response(""), response("{}"), response("{}", 503)])
 
-    await expect(Effect.runPromise(performanceProgram(script))).rejects.toMatchObject({
-      _tag: "UnexpectedHttpStatus",
-      stage: "Fintual reference Goal Performance Data",
-      status: 503,
-    })
-    expect(script.requests).toHaveLength(3)
-  })
+      const error = yield* Effect.flip(performanceProgram(script))
 
-  test("recent request", async () => {
-    const script = createFetchScript([
-      response(""),
-      response("{}"),
-      goalPerformanceResponse("2026-01-01"),
-      response("{}", 503),
-    ])
+      expect(error).toMatchObject({
+        _tag: "UnexpectedHttpStatus",
+        stage: "Fintual reference Goal Performance Data",
+        status: 503,
+      })
+      expect(script.requests).toHaveLength(3)
+    }),
+  )
 
-    await expect(Effect.runPromise(performanceProgram(script))).rejects.toMatchObject({
-      _tag: "UnexpectedHttpStatus",
-      stage: "Fintual recent Goal Performance Data",
-      status: 503,
-    })
-  })
+  it.effect("recent request", () =>
+    Effect.gen(function* () {
+      const script = createFetchScript([
+        response(""),
+        response("{}"),
+        goalPerformanceResponse("2026-01-01"),
+        response("{}", 503),
+      ])
+
+      const error = yield* Effect.flip(performanceProgram(script))
+
+      expect(error).toMatchObject({
+        _tag: "UnexpectedHttpStatus",
+        stage: "Fintual recent Goal Performance Data",
+        status: 503,
+      })
+    }),
+  )
 })
 
-test("fails with HttpTransportFailure when a request throws", async () => {
-  const script = createFetchScript([response(""), response("{}")])
+it.effect("fails with HttpTransportFailure when a request throws", () =>
+  Effect.gen(function* () {
+    const script = createFetchScript([response(""), response("{}")])
 
-  await expect(Effect.runPromise(performanceProgram(script))).rejects.toSatisfy((error) => {
+    const error = yield* Effect.flip(performanceProgram(script))
+
     expect(error).toMatchObject({
       _tag: "HttpTransportFailure",
       stage: "Fintual reference Goal Performance Data",
@@ -227,26 +248,31 @@ test("fails with HttpTransportFailure when a request throws", async () => {
     if (error instanceof Error) {
       expect(error.cause).toBeInstanceOf(Error)
     }
-    return true
-  })
-})
+  }),
+)
 
-test("fails with HttpTransportFailure when a response body cannot be read", async () => {
-  const brokenBody = response("")
-  brokenBody.text = () => Promise.reject(new Error("stream broken"))
-  const script = createFetchScript([brokenBody])
+it.effect("fails with HttpTransportFailure when a response body cannot be read", () =>
+  Effect.gen(function* () {
+    const brokenBody = response("")
+    brokenBody.text = () => Promise.reject(new Error("stream broken"))
+    const script = createFetchScript([brokenBody])
 
-  await expect(Effect.runPromise(performanceProgram(script))).rejects.toMatchObject({
-    _tag: "HttpTransportFailure",
-    stage: "Fintual sign-in page",
-  })
-})
+    const error = yield* Effect.flip(performanceProgram(script))
+
+    expect(error).toMatchObject({
+      _tag: "HttpTransportFailure",
+      stage: "Fintual sign-in page",
+    })
+  }),
+)
 
 describe("fails when Goal Performance Data is malformed or invalid", () => {
-  test("malformed JSON", async () => {
-    const script = createFetchScript([response(""), response("{}"), response("{")])
+  it.effect("malformed JSON", () =>
+    Effect.gen(function* () {
+      const script = createFetchScript([response(""), response("{}"), response("{")])
 
-    await expect(Effect.runPromise(performanceProgram(script))).rejects.toSatisfy((error) => {
+      const error = yield* Effect.flip(performanceProgram(script))
+
       expect(error).toMatchObject({
         _tag: "MalformedGoalPerformanceData",
         purpose: "reference",
@@ -254,82 +280,90 @@ describe("fails when Goal Performance Data is malformed or invalid", () => {
       if (error instanceof Error) {
         expect(error.cause).toBeInstanceOf(Error)
       }
-      return true
-    })
-  })
+    }),
+  )
 
-  test("invalid shape", async () => {
+  it.effect("invalid shape", () =>
+    Effect.gen(function* () {
+      const script = createFetchScript([
+        response(""),
+        response("{}"),
+        response(JSON.stringify({ data: {} })),
+      ])
+
+      const error = yield* Effect.flip(performanceProgram(script))
+
+      expect(error).toMatchObject({
+        _tag: "MalformedGoalPerformanceData",
+        purpose: "reference",
+      })
+    }),
+  )
+})
+
+it.effect("fails with MalformedPerformanceSnapshot when the fold output is invalid", () =>
+  Effect.gen(function* () {
     const script = createFetchScript([
       response(""),
       response("{}"),
-      response(JSON.stringify({ data: {} })),
+      goalPerformanceResponse("2026-01-01"),
+      response(JSON.stringify({ data: { balanceGraphDataPoints: [] } })),
     ])
 
-    await expect(Effect.runPromise(performanceProgram(script))).rejects.toMatchObject({
-      _tag: "MalformedGoalPerformanceData",
-      purpose: "reference",
+    const error = yield* Effect.flip(performanceProgram(script))
+
+    expect(error).toMatchObject({
+      _tag: "MalformedPerformanceSnapshot",
     })
-  })
-})
+  }),
+)
 
-test("fails with MalformedPerformanceSnapshot when the fold output is invalid", async () => {
-  const script = createFetchScript([
-    response(""),
-    response("{}"),
-    goalPerformanceResponse("2026-01-01"),
-    response(JSON.stringify({ data: { balanceGraphDataPoints: [] } })),
-  ])
+it.effect("fails with SnapshotWriteFailure when the snapshot cannot be written", () =>
+  Effect.gen(function* () {
+    const script = createFetchScript([
+      response(""),
+      response("{}"),
+      goalPerformanceResponse("2026-01-01"),
+      goalPerformanceResponse("2026-07-01"),
+    ])
 
-  await expect(Effect.runPromise(performanceProgram(script))).rejects.toMatchObject({
-    _tag: "MalformedPerformanceSnapshot",
-  })
-})
-
-test("fails with SnapshotWriteFailure when the snapshot cannot be written", async () => {
-  const script = createFetchScript([
-    response(""),
-    response("{}"),
-    goalPerformanceResponse("2026-01-01"),
-    goalPerformanceResponse("2026-07-01"),
-  ])
-
-  await expect(
-    Effect.runPromise(
+    const error = yield* Effect.flip(
       performanceProgram(script, {
         write: () => Effect.fail(new SnapshotWriteFailure({ cause: new Error("disk full") })),
       }),
-    ),
-  ).rejects.toSatisfy((error) => {
+    )
+
     expect(error).toMatchObject({ _tag: "SnapshotWriteFailure" })
     if (error instanceof Error) {
       expect(error.cause).toBeInstanceOf(Error)
     }
-    return true
-  })
-})
+  }),
+)
 
-test("propagates cookies and browser headers through the ephemeral session", async () => {
-  const script = createFetchScript([
-    response("", 200, "session=sign-in"),
-    response("{}", 200, "auth=direct"),
-    goalPerformanceResponse("2026-01-01", {}, "graph=reference"),
-    goalPerformanceResponse("2026-07-01"),
-  ])
+it.effect("propagates cookies and browser headers through the ephemeral session", () =>
+  Effect.gen(function* () {
+    const script = createFetchScript([
+      response("", 200, "session=sign-in"),
+      response("{}", 200, "auth=direct"),
+      goalPerformanceResponse("2026-01-01", {}, "graph=reference"),
+      goalPerformanceResponse("2026-07-01"),
+    ])
 
-  await Effect.runPromise(performanceProgram(script))
+    yield* performanceProgram(script)
 
-  expect(requestHeaders(script.requests[0]).get("Cookie")).toBeNull()
-  expect(requestHeaders(script.requests[1]).get("Cookie")).toBe("session=sign-in")
-  expect(requestHeaders(script.requests[2]).get("Cookie")).toBe("session=sign-in; auth=direct")
-  expect(requestHeaders(script.requests[3]).get("Cookie")).toBe(
-    "session=sign-in; auth=direct; graph=reference",
-  )
+    expect(requestHeaders(script.requests[0]).get("Cookie")).toBeNull()
+    expect(requestHeaders(script.requests[1]).get("Cookie")).toBe("session=sign-in")
+    expect(requestHeaders(script.requests[2]).get("Cookie")).toBe("session=sign-in; auth=direct")
+    expect(requestHeaders(script.requests[3]).get("Cookie")).toBe(
+      "session=sign-in; auth=direct; graph=reference",
+    )
 
-  for (const request of script.requests) {
-    expect(requestHeaders(request).get("User-Agent") ?? "").toMatch(/Mozilla\/5\.0/)
-    expect(requestHeaders(request).get("Origin")).toBe("https://fintual.cl")
-  }
-})
+    for (const request of script.requests) {
+      expect(requestHeaders(request).get("User-Agent") ?? "").toMatch(/Mozilla\/5\.0/)
+      expect(requestHeaders(request).get("Origin")).toBe("https://fintual.cl")
+    }
+  }),
+)
 
 interface RecordedRequest {
   url: string
