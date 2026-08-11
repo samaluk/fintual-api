@@ -1,4 +1,4 @@
-import { Effect } from "effect"
+import { Effect, Layer } from "effect"
 import { describe, expect, test } from "vitest"
 import { FintualConfigService } from "../env.ts"
 import { SnapshotWriter, type PerformanceSnapshot } from "../performance-snapshot.ts"
@@ -27,25 +27,21 @@ function performanceProgram(script: FetchScript, overrides: TestOverrides = {}) 
     return yield* service.fetchPerformanceSnapshot()
   })
 
-  if (overrides.useLiveEmail2FALayer) {
-    return program.pipe(
-      Effect.provide(FintualPerformance.layer),
-      Effect.provide(Email2FAService.layer),
-      Effect.provideService(FintualConfigService, CONFIG),
-      Effect.provide(FetchService.layer(script.fetch)),
-      Effect.provideService(SnapshotWriter, {
-        write: overrides.write ?? (() => Effect.void),
-      }),
-    )
+  if (overrides.useLiveEmail2FALayer && overrides.get2FACode) {
+    throw new Error("get2FACode cannot override the live email 2FA layer")
   }
+
+  const email2FALayer = overrides.useLiveEmail2FALayer
+    ? Email2FAService.layer
+    : Layer.succeed(Email2FAService, {
+        get2FACode: overrides.get2FACode ?? (() => Effect.succeed(Email2FACode.make("123456"))),
+      })
 
   return program.pipe(
     Effect.provide(FintualPerformance.layer),
+    Effect.provide(email2FALayer),
     Effect.provideService(FintualConfigService, CONFIG),
     Effect.provide(FetchService.layer(script.fetch)),
-    Effect.provideService(Email2FAService, {
-      get2FACode: overrides.get2FACode ?? (() => Effect.succeed(Email2FACode.make("123456"))),
-    }),
     Effect.provideService(SnapshotWriter, {
       write: overrides.write ?? (() => Effect.void),
     }),
