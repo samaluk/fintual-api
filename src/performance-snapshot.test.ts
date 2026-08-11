@@ -30,6 +30,28 @@ test("rejects when deposits is not an array and reports the failing field", asyn
   )
 })
 
+test("rejects an empty balance and reports the failing field", async () => {
+  const invalidSnapshot = {
+    ...performanceSnapshot(),
+    balance: [],
+  }
+
+  await expect(Effect.runPromise(validatePerformanceSnapshot(invalidSnapshot))).rejects.toThrow(
+    /Fintual performance snapshot is invalid: .*balance/,
+  )
+})
+
+test("rejects an empty deposits and reports the failing field", async () => {
+  const invalidSnapshot = {
+    ...performanceSnapshot(),
+    deposits: [],
+  }
+
+  await expect(Effect.runPromise(validatePerformanceSnapshot(invalidSnapshot))).rejects.toThrow(
+    /Fintual performance snapshot is invalid: .*deposits/,
+  )
+})
+
 test("returns the validated snapshot for valid data", async () => {
   const snapshot = performanceSnapshot()
 

@@ -16,8 +16,11 @@ const seriesPointSchema = v.object({
 })
 
 const performanceSnapshotSchema = v.object({
-  balance: v.array(v.object({ ...seriesPointSchema.entries, real_difference: finiteNumber })),
-  deposits: v.array(seriesPointSchema),
+  balance: v.pipe(
+    v.array(v.object({ ...seriesPointSchema.entries, real_difference: finiteNumber })),
+    v.minLength(1),
+  ),
+  deposits: v.pipe(v.array(seriesPointSchema), v.minLength(1)),
 })
 
 export type PerformanceSnapshot = v.InferOutput<typeof performanceSnapshotSchema>
