@@ -1,6 +1,7 @@
 ---
 title: 'oxlint rejects intentional String(Redacted) behavior assertions'
 severity: 'minor'
+issue: 'samaluk/fintual-api#334'
 ---
 
 ## Expected Behavior
