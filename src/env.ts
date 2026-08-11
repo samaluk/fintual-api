@@ -42,6 +42,7 @@ export function resolveRuntimeConfig(
           value ? [[name, normalizeEnvValue(value)]] : [],
         ),
       ),
+      { preserveEmptyStrings: true },
     )
     const values = yield* runtimeValueConfig.pipe(
       Effect.provideService(ConfigProvider.ConfigProvider, provider),
