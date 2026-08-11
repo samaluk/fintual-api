@@ -24,9 +24,6 @@ const MAX_RESULTS = 10
 /** Gmail can file 2FA under categories; IMAP search is per-folder. */
 const GMAIL_IMAP_SEARCH_PATHS = ["INBOX", "[Gmail]/All Mail", "[Gmail]/Spam"] as const
 
-export const EMAIL_2FA_CONFIG_MISSING_MESSAGE =
-  "Fintual email 2FA: Gmail IMAP credentials not configured"
-
 const Email2FACodeSchema = Schema.String.pipe(
   Schema.check(Schema.isPattern(/^\d{6}$/)),
   Schema.brand("Email2FACode"),
@@ -65,17 +62,14 @@ export class Email2FAService extends Context.Service<
     Effect.gen(function* () {
       const config = yield* FintualConfigService
       const clientFactory = yield* ImapClientFactory
+      const email2FAConfig = Option.getOrThrowWith(
+        Option.fromNullishOr(config.email2FA),
+        () => new Error("Email2FAService requires Email 2FA configuration"),
+      )
 
       const get2FACode = Effect.fn("Email2FAService.get2FACode")(function* (
         options: Email2FAOptions,
       ): Effect.fn.Return<Email2FACode, TimedOut | Operational> {
-        const email2FAConfig = config.email2FA
-        if (!email2FAConfig) {
-          return yield* new Operational({
-            cause: new Error(EMAIL_2FA_CONFIG_MISSING_MESSAGE),
-          })
-        }
-
         return yield* retrieveEmail2FACode(email2FAConfig, options, clientFactory)
       })
 

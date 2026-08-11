@@ -132,7 +132,7 @@ function fintualConfig(email2FA: Email2FAConfig | null): FintualConfig {
 }
 
 function runRetrieval(
-  config: Email2FAConfig | null,
+  config: Email2FAConfig,
   options: Email2FAOptions,
   client: ImapClient,
   step: (fiber: Fiber.Fiber<Email2FACode, TimedOut | Operational>) => Effect.Effect<unknown>,
@@ -265,23 +265,6 @@ describe("Email2FAService.get2FACode", () => {
       expect(Exit.isFailure(exit)).toBe(true)
       expect(countOps(fake.ops, "connect")).toBe(1)
       expect(countOps(fake.ops, "logout")).toBe(1)
-    }),
-  )
-
-  it.effect("fails operationally when Email 2FA is not configured", () =>
-    Effect.gen(function* () {
-      const fake = createFakeClient({ search: () => false })
-
-      const exit = yield* runRetrieval(
-        null,
-        { afterTimestamp: AFTER_TIMESTAMP },
-        fake.client,
-        () => Effect.void,
-      )
-
-      expect(failureOf(exit)).toBeInstanceOf(Operational)
-      expect(fake.ops).not.toContain("connect")
-      expect(countOps(fake.ops, "logout")).toBe(0)
     }),
   )
 })
