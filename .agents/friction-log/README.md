@@ -2,7 +2,7 @@
 
 Friction hit while working in this repository, one directory per item:
 
-```
+```text
 <id>/
   friction.md   the write-up
   artifacts/    optional, whatever reproduces it
@@ -23,6 +23,9 @@ pnpx frog log     # add one
 
 `pnpx frog log` writes the sections to fill in. Each id is when the friction was hit plus its title, so
 the directory reads oldest-first.
+
+Before logging or submitting friction, redact credentials, tokens, customer data,
+email addresses, and other PII from the write-up, artifacts, and issue text.
 
 Put anything that reproduces the friction in that entry's `artifacts/` and reference it from the
 write-up. The next reader runs the reproduction instead of rebuilding it.
