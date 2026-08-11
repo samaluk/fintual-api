@@ -84,5 +84,5 @@ pnpm test
 pnpm typecheck
 pnpm lint
 pnpm format:check
-pnpm fallow:ci
+pnpm fallow:audit
 ```
