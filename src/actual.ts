@@ -187,15 +187,17 @@ const resolvePayeeId = Effect.fn("ActualSynchronization.resolvePayeeId")(functio
   return payee.id
 })
 
-function closeActualClient(client: ActualClient): Effect.Effect<void> {
-  return client
+const closeActualClient = Effect.fn("ActualSynchronization.closeClient")(function* (
+  client: ActualClient,
+): Effect.fn.Return<void> {
+  yield* client
     .shutdown()
     .pipe(
       Effect.catch((cause) =>
         Effect.logWarning(`Failed to shutdown Actual API: ${getErrorMessage(cause)}`),
       ),
     )
-}
+})
 
 export function main(
   config: ActualConfig,

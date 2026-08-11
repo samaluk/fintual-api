@@ -119,15 +119,17 @@ const connectImapClient = Effect.fn("Email2FA.connectImapClient")(function* (
   return imapClient
 })
 
-function closeImapClient(imapClient: ImapClient): Effect.Effect<void, never> {
+const closeImapClient = Effect.fn("Email2FA.closeImapClient")(function* (
+  imapClient: ImapClient,
+): Effect.fn.Return<void> {
   if (!imapClient.usable) {
-    return Effect.void
+    return
   }
 
-  return Effect.catch(imapClient.logout(), (cause) =>
+  yield* Effect.catch(imapClient.logout(), (cause) =>
     Effect.logWarning(`Failed to close IMAP connection cleanly: ${getErrorMessage(cause)}`),
   )
-}
+})
 
 const logPollWait = Effect.fn("Email2FA.logPollWait")(function* (
   startedAt: number,
