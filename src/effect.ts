@@ -1,5 +1,5 @@
 import { Effect } from "effect"
-import { getErrorMessage } from "./log.ts"
+import { toError } from "./log.ts"
 
 export function tryPromise<A>(options: {
   try: () => Promise<A>
@@ -35,12 +35,4 @@ export function error(message: string): Effect.Effect<void> {
 
 export function sleep(ms: number): Effect.Effect<void> {
   return Effect.sleep(`${ms} millis`)
-}
-
-function toError(error: unknown, message: string | ((error: unknown) => string)): Error {
-  if (typeof message === "function") {
-    return new Error(message(error), { cause: error })
-  }
-
-  return new Error(`${message}: ${getErrorMessage(error)}`, { cause: error })
 }

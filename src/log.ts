@@ -38,6 +38,14 @@ export function getErrorMessage(error: unknown): string {
   return "Unknown error"
 }
 
+export function toError(error: unknown, message: string | ((error: unknown) => string)): Error {
+  if (typeof message === "function") {
+    return new Error(message(error), { cause: error })
+  }
+
+  return new Error(`${message}: ${getErrorMessage(error)}`, { cause: error })
+}
+
 function redactSensitiveText(value: string): string {
   let redactedValue = value
 
