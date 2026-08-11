@@ -115,12 +115,14 @@ test("uses defaults when optional non-Gmail values are unquoted empty strings", 
     resolveRuntimeConfig({
       ...requiredEnvironment(),
       ACTUAL_PAYEE: "",
+      GMAIL_USER_EMAIL: "mailbox@example.com",
+      GMAIL_APP_PASSWORD: "app password",
       GMAIL_IMAP_PORT: "",
     }),
   )
 
   expect(configuration.actual.payee).toBe("Fintual")
-  expect(configuration.fintual.email2FA).toBeNull()
+  expect(configuration.fintual.email2FA?.port).toBe(993)
 })
 
 test("rejects partially configured email 2FA credentials", async () => {
