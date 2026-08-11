@@ -2,7 +2,7 @@ import * as fs from "node:fs"
 import * as api from "@actual-app/api"
 import { Duration, Effect } from "effect"
 import type { ActualConfig } from "./env.ts"
-import { getErrorMessage } from "./log.ts"
+import { getErrorMessage, toError } from "./log.ts"
 import { planReconciliation } from "./actual/reconciliation-policy.ts"
 import type { PerformanceSnapshot } from "./performance-snapshot.ts"
 
@@ -188,14 +188,6 @@ function getPayeeId(config: ActualConfig): Effect.Effect<string | undefined, Err
 
 function getTodayIsoDate(): string {
   return new Date().toISOString().split("T")[0]
-}
-
-function toError(error: unknown, message: string | ((error: unknown) => string)): Error {
-  if (typeof message === "function") {
-    return new Error(message(error), { cause: error })
-  }
-
-  return new Error(`${message}: ${getErrorMessage(error)}`, { cause: error })
 }
 
 function isRetryableActualError(error: unknown): boolean {
