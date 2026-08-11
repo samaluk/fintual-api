@@ -52,6 +52,7 @@ test("rejects stale and invalid candidates before selecting a fresh code", async
       receivedAt: new Date(2026, 6, 14, 10, 29),
     },
     {
+      // The parser rejects the all-zero sentinel before considering fresher candidates.
       source: Buffer.from("Subject: Codigo 000000\n\nCodigo: 000000"),
       receivedAt: new Date(2026, 6, 14, 10, 31),
     },

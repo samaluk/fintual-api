@@ -1,7 +1,7 @@
 import { Effect } from "effect"
 import type { SearchObject } from "imapflow"
 import { simpleParser } from "mailparser"
-import { tryPromise } from "../effect.ts"
+import { tryPromise } from "../../effect.ts"
 
 export interface Email2FASearchPolicy {
   host: string

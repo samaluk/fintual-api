@@ -1,9 +1,10 @@
-import { Effect } from "effect"
+import { Effect, Layer } from "effect"
 import { describe, expect, test } from "vitest"
 import { FintualConfigService } from "../env.ts"
 import { SnapshotWriter, type PerformanceSnapshot } from "../performance-snapshot.ts"
 import { FetchService } from "./authenticated-ingestion.ts"
 import { Email2FAService } from "./email-2fa.ts"
+import { Email2FACode } from "./email-2fa/retrieve.ts"
 import { Email2FAFailure, SnapshotWriteFailure } from "./fintual-error.ts"
 import { FintualPerformance } from "./performance.ts"
 
@@ -17,19 +18,30 @@ const CONFIG = {
 interface TestOverrides {
   get2FACode?: Email2FAService["Service"]["get2FACode"]
   write?: SnapshotWriter["Service"]["write"]
+  useLiveEmail2FALayer?: boolean
 }
 
 function performanceProgram(script: FetchScript, overrides: TestOverrides = {}) {
-  return Effect.gen(function* () {
+  const program = Effect.gen(function* () {
     const service = yield* FintualPerformance
     return yield* service.fetchPerformanceSnapshot()
-  }).pipe(
+  })
+
+  if (overrides.useLiveEmail2FALayer && overrides.get2FACode) {
+    throw new Error("get2FACode cannot override the live email 2FA layer")
+  }
+
+  const email2FALayer = overrides.useLiveEmail2FALayer
+    ? Email2FAService.layer
+    : Layer.succeed(Email2FAService, {
+        get2FACode: overrides.get2FACode ?? (() => Effect.succeed(Email2FACode.make("123456"))),
+      })
+
+  return program.pipe(
     Effect.provide(FintualPerformance.layer),
+    Effect.provide(email2FALayer),
     Effect.provideService(FintualConfigService, CONFIG),
     Effect.provide(FetchService.layer(script.fetch)),
-    Effect.provideService(Email2FAService, {
-      get2FACode: overrides.get2FACode ?? (() => Effect.succeed(null)),
-    }),
     Effect.provideService(SnapshotWriter, {
       write: overrides.write ?? (() => Effect.void),
     }),
@@ -73,7 +85,7 @@ test("completes email 2FA before it requests Goal Performance Data", async () =>
     performanceProgram(script, {
       get2FACode: () => {
         codeRequests += 1
-        return Effect.succeed("123456")
+        return Effect.succeed(Email2FACode.make("123456"))
       },
     }),
   )
@@ -85,12 +97,12 @@ test("completes email 2FA before it requests Goal Performance Data", async () =>
 })
 
 describe("fails when email 2FA cannot produce a code", () => {
-  test("no code received", async () => {
+  test("login requires 2FA but Gmail credentials are not configured", async () => {
     const script = createFetchScript([response(""), response("{}", 201)])
 
-    await expect(Effect.runPromise(performanceProgram(script))).rejects.toMatchObject({
-      _tag: "Email2FAFailure",
-    })
+    await expect(
+      Effect.runPromise(performanceProgram(script, { useLiveEmail2FALayer: true })),
+    ).rejects.toMatchObject({ _tag: "Email2FAFailure" })
     expect(script.requests).toHaveLength(2)
   })
 
