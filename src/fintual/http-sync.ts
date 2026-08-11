@@ -4,6 +4,7 @@ import type { FintualConfig } from "../env.ts"
 import { getErrorMessage } from "../log.ts"
 import {
   PERFORMANCE_SNAPSHOT_PATH,
+  validatePerformanceSnapshot,
   writePerformanceSnapshot,
   type PerformanceSnapshot,
 } from "../performance-snapshot.ts"
@@ -37,7 +38,8 @@ function fetchFintualPerformanceHttp(
       return yield* Effect.fail(new Error("Fintual HTTP sync: missing Goal Performance Data"))
     }
 
-    const validatedSnapshot = yield* writePerformanceSnapshot(snapshot)
+    const validatedSnapshot = yield* validatePerformanceSnapshot(snapshot)
+    yield* writePerformanceSnapshot(validatedSnapshot)
     yield* log(`Performance snapshot saved to ${PERFORMANCE_SNAPSHOT_PATH}`)
 
     return validatedSnapshot

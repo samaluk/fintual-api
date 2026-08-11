@@ -1,7 +1,8 @@
 import * as fs from "node:fs"
 import { Effect } from "effect"
 import * as v from "valibot"
-import { trySync } from "./effect.ts"
+import { trySync, warn } from "./effect.ts"
+import { getErrorMessage } from "./log.ts"
 
 const SNAPSHOT_DATA_DIR = "./tmp/fintual-data"
 export const PERFORMANCE_SNAPSHOT_PATH = `${SNAPSHOT_DATA_DIR}/balance-2.json`
@@ -21,7 +22,7 @@ const performanceSnapshotSchema = v.object({
 
 export type PerformanceSnapshot = v.InferOutput<typeof performanceSnapshotSchema>
 
-export function writePerformanceSnapshot(
+export function validatePerformanceSnapshot(
   snapshot: unknown,
 ): Effect.Effect<PerformanceSnapshot, Error> {
   return Effect.gen(function* () {
@@ -34,18 +35,19 @@ export function writePerformanceSnapshot(
       )
     }
 
-    yield* trySync({
-      try: () => {
-        fs.mkdirSync(SNAPSHOT_DATA_DIR, { recursive: true })
-        fs.writeFileSync(
-          PERFORMANCE_SNAPSHOT_PATH,
-          JSON.stringify(validation.output, null, 2),
-          "utf-8",
-        )
-      },
-      catch: "Failed to write Fintual performance snapshot file",
-    })
-
     return validation.output
   })
+}
+
+export function writePerformanceSnapshot(snapshot: PerformanceSnapshot): Effect.Effect<void> {
+  return Effect.catch(
+    trySync({
+      try: () => {
+        fs.mkdirSync(SNAPSHOT_DATA_DIR, { recursive: true })
+        fs.writeFileSync(PERFORMANCE_SNAPSHOT_PATH, JSON.stringify(snapshot, null, 2), "utf-8")
+      },
+      catch: "Failed to write performance snapshot artifact",
+    }),
+    (cause) => warn(getErrorMessage(cause)),
+  )
 }

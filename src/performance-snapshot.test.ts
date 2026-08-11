@@ -3,40 +3,44 @@ import { Effect } from "effect"
 import { expect, test } from "vitest"
 import {
   PERFORMANCE_SNAPSHOT_PATH,
+  validatePerformanceSnapshot,
   writePerformanceSnapshot,
   type PerformanceSnapshot,
 } from "./performance-snapshot.ts"
 
-test("fails when a balance entry has a non-finite date", async () => {
+test("rejects a balance entry with a non-finite date and reports the failing field", async () => {
   const invalidSnapshot = {
     ...performanceSnapshot(),
-    balance: [{ date: Number.NaN, value: 1100, difference: 50, real_difference: 50 }],
+    balance: [{ date: Number.POSITIVE_INFINITY, value: 1100, difference: 50, real_difference: 50 }],
   }
 
-  await expect(Effect.runPromise(writePerformanceSnapshot(invalidSnapshot))).rejects.toThrow(
-    "Fintual performance snapshot is invalid",
+  await expect(Effect.runPromise(validatePerformanceSnapshot(invalidSnapshot))).rejects.toThrow(
+    /Fintual performance snapshot is invalid: .*balance/,
   )
 })
 
-test("fails when deposits is not an array and reports the failing field", async () => {
+test("rejects when deposits is not an array and reports the failing field", async () => {
   const invalidSnapshot = {
     ...performanceSnapshot(),
     deposits: {},
   }
 
-  await expect(Effect.runPromise(writePerformanceSnapshot(invalidSnapshot))).rejects.toThrow(
+  await expect(Effect.runPromise(validatePerformanceSnapshot(invalidSnapshot))).rejects.toThrow(
     /Fintual performance snapshot is invalid: .*deposits/,
   )
+})
+
+test("returns the validated snapshot for valid data", async () => {
+  const snapshot = performanceSnapshot()
+
+  await expect(Effect.runPromise(validatePerformanceSnapshot(snapshot))).resolves.toEqual(snapshot)
 })
 
 test("writes a valid Performance Snapshot to the snapshot file", async () => {
   const originalContents = readSnapshotFileIfPresent()
 
   try {
-    const validatedSnapshot = await Effect.runPromise(
-      writePerformanceSnapshot(performanceSnapshot()),
-    )
-    expect(validatedSnapshot).toEqual(performanceSnapshot())
+    await Effect.runPromise(writePerformanceSnapshot(performanceSnapshot()))
 
     const writtenSnapshot: unknown = JSON.parse(fs.readFileSync(PERFORMANCE_SNAPSHOT_PATH, "utf-8"))
     expect(writtenSnapshot).toEqual(performanceSnapshot())
