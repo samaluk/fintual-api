@@ -1,8 +1,13 @@
 import { it as effectIt } from "@effect/vitest"
-import { Cause, Console, Effect, Logger, Redacted } from "effect"
+import { Cause, Console, Effect, Logger, Redacted, Schema } from "effect"
 import { describe, expect, it } from "vitest"
 import type { RuntimeConfig } from "./env.ts"
-import { configureSensitiveValues, redactSensitiveText, revealSecret } from "./log.ts"
+import {
+  configureSensitiveValues,
+  getErrorMessage,
+  redactSensitiveText,
+  revealSecret,
+} from "./log.ts"
 import { redactingLogger, reportUnhandledFailure } from "./once.ts"
 
 const secret = "hunter2-super-secret"
@@ -22,6 +27,18 @@ const runtimeConfig: RuntimeConfig = {
     goalId: "goal-42",
     email2FA: null,
   },
+}
+
+class UnexpectedFailure extends Schema.TaggedError<UnexpectedFailure>()("UnexpectedFailure", {
+  cause: Schema.Defect(),
+}) {
+  override get message(): string {
+    return getErrorMessage(this.cause)
+  }
+
+  override get name(): string {
+    return "Error"
+  }
 }
 
 function configureLoggingSecrets(): void {
@@ -134,7 +151,9 @@ describe("reportUnhandledFailure", () => {
     Effect.gen(function* () {
       configureLoggingSecrets()
       const lines: Array<string> = []
-      const program = Effect.fail(new Error(`unexpected ${secret}`)).pipe(
+      const program = Effect.fail(
+        new UnexpectedFailure({ cause: new Error(`unexpected ${secret}`) }),
+      ).pipe(
         Effect.tapCause(reportUnhandledFailure),
         Effect.catchCause(() => Effect.void),
       )
