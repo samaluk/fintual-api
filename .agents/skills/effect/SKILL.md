@@ -41,7 +41,7 @@ If a task spans several branches, read all matching files before editing.
 - Prefer `Context.Service` for application services when the codebase has not standardized on another current service-tag style.
 - Build real service implementations with `Layer.effect(Service, Effect.gen(...))` and return `Service.of({ ... })`.
 - Model records with `Schema.Struct(...)` plus a same-name `interface`.
-- Model typed Effect errors with `Schema.TaggedErrorClass`.
+- Model typed Effect errors with `Schema.TaggedError`.
 - Read runtime config through `Config`, not direct `process.env` access in application logic.
 - Use `Schedule` for retry, repeat, polling, pacing, and backoff policies.
 - Use `Stream` for effectful sources that emit many values over time and need pull, backpressure, interruption, or transformation.
@@ -57,7 +57,7 @@ If a task spans several branches, read all matching files before editing.
 - Reusable boundary-crossing tagged variant: `Schema.TaggedStruct(...)` plus same-name `interface`.
 - Boundary-crossing tagged union: `Schema.TaggedUnion(...)` with `.cases`, `.guards`, and `.match`.
 - External/custom discriminator such as `type`: `Schema.Struct({ type: Schema.tag("variant"), ... })` plus `Schema.toTaggedUnion("type")` when union helpers are needed.
-- Expected typed failure: `Schema.TaggedErrorClass`.
+- Expected typed failure: `Schema.TaggedError`.
 - Unknown boundary payload: `Schema.decodeUnknownEffect(...)`.
 - Service boundary: `Context.Service<Service, Interface>()(...)` plus `Layer.effect(...)` plus `Service.of(...)`.
 - Public or non-trivial internal service method: `Effect.fn("Domain.operation")`.
@@ -86,11 +86,26 @@ If a task spans several branches, read all matching files before editing.
 - Retry only when the operation has proven idempotency.
 - Let exhausted failures remain visible unless the boundary has a real fallback.
 
+## Typed Failure Checklist
+
+When introducing or changing an expected failure at a domain seam, verify all of
+these before moving to the next seam:
+
+- Use `Schema.TaggedError` rather than global `Error` in the typed failure
+  channel.
+- Preserve the established human-readable message.
+- Store the original failure in a `cause: Schema.Defect()` field.
+- Keep the error class module-local unless consumers intentionally need it in the
+  public failure union.
+- Recover or classify with tags and stable fields, never message text.
+- Exercise message and cause behavior with a focused test when the seam already
+  has a compatibility contract.
+
 ## Do Nots
 
 - Do not use `as any`, non-null assertions, or unchecked casts to silence Effect typing problems.
 - Do not introduce `Schema.Class` or `Schema.TaggedClass` as default app data-modeling patterns.
-- Do not hand-roll `_tag` error classes when `Schema.TaggedErrorClass` fits.
+- Do not hand-roll `_tag` error classes when `Schema.TaggedError` fits.
 - Do not use cause-level recovery when typed-error recovery is enough.
 - Do not use `Layer.mergeAll(...)` or `provideMerge(...)` as blind make-it-compile tools.
 - Do not hide required application authority, credentials, persistence, transports, or external services behind `Context.Reference` defaults.
