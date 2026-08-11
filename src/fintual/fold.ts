@@ -1,5 +1,5 @@
 import type { PerformanceSnapshot } from "../performance-snapshot.ts"
-import type { GoalPerformanceData } from "./new-performance.ts"
+import type { GoalPerformanceData } from "./provider.ts"
 
 export function foldGoalPerformanceData(
   referenceData: GoalPerformanceData,
