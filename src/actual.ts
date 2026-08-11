@@ -1,7 +1,6 @@
 import * as fs from "node:fs"
 import * as api from "@actual-app/api"
-import { Effect } from "effect"
-import { log, sleep, tryPromise, trySync, warn } from "./effect.ts"
+import { Duration, Effect } from "effect"
 import type { ActualConfig } from "./env.ts"
 import { getErrorMessage } from "./log.ts"
 import { planReconciliation } from "./actual/reconciliation-policy.ts"
@@ -27,7 +26,7 @@ export function main(
 ): Effect.Effect<void, Error> {
   return Effect.gen(function* () {
     const syncCounts = yield* runActualSyncWithRetry(config, snapshot, 1)
-    yield* log(
+    yield* Effect.logInfo(
       `Actual sync finished. Created ${syncCounts.created} transactions, updated ${syncCounts.updated}, and deleted ${syncCounts.deletedDuplicates} duplicates.`,
     )
   })
@@ -47,10 +46,10 @@ function runActualSyncWithRetry(
 
     const retryDelayMs = getRetryDelayMs(attempt)
     return Effect.gen(function* () {
-      yield* warn(
+      yield* Effect.logWarning(
         `Actual sync attempt ${attempt} failed with a retryable error: ${getErrorMessage(cause)}. Retrying in ${Math.round(retryDelayMs / 1000)}s.`,
       )
-      yield* sleep(retryDelayMs)
+      yield* Effect.sleep(Duration.millis(retryDelayMs))
       return yield* runActualSyncWithRetry(config, snapshot, attempt + 1)
     })
   })
@@ -64,28 +63,28 @@ function runActualSyncAttempt(
     yield* resetDataDirectory()
     yield* assertActualServerReachable(config)
 
-    yield* tryPromise({
+    yield* Effect.tryPromise({
       try: () =>
         api.init({
           dataDir: ACTUAL_DATA_DIR,
           serverURL: config.serverUrl,
           password: config.password,
         } satisfies ActualInitConfig),
-      catch: "Failed to initialize Actual API",
+      catch: (error) => toError(error, "Failed to initialize Actual API"),
     })
 
     return yield* Effect.ensuring(
       Effect.gen(function* () {
-        yield* tryPromise({
+        yield* Effect.tryPromise({
           try: () => api.downloadBudget(config.syncId),
-          catch: "Failed to download Actual budget",
+          catch: (error) => toError(error, "Failed to download Actual budget"),
         })
         return yield* syncDailyVariationTransactions(config, snapshot)
       }),
       Effect.ignore(
-        tryPromise({
+        Effect.tryPromise({
           try: () => api.shutdown(),
-          catch: "Failed to shutdown Actual API",
+          catch: (error) => toError(error, "Failed to shutdown Actual API"),
         }),
       ),
     )
@@ -98,9 +97,9 @@ function syncDailyVariationTransactions(
 ): Effect.Effect<SyncCounts, Error> {
   return Effect.gen(function* () {
     const endingDate = getTodayIsoDate()
-    const transactions = yield* tryPromise({
+    const transactions = yield* Effect.tryPromise({
       try: () => api.getTransactions(config.fintualAccount, config.startingDate, endingDate),
-      catch: "Failed to fetch Actual transactions",
+      catch: (error) => toError(error, "Failed to fetch Actual transactions"),
     })
 
     const startingTimestamp = Date.parse(config.startingDate)
@@ -113,7 +112,7 @@ function syncDailyVariationTransactions(
     })
 
     for (const warning of plan.warnings) {
-      yield* warn(warning)
+      yield* Effect.logWarning(warning)
     }
 
     const syncCounts: SyncCounts = {
@@ -125,25 +124,25 @@ function syncDailyVariationTransactions(
     for (const action of plan.actions) {
       switch (action.type) {
         case "create": {
-          yield* tryPromise({
+          yield* Effect.tryPromise({
             try: () => api.addTransactions(config.fintualAccount, [action.transaction]),
-            catch: "Failed to add Actual transaction",
+            catch: (error) => toError(error, "Failed to add Actual transaction"),
           })
           syncCounts.created += 1
           break
         }
         case "update": {
-          yield* tryPromise({
+          yield* Effect.tryPromise({
             try: () => api.updateTransaction(action.id, action.transaction),
-            catch: "Failed to update Actual transaction",
+            catch: (error) => toError(error, "Failed to update Actual transaction"),
           })
           syncCounts.updated += 1
           break
         }
         case "delete": {
-          yield* tryPromise({
+          yield* Effect.tryPromise({
             try: () => api.deleteTransaction(action.id),
-            catch: "Failed to delete duplicate Actual transaction",
+            catch: (error) => toError(error, "Failed to delete duplicate Actual transaction"),
           })
           syncCounts.deletedDuplicates += 1
           break
@@ -151,9 +150,9 @@ function syncDailyVariationTransactions(
       }
     }
 
-    yield* tryPromise({
+    yield* Effect.tryPromise({
       try: () => api.sync(),
-      catch: "Failed to sync Actual budget",
+      catch: (error) => toError(error, "Failed to sync Actual budget"),
     })
 
     return syncCounts
@@ -161,25 +160,25 @@ function syncDailyVariationTransactions(
 }
 
 function resetDataDirectory(): Effect.Effect<void, Error> {
-  return trySync({
+  return Effect.try({
     try: () => {
       fs.rmSync(ACTUAL_DATA_DIR, { recursive: true, force: true })
       fs.mkdirSync(ACTUAL_DATA_DIR, { recursive: true })
     },
-    catch: "Failed to reset Actual data directory",
+    catch: (error) => toError(error, "Failed to reset Actual data directory"),
   })
 }
 
 function getPayeeId(config: ActualConfig): Effect.Effect<string | undefined, Error> {
   return Effect.gen(function* () {
-    const payees = yield* tryPromise({
+    const payees = yield* Effect.tryPromise({
       try: () => api.getPayees(),
-      catch: "Failed to fetch Actual payees",
+      catch: (error) => toError(error, "Failed to fetch Actual payees"),
     })
     const payee = payees.find((candidate) => candidate.name === config.payee)
 
     if (!payee) {
-      yield* log("Configured payee not found")
+      yield* Effect.logInfo("Configured payee not found")
       return undefined
     }
 
@@ -189,6 +188,14 @@ function getPayeeId(config: ActualConfig): Effect.Effect<string | undefined, Err
 
 function getTodayIsoDate(): string {
   return new Date().toISOString().split("T")[0]
+}
+
+function toError(error: unknown, message: string | ((error: unknown) => string)): Error {
+  if (typeof message === "function") {
+    return new Error(message(error), { cause: error })
+  }
+
+  return new Error(`${message}: ${getErrorMessage(error)}`, { cause: error })
 }
 
 function isRetryableActualError(error: unknown): boolean {
@@ -223,13 +230,17 @@ function assertActualServerReachable(config: ActualConfig): Effect.Effect<void, 
     const timeout = setTimeout(() => controller.abort(), 10_000)
 
     const response = yield* Effect.ensuring(
-      tryPromise({
+      Effect.tryPromise({
         try: () =>
           fetch(healthUrl, {
             method: "GET",
             signal: controller.signal,
           }),
-        catch: (cause) => `Actual server is unreachable at ${healthUrl}: ${getErrorMessage(cause)}`,
+        catch: (error) =>
+          toError(
+            error,
+            (cause) => `Actual server is unreachable at ${healthUrl}: ${getErrorMessage(cause)}`,
+          ),
       }),
       Effect.sync(() => clearTimeout(timeout)),
     )
