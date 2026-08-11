@@ -1,11 +1,21 @@
 import * as fs from "node:fs"
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 import * as v from "valibot"
-import { log, trySync, warn } from "./effect.ts"
-import { getErrorMessage } from "./log.ts"
+import { log, trySync } from "./effect.ts"
 
 const SNAPSHOT_DATA_DIR = "./tmp/fintual-data"
 export const PERFORMANCE_SNAPSHOT_PATH = `${SNAPSHOT_DATA_DIR}/balance-2.json`
+
+export class PerformanceSnapshotValidationError extends Schema.TaggedError<PerformanceSnapshotValidationError>()(
+  "PerformanceSnapshotValidationError",
+  {
+    issues: Schema.String,
+  },
+) {
+  get message(): string {
+    return `Fintual performance snapshot is invalid: ${this.issues}`
+  }
+}
 
 const finiteNumber = v.pipe(v.number(), v.finite())
 
@@ -27,14 +37,14 @@ export type PerformanceSnapshot = v.InferOutput<typeof performanceSnapshotSchema
 
 export function validatePerformanceSnapshot(
   snapshot: unknown,
-): Effect.Effect<PerformanceSnapshot, Error> {
+): Effect.Effect<PerformanceSnapshot, PerformanceSnapshotValidationError> {
   return Effect.gen(function* () {
     const validation = v.safeParse(performanceSnapshotSchema, snapshot)
     if (!validation.success) {
       return yield* Effect.fail(
-        new Error(
-          `Fintual performance snapshot is invalid: ${JSON.stringify(v.flatten(validation.issues))}`,
-        ),
+        new PerformanceSnapshotValidationError({
+          issues: JSON.stringify(v.flatten(validation.issues)),
+        }),
       )
     }
 
@@ -42,8 +52,10 @@ export function validatePerformanceSnapshot(
   })
 }
 
-export function writePerformanceSnapshot(snapshot: PerformanceSnapshot): Effect.Effect<void> {
-  return Effect.matchEffect(
+export function writePerformanceSnapshot(
+  snapshot: PerformanceSnapshot,
+): Effect.Effect<void, Error> {
+  return Effect.andThen(
     trySync({
       try: () => {
         fs.mkdirSync(SNAPSHOT_DATA_DIR, { recursive: true })
@@ -51,9 +63,6 @@ export function writePerformanceSnapshot(snapshot: PerformanceSnapshot): Effect.
       },
       catch: "Failed to write performance snapshot artifact",
     }),
-    {
-      onFailure: (cause) => warn(getErrorMessage(cause)),
-      onSuccess: () => log(`Performance snapshot saved to ${PERFORMANCE_SNAPSHOT_PATH}`),
-    },
+    () => log(`Performance snapshot saved to ${PERFORMANCE_SNAPSHOT_PATH}`),
   )
 }

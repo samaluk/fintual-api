@@ -1,4 +1,5 @@
 import * as fs from "node:fs"
+import * as path from "node:path"
 import { Effect } from "effect"
 import { expect, test } from "vitest"
 import {
@@ -59,7 +60,7 @@ test("returns the validated snapshot for valid data", async () => {
 })
 
 test("writes a valid Performance Snapshot to the snapshot file", async () => {
-  const originalContents = readSnapshotFileIfPresent()
+  const originalContents = readFileIfPresent(PERFORMANCE_SNAPSHOT_PATH)
 
   try {
     await Effect.runPromise(writePerformanceSnapshot(performanceSnapshot()))
@@ -67,25 +68,41 @@ test("writes a valid Performance Snapshot to the snapshot file", async () => {
     const writtenSnapshot: unknown = JSON.parse(fs.readFileSync(PERFORMANCE_SNAPSHOT_PATH, "utf-8"))
     expect(writtenSnapshot).toEqual(performanceSnapshot())
   } finally {
-    restoreSnapshotFile(originalContents)
+    restoreFile(PERFORMANCE_SNAPSHOT_PATH, originalContents)
   }
 })
 
-function readSnapshotFileIfPresent(): string | null {
-  if (!fs.existsSync(PERFORMANCE_SNAPSHOT_PATH)) {
+test("fails when the Performance Snapshot cannot be written", async () => {
+  const snapshotPath = PERFORMANCE_SNAPSHOT_PATH
+  const originalContents = readFileIfPresent(snapshotPath)
+  fs.mkdirSync(path.dirname(snapshotPath), { recursive: true })
+
+  try {
+    fs.mkdirSync(snapshotPath, { recursive: true })
+    await expect(
+      Effect.runPromise(writePerformanceSnapshot(performanceSnapshot())),
+    ).rejects.toThrow("Failed to write performance snapshot artifact")
+  } finally {
+    fs.rmSync(snapshotPath, { force: true, recursive: true })
+    restoreFile(snapshotPath, originalContents)
+  }
+})
+
+function readFileIfPresent(filePath: string): string | null {
+  if (!fs.existsSync(filePath)) {
     return null
   }
 
-  return fs.readFileSync(PERFORMANCE_SNAPSHOT_PATH, "utf-8")
+  return fs.readFileSync(filePath, "utf-8")
 }
 
-function restoreSnapshotFile(contents: string | null): void {
+function restoreFile(filePath: string, contents: string | null): void {
   if (contents === null) {
-    fs.rmSync(PERFORMANCE_SNAPSHOT_PATH, { force: true })
+    fs.rmSync(filePath, { force: true })
     return
   }
 
-  fs.writeFileSync(PERFORMANCE_SNAPSHOT_PATH, contents, "utf-8")
+  fs.writeFileSync(filePath, contents, "utf-8")
 }
 
 function performanceSnapshot(): PerformanceSnapshot {
