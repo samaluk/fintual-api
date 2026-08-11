@@ -20,6 +20,17 @@ test("rejects a balance entry with a non-finite date and reports the failing fie
   )
 })
 
+test("rejects a deposit entry with a non-finite value and reports the failing field", async () => {
+  const invalidSnapshot = {
+    ...performanceSnapshot(),
+    deposits: [{ date: 1780264800000, value: Number.NEGATIVE_INFINITY, difference: 50 }],
+  }
+
+  await expect(Effect.runPromise(validatePerformanceSnapshot(invalidSnapshot))).rejects.toThrow(
+    /Fintual performance snapshot is invalid: .*deposits/,
+  )
+})
+
 test("rejects when deposits is not an array and reports the failing field", async () => {
   const invalidSnapshot = {
     ...performanceSnapshot(),

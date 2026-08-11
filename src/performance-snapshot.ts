@@ -1,6 +1,5 @@
 import * as fs from "node:fs"
 import { Context, Effect, Layer, Schema } from "effect"
-import * as v from "valibot"
 import { getErrorMessage } from "./log.ts"
 import { SnapshotWriteFailure } from "./fintual/fintual-error.ts"
 
@@ -36,40 +35,35 @@ class PerformanceSnapshotValidationError extends Schema.TaggedError<PerformanceS
   }
 }
 
-const finiteNumber = v.pipe(v.number(), v.finite())
+const finiteNumber = Schema.Finite
 
-const seriesPointSchema = v.object({
+const seriesPointSchema = Schema.Struct({
   date: finiteNumber,
   value: finiteNumber,
   difference: finiteNumber,
 })
 
-const performanceSnapshotSchema = v.object({
-  balance: v.pipe(
-    v.array(v.object({ ...seriesPointSchema.entries, real_difference: finiteNumber })),
-    v.minLength(1),
-  ),
-  deposits: v.pipe(v.array(seriesPointSchema), v.minLength(1)),
+const performanceSnapshotSchema = Schema.Struct({
+  balance: Schema.Array(
+    Schema.Struct({ ...seriesPointSchema.fields, real_difference: finiteNumber }),
+  ).pipe(Schema.check(Schema.isNonEmpty())),
+  deposits: Schema.Array(seriesPointSchema).pipe(Schema.check(Schema.isNonEmpty())),
 })
 
-export type PerformanceSnapshot = v.InferOutput<typeof performanceSnapshotSchema>
+export type PerformanceSnapshot = typeof performanceSnapshotSchema.Type
 
-export function validatePerformanceSnapshot(
+export const validatePerformanceSnapshot = Effect.fn("validatePerformanceSnapshot")(function* (
   snapshot: unknown,
-): Effect.Effect<PerformanceSnapshot, PerformanceSnapshotValidationError> {
-  return Effect.gen(function* () {
-    const validation = v.safeParse(performanceSnapshotSchema, snapshot)
-    if (!validation.success) {
-      return yield* Effect.fail(
+): Effect.fn.Return<PerformanceSnapshot, PerformanceSnapshotValidationError> {
+  return yield* Schema.decodeUnknownEffect(performanceSnapshotSchema)(snapshot).pipe(
+    Effect.mapError(
+      (cause) =>
         new PerformanceSnapshotValidationError({
-          issues: JSON.stringify(v.flatten(validation.issues)),
+          issues: cause.message.replace(/\s+/g, " ").trim(),
         }),
-      )
-    }
-
-    return validation.output
-  })
-}
+    ),
+  )
+})
 
 export function writePerformanceSnapshot(
   snapshot: PerformanceSnapshot,
