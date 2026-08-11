@@ -92,8 +92,8 @@ function get2FACodeFromEmail(
       return null
     })
 
-    return yield* Effect.catch(Effect.ensuring(program, closeImapClient(imapClient)), (cause) =>
-      Effect.as(error(`Error fetching 2FA code from Gmail IMAP: ${getErrorMessage(cause)}`), null),
+    return yield* Effect.tapError(Effect.ensuring(program, closeImapClient(imapClient)), (cause) =>
+      error(`Error fetching 2FA code from Gmail IMAP: ${getErrorMessage(cause)}`),
     )
   })
 }
