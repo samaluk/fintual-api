@@ -1,5 +1,5 @@
 import { Context, Effect, Layer } from "effect"
-import { tryPromise, trySync } from "../effect.ts"
+import { getErrorMessage } from "../log.ts"
 import { HttpTransportFailure, type FintualError } from "./fintual-error.ts"
 
 export const FINTUAL_ORIGIN = "https://fintual.cl"
@@ -46,22 +46,26 @@ class FintualHttpSession {
       }
 
       const response = yield* Effect.mapError(
-        tryPromise({
+        Effect.tryPromise({
           try: () =>
             this.fetchRequest(`${FINTUAL_ORIGIN}${path}`, {
               ...init,
               headers,
               signal: AbortSignal.timeout(HTTP_REQUEST_TIMEOUT_MS),
             }),
-          catch: `${stage}: request failed`,
+          catch: (cause) =>
+            new Error(`${stage}: request failed: ${getErrorMessage(cause)}`, { cause }),
         }),
         (cause) => new HttpTransportFailure({ stage, cause }),
       )
 
       yield* Effect.mapError(
-        trySync({
+        Effect.try({
           try: () => mergeSetCookieHeaders(response.headers, this.cookies),
-          catch: `${stage}: failed to update session cookies`,
+          catch: (cause) =>
+            new Error(`${stage}: failed to update session cookies: ${getErrorMessage(cause)}`, {
+              cause,
+            }),
         }),
         (cause) => new HttpTransportFailure({ stage, cause }),
       )

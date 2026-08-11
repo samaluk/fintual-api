@@ -1,7 +1,7 @@
 import * as fs from "node:fs"
 import { Context, Effect, Layer, Schema } from "effect"
 import * as v from "valibot"
-import { log, trySync } from "./effect.ts"
+import { getErrorMessage } from "./log.ts"
 import { SnapshotWriteFailure } from "./fintual/fintual-error.ts"
 
 const SNAPSHOT_DATA_DIR = "./tmp/fintual-data"
@@ -75,13 +75,16 @@ export function writePerformanceSnapshot(
   snapshot: PerformanceSnapshot,
 ): Effect.Effect<void, Error> {
   return Effect.andThen(
-    trySync({
+    Effect.try({
       try: () => {
         fs.mkdirSync(SNAPSHOT_DATA_DIR, { recursive: true })
         fs.writeFileSync(PERFORMANCE_SNAPSHOT_PATH, JSON.stringify(snapshot, null, 2), "utf-8")
       },
-      catch: "Failed to write performance snapshot artifact",
+      catch: (cause) =>
+        new Error(`Failed to write performance snapshot artifact: ${getErrorMessage(cause)}`, {
+          cause,
+        }),
     }),
-    () => log(`Performance snapshot saved to ${PERFORMANCE_SNAPSHOT_PATH}`),
+    () => Effect.logInfo(`Performance snapshot saved to ${PERFORMANCE_SNAPSHOT_PATH}`),
   )
 }

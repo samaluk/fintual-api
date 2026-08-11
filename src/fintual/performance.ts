@@ -1,5 +1,4 @@
 import { Context, Effect, Layer } from "effect"
-import { tryPromise, trySync } from "../effect.ts"
 import { FintualConfigService } from "../env.ts"
 import { getErrorMessage } from "../log.ts"
 import {
@@ -62,9 +61,12 @@ export class FintualPerformance extends Context.Service<
           )
 
           const snapshot = yield* Effect.mapError(
-            trySync({
+            Effect.try({
               try: () => foldGoalPerformanceData(reference, recent),
-              catch: "Failed to fold Fintual performance data",
+              catch: (cause) =>
+                new Error(`Failed to fold Fintual performance data: ${getErrorMessage(cause)}`, {
+                  cause,
+                }),
             }),
             (cause) => new MalformedPerformanceSnapshot({ issues: getErrorMessage(cause) }),
           )
@@ -212,9 +214,10 @@ function fetchGoalPerformanceData(
 
 function readResponseBody(response: Response, stage: string): Effect.Effect<string, FintualError> {
   return Effect.mapError(
-    tryPromise({
+    Effect.tryPromise({
       try: () => response.text(),
-      catch: `${stage}: failed to read response body`,
+      catch: (cause) =>
+        new Error(`${stage}: failed to read response body: ${getErrorMessage(cause)}`, { cause }),
     }),
     (cause) => new HttpTransportFailure({ stage, cause }),
   )

@@ -1,6 +1,6 @@
 import { Effect } from "effect"
 import * as v from "valibot"
-import { trySync } from "../effect.ts"
+import { getErrorMessage } from "../log.ts"
 
 export const TimeIntervalCode = {
   LastMonth: "last_month",
@@ -40,10 +40,13 @@ export function parseGoalPerformanceResponseBody(
   body: string,
 ): Effect.Effect<GoalPerformanceData, Error> {
   return Effect.gen(function* () {
-    const parsedJson = yield* trySync({
+    const parsedJson = yield* Effect.try({
       // oxlint-disable-next-line typescript/consistent-type-assertions
       try: () => JSON.parse(body) as unknown,
-      catch: "Failed to parse goal performance response body",
+      catch: (cause) =>
+        new Error(`Failed to parse goal performance response body: ${getErrorMessage(cause)}`, {
+          cause,
+        }),
     })
 
     const parsedData = v.safeParse(newPerformanceSchema, parsedJson)
