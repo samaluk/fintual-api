@@ -17,5 +17,5 @@ Goal Performance Data that supplies the observations used to calculate recent ba
 _Avoid_: Last-month data, current data
 
 **Performance Snapshot**:
-The validated balance and deposit observations persisted by the Fintual side of the sync for the Actual side to consume. One module owns its shape and persistence.
+The typed balance and deposit observations passed from the Fintual sync step to the Actual sync step. One module owns its shape and persistence; the JSON file is a write-only implementation detail kept for inspection.
 _Avoid_: Balance file, balance-2.json, performance payload

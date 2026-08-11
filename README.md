@@ -101,7 +101,7 @@ pnpm once
 The worker will:
 
 - log in to Fintual over HTTP (`initiate_login` → Gmail IMAP 2FA when required → `finalize_login_web`) and fetch GraphQL performance data
-- write the result to `tmp/fintual-data/balance-2.json`
+- fold the data into a Performance Snapshot, save it to `tmp/fintual-data/balance-2.json` for inspection, and pass it to the Actual sync step
 - import variation transactions into Actual Budget
 
 ### Reverse-engineering Fintual HTTP (agent-browser)
