@@ -1,8 +1,8 @@
 import { Clock, Context, Effect, Layer } from "effect"
-import { ImapFlow } from "imapflow"
-import { error, log, sleep, tryPromise, warn } from "../effect.ts"
+import { error, log, sleep, warn } from "../effect.ts"
 import { FintualConfigService, type Email2FAConfig } from "../env.ts"
 import { getErrorMessage } from "../log.ts"
+import { createImapClient, MissingServerExtension, type ImapClient } from "./email-2fa-client.ts"
 import { Email2FAFailure } from "./fintual-error.ts"
 import {
   buildEmail2FASearchQueries,
@@ -70,10 +70,7 @@ function get2FACodeFromEmail(
     const seenMessageKeys = new Set<string>()
 
     const program = Effect.gen(function* () {
-      yield* tryPromise({
-        try: () => imapClient.connect(),
-        catch: "Failed to connect to Gmail IMAP",
-      })
+      yield* imapClient.connect()
 
       while ((yield* Clock.currentTimeMillis) - startedAt < timeoutMs) {
         const code = yield* searchForCode(config, imapClient, afterTimestamp, seenMessageKeys)
@@ -98,22 +95,9 @@ function get2FACodeFromEmail(
   })
 }
 
-function createImapClient(config: Email2FAConfig): ImapFlow {
-  return new ImapFlow({
-    host: config.host,
-    port: config.port,
-    secure: true,
-    auth: {
-      user: config.userEmail,
-      pass: config.appPassword,
-    },
-    logger: false,
-  })
-}
-
 function searchForCode(
   config: Email2FAConfig,
-  imapClient: ImapFlow,
+  imapClient: ImapClient,
   afterTimestamp: Date,
   seenMessageKeys: Set<string>,
 ): Effect.Effect<string | null, Error> {
@@ -121,15 +105,10 @@ function searchForCode(
 
   return Effect.gen(function* () {
     for (const mailboxPath of paths) {
-      const lock = yield* Effect.catch(
-        tryPromise({
-          try: () => imapClient.getMailboxLock(mailboxPath),
-          catch: `Failed to lock Gmail IMAP mailbox ${mailboxPath}`,
-        }),
-        () =>
-          config.debug
-            ? Effect.as(log(`Gmail IMAP: skip missing mailbox ${mailboxPath}`), undefined)
-            : Effect.succeed(undefined),
+      const lock = yield* Effect.catch(imapClient.getMailboxLock(mailboxPath), () =>
+        config.debug
+          ? Effect.as(log(`Gmail IMAP: skip missing mailbox ${mailboxPath}`), undefined)
+          : Effect.succeed(undefined),
       )
       if (!lock) {
         continue
@@ -178,7 +157,7 @@ function messageSeenKey(mailboxPath: string, uid: number): string {
 }
 
 function extractCodeFromMailboxUids(
-  imapClient: ImapFlow,
+  imapClient: ImapClient,
   mailboxPath: string,
   messageUids: number[],
   afterTimestamp: Date,
@@ -195,19 +174,7 @@ function extractCodeFromMailboxUids(
       }
       seenMessageKeys.add(key)
 
-      const message = yield* tryPromise({
-        try: () =>
-          imapClient.fetchOne(
-            String(uid),
-            {
-              source: true,
-              envelope: true,
-              internalDate: true,
-            },
-            { uid: true },
-          ),
-        catch: "Failed to fetch Gmail IMAP message",
-      })
+      const message = yield* imapClient.fetchOne(uid)
       if (!message || !message.source) {
         continue
       }
@@ -229,26 +196,17 @@ function extractCodeFromMailboxUids(
 
 function runMailboxSearch(
   config: Email2FAConfig,
-  imapClient: ImapFlow,
+  imapClient: ImapClient,
   afterTimestamp: Date,
 ): Effect.Effect<number[] | false, Error> {
   const queries = buildEmail2FASearchQueries(config, afterTimestamp)
 
   return Effect.gen(function* () {
     for (const query of queries) {
-      const messageUids = yield* Effect.catch(
-        tryPromise({
-          try: () => imapClient.search(query, { uid: true }),
-          catch: "Failed to search Gmail IMAP mailbox",
-        }),
-        (cause) => {
-          // oxlint-disable-next-line typescript/consistent-type-assertions, typescript/no-unsafe-type-assertion
-          const originalError = cause.cause as { code?: string } | undefined
-          if (originalError?.code === "MissingServerExtension") {
-            return Effect.succeed(false as const)
-          }
-          return Effect.fail(cause)
-        },
+      const messageUids = yield* Effect.catchIf(
+        imapClient.search(query),
+        (cause): cause is MissingServerExtension => cause instanceof MissingServerExtension,
+        () => Effect.succeed(false as const),
       )
       if (messageUids && messageUids.length > 0) {
         return messageUids
@@ -259,16 +217,12 @@ function runMailboxSearch(
   })
 }
 
-function closeImapClient(imapClient: ImapFlow): Effect.Effect<void> {
+function closeImapClient(imapClient: ImapClient): Effect.Effect<void> {
   if (!imapClient.usable) {
     return Effect.void
   }
 
-  return Effect.catch(
-    tryPromise({
-      try: () => imapClient.logout(),
-      catch: "Failed to close IMAP connection cleanly",
-    }),
-    (cause) => warn(`Failed to close IMAP connection cleanly: ${getErrorMessage(cause)}`),
+  return Effect.catch(imapClient.logout(), (cause) =>
+    warn(`Failed to close IMAP connection cleanly: ${getErrorMessage(cause)}`),
   )
 }
