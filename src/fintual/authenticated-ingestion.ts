@@ -74,7 +74,7 @@ class FintualHttpSession {
   }
 
   request(path: string, init: RequestInit, stage: string): Effect.Effect<Response, Error> {
-    return Effect.gen(this, function* () {
+    return Effect.gen({ self: this }, function* () {
       const headers = new Headers(init.headers)
       headers.set("User-Agent", BROWSER_USER_AGENT)
       headers.set("Origin", FINTUAL_ORIGIN)

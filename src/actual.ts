@@ -65,7 +65,7 @@ function runActualSyncWithRetry(
   config: ActualConfig,
   attempt: number,
 ): Effect.Effect<SyncCounts, Error> {
-  return Effect.catchAll(runActualSyncAttempt(config), (cause) => {
+  return Effect.catch(runActualSyncAttempt(config), (cause) => {
     const shouldRetry = isRetryableActualError(cause) && attempt < MAX_SYNC_ATTEMPTS
 
     if (!shouldRetry) {

@@ -36,14 +36,15 @@ export function resolveRuntimeConfig(
   environment: Environment,
 ): Effect.Effect<RuntimeConfig, Error> {
   return Effect.gen(function* () {
-    const provider = ConfigProvider.fromMap(
-      new Map(
+    const provider = ConfigProvider.fromUnknown(
+      Object.fromEntries(
         Object.entries(environment).flatMap(([name, value]) =>
-          value ? [[name, normalizeEnvValue(value)] as const] : [],
+          value ? [[name, normalizeEnvValue(value)]] : [],
         ),
       ),
     )
-    const values = yield* Effect.withConfigProvider(provider)(runtimeValueConfig).pipe(
+    const values = yield* runtimeValueConfig.pipe(
+      Effect.provideService(ConfigProvider.ConfigProvider, provider),
       Effect.mapError((cause) => new Error(cause.message)),
     )
     const gmailUserEmail = Option.getOrElse(values.gmailUserEmail, () => "")
@@ -112,7 +113,8 @@ function resolveEmail2FAConfig(
     return Effect.fail(new Error(`Missing environment variables: ${missingName}`))
   }
 
-  return Effect.withConfigProvider(provider)(email2FAValueConfig).pipe(
+  return email2FAValueConfig.pipe(
+    Effect.provideService(ConfigProvider.ConfigProvider, provider),
     Effect.mapError((cause) => new Error(cause.message)),
     Effect.map((values) => ({
       userEmail,

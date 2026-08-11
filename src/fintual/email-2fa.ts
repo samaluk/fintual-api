@@ -69,7 +69,7 @@ export function get2FACodeFromEmail(
       return null
     })
 
-    return yield* Effect.catchAll(Effect.ensuring(program, closeImapClient(imapClient)), (cause) =>
+    return yield* Effect.catch(Effect.ensuring(program, closeImapClient(imapClient)), (cause) =>
       Effect.as(error(`Error fetching 2FA code from Gmail IMAP: ${getErrorMessage(cause)}`), null),
     )
   })
@@ -98,7 +98,7 @@ function searchForCode(
 
   return Effect.gen(function* () {
     for (const mailboxPath of paths) {
-      const lock = yield* Effect.catchAll(
+      const lock = yield* Effect.catch(
         tryPromise({
           try: () => imapClient.getMailboxLock(mailboxPath),
           catch: `Failed to lock Gmail IMAP mailbox ${mailboxPath}`,
@@ -213,7 +213,7 @@ function runMailboxSearch(
 
   return Effect.gen(function* () {
     for (const query of queries) {
-      const messageUids = yield* Effect.catchAll(
+      const messageUids = yield* Effect.catch(
         tryPromise({
           try: () => imapClient.search(query, { uid: true }),
           catch: "Failed to search Gmail IMAP mailbox",
@@ -241,7 +241,7 @@ function closeImapClient(imapClient: ImapFlow): Effect.Effect<void> {
     return Effect.void
   }
 
-  return Effect.catchAll(
+  return Effect.catch(
     tryPromise({
       try: () => imapClient.logout(),
       catch: "Failed to close IMAP connection cleanly",
