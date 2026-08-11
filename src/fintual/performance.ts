@@ -60,20 +60,18 @@ export class FintualPerformance extends Context.Service<
             "recent",
           )
 
-          const snapshot = yield* Effect.mapError(
-            Effect.try({
-              try: () => foldGoalPerformanceData(reference, recent),
-              catch: (cause) =>
-                new Error(`Failed to fold Fintual performance data: ${getErrorMessage(cause)}`, {
-                  cause,
-                }),
-            }),
-            (cause) => new MalformedPerformanceSnapshot({ issues: getErrorMessage(cause) }),
-          )
+          const snapshot = yield* Effect.try({
+            try: () => foldGoalPerformanceData(reference, recent),
+            catch: (cause) =>
+              new MalformedPerformanceSnapshot({
+                issues: `Failed to fold Fintual performance data: ${getErrorMessage(cause)}`,
+                cause,
+              }),
+          })
 
           const validatedSnapshot = yield* Effect.mapError(
             validatePerformanceSnapshot(snapshot),
-            (cause) => new MalformedPerformanceSnapshot({ issues: cause.issues }),
+            (cause) => new MalformedPerformanceSnapshot({ issues: cause.issues, cause }),
           )
           yield* snapshotWriter.write(validatedSnapshot)
 
@@ -228,14 +226,16 @@ const readResponseBody = Effect.fn("FintualPerformance.readResponseBody")(functi
   response: Response,
   stage: string,
 ): Effect.fn.Return<string, FintualError> {
-  return yield* Effect.mapError(
-    Effect.tryPromise({
-      try: () => response.text(),
-      catch: (cause) =>
-        new Error(`${stage}: failed to read response body: ${getErrorMessage(cause)}`, { cause }),
-    }),
-    (cause) => new HttpTransportFailure({ stage, cause }),
-  )
+  return yield* Effect.tryPromise({
+    try: () => response.text(),
+    catch: (cause) =>
+      new HttpTransportFailure({
+        stage,
+        cause: new Error(`${stage}: failed to read response body: ${getErrorMessage(cause)}`, {
+          cause,
+        }),
+      }),
+  })
 })
 
 function failUnexpectedStatus(stage: string, status: number): Effect.Effect<never, FintualError> {

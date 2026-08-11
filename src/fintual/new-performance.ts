@@ -63,30 +63,49 @@ const goalPerformanceDataResponseSchema = Schema.Struct({
 
 export type GoalPerformanceData = (typeof goalPerformanceDataResponseSchema.Type)["data"]
 
+class InvalidGoalPerformanceResponse extends Schema.TaggedError<InvalidGoalPerformanceResponse>()(
+  "InvalidGoalPerformanceResponse",
+  {
+    cause: Schema.Defect(),
+  },
+) {
+  override get message(): string {
+    return getErrorMessage(this.cause)
+  }
+}
+
 export const parseGoalPerformanceResponseBody = Effect.fn(
   "FintualPerformance.parseGoalPerformanceResponseBody",
-)(function* (body: string): Effect.fn.Return<GoalPerformanceData, Error> {
+)(function* (body: string): Effect.fn.Return<GoalPerformanceData, InvalidGoalPerformanceResponse> {
   const parsedJson = yield* Effect.try({
     // oxlint-disable-next-line typescript/consistent-type-assertions
     try: () => JSON.parse(body) as unknown,
     catch: (cause) =>
-      new Error(`Failed to parse goal performance response body: ${getErrorMessage(cause)}`, {
-        cause,
+      new InvalidGoalPerformanceResponse({
+        cause: new Error(
+          `Failed to parse goal performance response body: ${getErrorMessage(cause)}`,
+          { cause },
+        ),
       }),
   })
 
   if (Predicate.isObject(parsedJson) && "errors" in parsedJson) {
-    return yield* Effect.fail(
-      new Error("Failed to validate goal performance data: GraphQL response contains errors"),
-    )
+    return yield* new InvalidGoalPerformanceResponse({
+      cause: new Error(
+        "Failed to validate goal performance data: GraphQL response contains errors",
+      ),
+    })
   }
 
   return yield* Schema.decodeUnknownEffect(goalPerformanceDataResponseSchema)(parsedJson).pipe(
     Effect.map((response) => response.data),
     Effect.mapError(
       (cause) =>
-        new Error(`Failed to validate goal performance data: ${getValidationFailure(parsedJson)}`, {
-          cause,
+        new InvalidGoalPerformanceResponse({
+          cause: new Error(
+            `Failed to validate goal performance data: ${getValidationFailure(parsedJson)}`,
+            { cause },
+          ),
         }),
     ),
   )

@@ -1,9 +1,16 @@
 import { Clock, Context, Effect, Layer, Option, Schedule, Schema } from "effect"
 import type { Email2FAConfig } from "../../env.ts"
 import { getErrorMessage } from "../../log.ts"
-import { createImapClient, MissingServerExtension, type ImapClient } from "../email-2fa-client.ts"
+import {
+  createImapClient,
+  ImapMailboxLockFailure,
+  ImapOperationFailure,
+  MissingServerExtension,
+  type ImapClient,
+} from "../email-2fa-client.ts"
 import {
   buildEmail2FASearchQueries,
+  EmailMessageParseFailure,
   isGmailImapHost,
   selectEmail2FACode,
   type Email2FACandidate,
@@ -113,7 +120,7 @@ export const retrieveEmail2FACode = Effect.fn("Email2FA.retrieveEmail2FACode")(f
 const connectImapClient = Effect.fn("Email2FA.connectImapClient")(function* (
   clientFactory: ImapClientFactory["Service"],
   config: Email2FAConfig,
-): Effect.fn.Return<ImapClient, Error> {
+): Effect.fn.Return<ImapClient, ImapOperationFailure> {
   const imapClient = clientFactory.create(config)
   yield* imapClient.connect()
   return imapClient
@@ -144,7 +151,10 @@ const pollForCode = Effect.fn("Email2FA.pollForCode")(function* (
   imapClient: ImapClient,
   afterTimestamp: Date,
   seenMessageKeys: Set<string>,
-): Effect.fn.Return<Option.Option<Email2FACode>, Error> {
+): Effect.fn.Return<
+  Option.Option<Email2FACode>,
+  ImapOperationFailure | ImapMailboxLockFailure | EmailMessageParseFailure
+> {
   for (const mailboxPath of imapSearchMailboxes(config)) {
     const code = yield* searchMailbox(
       config,
@@ -174,7 +184,10 @@ const searchMailbox = Effect.fn("Email2FA.searchMailbox")(function* (
   mailboxPath: string,
   afterTimestamp: Date,
   seenMessageKeys: Set<string>,
-): Effect.fn.Return<Option.Option<Email2FACode>, Error> {
+): Effect.fn.Return<
+  Option.Option<Email2FACode>,
+  ImapOperationFailure | ImapMailboxLockFailure | EmailMessageParseFailure
+> {
   const lock = yield* Effect.catchTag(
     imapClient.getMailboxLock(mailboxPath),
     "MissingMailbox",
@@ -199,7 +212,7 @@ const searchLockedMailbox = Effect.fn("Email2FA.searchLockedMailbox")(function* 
   mailboxPath: string,
   afterTimestamp: Date,
   seenMessageKeys: Set<string>,
-): Effect.fn.Return<Option.Option<Email2FACode>, Error> {
+): Effect.fn.Return<Option.Option<Email2FACode>, ImapOperationFailure | EmailMessageParseFailure> {
   const messageUids = yield* runMailboxSearch(config, imapClient, afterTimestamp)
   if (config.debug) {
     yield* Effect.log(
@@ -223,7 +236,7 @@ const runMailboxSearch = Effect.fn("Email2FA.runMailboxSearch")(function* (
   config: Email2FAConfig,
   imapClient: ImapClient,
   afterTimestamp: Date,
-): Effect.fn.Return<number[] | false, Error> {
+): Effect.fn.Return<number[] | false, ImapOperationFailure> {
   const queries = buildEmail2FASearchQueries(config, afterTimestamp)
 
   for (const query of queries) {
@@ -246,7 +259,7 @@ const extractCodeFromMailboxUids = Effect.fn("Email2FA.extractCodeFromMailboxUid
   messageUids: number[],
   afterTimestamp: Date,
   seenMessageKeys: Set<string>,
-): Effect.fn.Return<Option.Option<Email2FACode>, Error> {
+): Effect.fn.Return<Option.Option<Email2FACode>, EmailMessageParseFailure> {
   const recentUids = messageUids.slice(-MAX_RESULTS).reverse()
 
   const candidates: Email2FACandidate[] = []

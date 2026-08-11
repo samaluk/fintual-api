@@ -5,6 +5,8 @@ import { describe, expect } from "vitest"
 import type { SearchObject } from "imapflow"
 import type { Email2FAConfig } from "../../env.ts"
 import {
+  ImapMailboxLockFailure,
+  ImapOperationFailure,
   MissingMailbox,
   MissingServerExtension,
   type ImapClient,
@@ -34,11 +36,14 @@ const NON_GMAIL_CONFIG: Email2FAConfig = {
 const GMAIL_CONFIG: Email2FAConfig = { ...NON_GMAIL_CONFIG, host: "imap.gmail.com" }
 
 interface FakeClientOptions {
-  connectError?: Error
+  connectError?: ImapOperationFailure
   lockFailures?: ReadonlySet<string>
-  lockError?: Error
-  search?: (query: SearchObject, searchCount: number) => number[] | false | Error
-  fetchOne?: (uid: number) => ImapMessage | null | Error
+  lockError?: ImapMailboxLockFailure
+  search?: (
+    query: SearchObject,
+    searchCount: number,
+  ) => number[] | false | ImapOperationFailure | MissingServerExtension
+  fetchOne?: (uid: number) => ImapMessage | null | ImapOperationFailure
 }
 
 interface FakeClient {
@@ -65,7 +70,9 @@ function createFakeClient(options: FakeClientOptions = {}): FakeClient {
         usable = true
       })
     },
-    getMailboxLock: (path: string): Effect.Effect<ImapMailboxLock, Error> => {
+    getMailboxLock: (
+      path: string,
+    ): Effect.Effect<ImapMailboxLock, ImapMailboxLockFailure | MissingMailbox> => {
       ops.push(`lock:${path}`)
       if (options.lockError) {
         return Effect.fail(options.lockError)
@@ -206,7 +213,10 @@ describe("retrieveEmail2FACode", () => {
   it.effect("surfaces a connect failure as Operational without logging out", () =>
     Effect.gen(function* () {
       const fake = createFakeClient({
-        connectError: new Error("connection refused"),
+        connectError: new ImapOperationFailure({
+          stage: "Failed to connect to Gmail IMAP",
+          cause: new Error("connection refused"),
+        }),
         search: () => false,
       })
 
@@ -269,7 +279,12 @@ describe("retrieveEmail2FACode recoverability", () => {
 
   it.effect("surfaces a non-missing mailbox lock failure as Operational", () =>
     Effect.gen(function* () {
-      const fake = createFakeClient({ lockError: new Error("connection dropped") })
+      const fake = createFakeClient({
+        lockError: new ImapMailboxLockFailure({
+          path: "INBOX",
+          cause: new Error("connection dropped"),
+        }),
+      })
 
       const exit = yield* runRetrieval(
         GMAIL_CONFIG,
@@ -292,7 +307,10 @@ describe("retrieveEmail2FACode recoverability", () => {
           search: () => [111, 222],
           fetchOne: (uid) => {
             if (uid === 111) {
-              return new Error("message stream broken")
+              return new ImapOperationFailure({
+                stage: "Failed to fetch Gmail IMAP message",
+                cause: new Error("message stream broken"),
+              })
             }
             return messageWithCode("222222")
           },
@@ -322,7 +340,12 @@ describe("retrieveEmail2FACode recoverability", () => {
         search: () => [111],
         fetchOne: () => {
           fetches += 1
-          return fetches === 1 ? new Error("message stream broken") : messageWithCode("111111")
+          return fetches === 1
+            ? new ImapOperationFailure({
+                stage: "Failed to fetch Gmail IMAP message",
+                cause: new Error("message stream broken"),
+              })
+            : messageWithCode("111111")
         },
       })
 
@@ -344,7 +367,13 @@ describe("retrieveEmail2FACode recoverability", () => {
 
   it.effect("surfaces a search failure as Operational", () =>
     Effect.gen(function* () {
-      const fake = createFakeClient({ search: () => new Error("IMAP search failed") })
+      const fake = createFakeClient({
+        search: () =>
+          new ImapOperationFailure({
+            stage: "Failed to search Gmail IMAP mailbox",
+            cause: new Error("IMAP search failed"),
+          }),
+      })
 
       const exit = yield* runRetrieval(
         NON_GMAIL_CONFIG,

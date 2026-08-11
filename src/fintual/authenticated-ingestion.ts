@@ -59,30 +59,31 @@ class FintualHttpSession {
         headers.set("Cookie", cookieHeader)
       }
 
-      const response = yield* Effect.mapError(
-        Effect.tryPromise({
-          try: (signal) =>
-            this.fetchRequest(`${FINTUAL_ORIGIN}${path}`, {
-              ...init,
-              headers,
-              signal: AbortSignal.any([signal, AbortSignal.timeout(this.requestTimeoutMs)]),
-            }),
-          catch: (cause) =>
-            new Error(`${stage}: request failed: ${getErrorMessage(cause)}`, { cause }),
-        }),
-        (cause) => new HttpTransportFailure({ stage, cause }),
-      )
+      const response = yield* Effect.tryPromise({
+        try: (signal) =>
+          this.fetchRequest(`${FINTUAL_ORIGIN}${path}`, {
+            ...init,
+            headers,
+            signal: AbortSignal.any([signal, AbortSignal.timeout(this.requestTimeoutMs)]),
+          }),
+        catch: (cause) =>
+          new HttpTransportFailure({
+            stage,
+            cause: new Error(`${stage}: request failed: ${getErrorMessage(cause)}`, { cause }),
+          }),
+      })
 
-      yield* Effect.mapError(
-        Effect.try({
-          try: () => mergeSetCookieHeaders(response.headers, this.cookies),
-          catch: (cause) =>
-            new Error(`${stage}: failed to update session cookies: ${getErrorMessage(cause)}`, {
-              cause,
-            }),
-        }),
-        (cause) => new HttpTransportFailure({ stage, cause }),
-      )
+      yield* Effect.try({
+        try: () => mergeSetCookieHeaders(response.headers, this.cookies),
+        catch: (cause) =>
+          new HttpTransportFailure({
+            stage,
+            cause: new Error(
+              `${stage}: failed to update session cookies: ${getErrorMessage(cause)}`,
+              { cause },
+            ),
+          }),
+      })
 
       return response
     },

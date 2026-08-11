@@ -1,7 +1,7 @@
 import { Effect, Predicate, Schema } from "effect"
 import { ImapFlow, type SearchObject } from "imapflow"
 import type { Email2FAConfig } from "../env.ts"
-import { getErrorMessage, revealSecret, toError } from "../log.ts"
+import { getErrorMessage, revealSecret } from "../log.ts"
 
 export interface ImapMailboxLock {
   release(): void
@@ -15,11 +15,15 @@ export interface ImapMessage {
 
 export interface ImapClient {
   readonly usable: boolean
-  connect(): Effect.Effect<void, Error>
-  getMailboxLock(path: string): Effect.Effect<ImapMailboxLock, Error | MissingMailbox>
-  search(query: SearchObject): Effect.Effect<number[] | false, Error | MissingServerExtension>
-  fetchOne(uid: number): Effect.Effect<ImapMessage | null, Error>
-  logout(): Effect.Effect<void, Error>
+  connect(): Effect.Effect<void, ImapOperationFailure>
+  getMailboxLock(
+    path: string,
+  ): Effect.Effect<ImapMailboxLock, ImapMailboxLockFailure | MissingMailbox>
+  search(
+    query: SearchObject,
+  ): Effect.Effect<number[] | false, ImapOperationFailure | MissingServerExtension>
+  fetchOne(uid: number): Effect.Effect<ImapMessage | null, ImapOperationFailure>
+  logout(): Effect.Effect<void, ImapOperationFailure>
 }
 
 export class MissingServerExtension extends Schema.TaggedError<MissingServerExtension>()(
@@ -38,6 +42,30 @@ export class MissingMailbox extends Schema.TaggedError<MissingMailbox>()("Missin
   cause: Schema.Defect(),
 }) {}
 
+export class ImapOperationFailure extends Schema.TaggedError<ImapOperationFailure>()(
+  "ImapOperationFailure",
+  {
+    stage: Schema.String,
+    cause: Schema.Defect(),
+  },
+) {
+  override get message(): string {
+    return `${this.stage}: ${getErrorMessage(this.cause)}`
+  }
+}
+
+export class ImapMailboxLockFailure extends Schema.TaggedError<ImapMailboxLockFailure>()(
+  "ImapMailboxLockFailure",
+  {
+    path: Schema.String,
+    cause: Schema.Defect(),
+  },
+) {
+  override get message(): string {
+    return `Failed to lock Gmail IMAP mailbox ${this.path}: ${getErrorMessage(this.cause)}`
+  }
+}
+
 export class ImapFlowClient implements ImapClient {
   private readonly raw: ImapFlow
 
@@ -51,10 +79,11 @@ export class ImapFlowClient implements ImapClient {
 
   readonly connect = Effect.fn("Email2FA.ImapFlowClient.connect")(
     { self: this },
-    function* (this: ImapFlowClient): Effect.fn.Return<void, Error> {
+    function* (this: ImapFlowClient): Effect.fn.Return<void, ImapOperationFailure> {
       yield* Effect.tryPromise({
         try: () => this.raw.connect(),
-        catch: (error) => toError(error, "Failed to connect to Gmail IMAP"),
+        catch: (cause) =>
+          new ImapOperationFailure({ stage: "Failed to connect to Gmail IMAP", cause }),
       })
     },
   )
@@ -64,15 +93,13 @@ export class ImapFlowClient implements ImapClient {
     function* (
       this: ImapFlowClient,
       path: string,
-    ): Effect.fn.Return<ImapMailboxLock, Error | MissingMailbox> {
+    ): Effect.fn.Return<ImapMailboxLock, ImapMailboxLockFailure | MissingMailbox> {
       return yield* Effect.tryPromise({
         try: () => this.raw.getMailboxLock(path),
         catch: (cause) =>
           Predicate.isObject(cause) && cause.mailboxMissing === true
             ? new MissingMailbox({ path, cause })
-            : new Error(`Failed to lock Gmail IMAP mailbox ${path}: ${getErrorMessage(cause)}`, {
-                cause,
-              }),
+            : new ImapMailboxLockFailure({ path, cause }),
       })
     },
   )
@@ -82,7 +109,7 @@ export class ImapFlowClient implements ImapClient {
     function* (
       this: ImapFlowClient,
       query: SearchObject,
-    ): Effect.fn.Return<number[] | false, Error | MissingServerExtension> {
+    ): Effect.fn.Return<number[] | false, ImapOperationFailure | MissingServerExtension> {
       return yield* Effect.tryPromise({
         try: () => this.raw.search(query, { uid: true }),
         catch: (cause) => {
@@ -91,7 +118,8 @@ export class ImapFlowClient implements ImapClient {
           if (originalError?.code === "MissingServerExtension") {
             return new MissingServerExtension({ cause })
           }
-          return new Error(`Failed to search Gmail IMAP mailbox: ${getErrorMessage(cause)}`, {
+          return new ImapOperationFailure({
+            stage: "Failed to search Gmail IMAP mailbox",
             cause,
           })
         },
@@ -101,7 +129,10 @@ export class ImapFlowClient implements ImapClient {
 
   readonly fetchOne = Effect.fn("Email2FA.ImapFlowClient.fetchOne")(
     { self: this },
-    function* (this: ImapFlowClient, uid: number): Effect.fn.Return<ImapMessage | null, Error> {
+    function* (
+      this: ImapFlowClient,
+      uid: number,
+    ): Effect.fn.Return<ImapMessage | null, ImapOperationFailure> {
       return yield* Effect.map(
         Effect.tryPromise({
           try: () =>
@@ -110,7 +141,11 @@ export class ImapFlowClient implements ImapClient {
               { source: true, envelope: true, internalDate: true },
               { uid: true },
             ),
-          catch: (error) => toError(error, "Failed to fetch Gmail IMAP message"),
+          catch: (cause) =>
+            new ImapOperationFailure({
+              stage: "Failed to fetch Gmail IMAP message",
+              cause,
+            }),
         }),
         (message) =>
           message
@@ -126,10 +161,14 @@ export class ImapFlowClient implements ImapClient {
 
   readonly logout = Effect.fn("Email2FA.ImapFlowClient.logout")(
     { self: this },
-    function* (this: ImapFlowClient): Effect.fn.Return<void, Error> {
+    function* (this: ImapFlowClient): Effect.fn.Return<void, ImapOperationFailure> {
       yield* Effect.tryPromise({
         try: () => this.raw.logout(),
-        catch: (error) => toError(error, "Failed to close IMAP connection cleanly"),
+        catch: (cause) =>
+          new ImapOperationFailure({
+            stage: "Failed to close IMAP connection cleanly",
+            cause,
+          }),
       })
     },
   )

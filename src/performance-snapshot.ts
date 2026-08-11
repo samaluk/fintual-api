@@ -15,10 +15,7 @@ export class SnapshotWriter extends Context.Service<
   static readonly layer = Layer.sync(SnapshotWriter, () =>
     SnapshotWriter.of({
       write: Effect.fn("SnapshotWriter.write")(function* (snapshot) {
-        return yield* Effect.mapError(
-          writePerformanceSnapshot(snapshot),
-          (cause) => new SnapshotWriteFailure({ cause }),
-        )
+        return yield* writePerformanceSnapshot(snapshot)
       }),
     }),
   )
@@ -67,7 +64,7 @@ export const validatePerformanceSnapshot = Effect.fn("PerformanceSnapshot.valida
 
 export const writePerformanceSnapshot = Effect.fn("PerformanceSnapshot.write")(function* (
   snapshot: PerformanceSnapshot,
-): Effect.fn.Return<void, Error> {
+): Effect.fn.Return<void, SnapshotWriteFailure> {
   return yield* Effect.andThen(
     Effect.try({
       try: () => {
@@ -75,8 +72,11 @@ export const writePerformanceSnapshot = Effect.fn("PerformanceSnapshot.write")(f
         fs.writeFileSync(PERFORMANCE_SNAPSHOT_PATH, JSON.stringify(snapshot, null, 2), "utf-8")
       },
       catch: (cause) =>
-        new Error(`Failed to write performance snapshot artifact: ${getErrorMessage(cause)}`, {
-          cause,
+        new SnapshotWriteFailure({
+          cause: new Error(
+            `Failed to write performance snapshot artifact: ${getErrorMessage(cause)}`,
+            { cause },
+          ),
         }),
     }),
     () => Effect.logInfo(`Performance snapshot saved to ${PERFORMANCE_SNAPSHOT_PATH}`),

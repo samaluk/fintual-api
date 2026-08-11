@@ -7,7 +7,7 @@
       "api-surface",
       "type-coupling"
     ],
-    "project_config_hash": "sha256:2f7f00a3abcf1a063bfa964e56f8f5b16e00e4ec3e3af93415310c0b8d204c55",
+    "project_config_hash": "sha256:aa181832bbdc7bcc9c9cdfb2059ea8009dac18cd2912fe8c08aa5110e8e9ed64",
     "backend_family": "typescript-go",
     "completeness": "complete"
   },

@@ -7,6 +7,9 @@
   "dynamicallyLoaded": [
     "bin/fintual-goal-performance.graphql"
   ],
+  "ignoreDependencies": [
+    "@effect/tsgo"
+  ],
   "typeAware": {
     "enabled": true,
     "require": "complete",

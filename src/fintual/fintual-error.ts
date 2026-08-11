@@ -49,6 +49,7 @@ export class MalformedPerformanceSnapshot extends Schema.TaggedError<MalformedPe
   "MalformedPerformanceSnapshot",
   {
     issues: Schema.String,
+    cause: Schema.Defect(),
   },
 ) {
   override get message(): string {
