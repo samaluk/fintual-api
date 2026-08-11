@@ -1,16 +1,23 @@
 import { Effect } from "effect"
-import { error, log, trySync } from "../effect.ts"
+import { error, trySync } from "../effect.ts"
 import type { FintualConfig } from "../env.ts"
 import { getErrorMessage } from "../log.ts"
+import {
+  validatePerformanceSnapshot,
+  writePerformanceSnapshot,
+  type PerformanceSnapshot,
+} from "../performance-snapshot.ts"
 import { createAuthenticatedFintualIngestion } from "./authenticated-ingestion.ts"
 import { get2FACodeFromEmail } from "./email-2fa.ts"
-import { BALANCE_FILE_PATH, foldGoalPerformanceData, writePerformanceFile } from "./scraper.ts"
+import { foldGoalPerformanceData } from "./scraper.ts"
 
 /**
  * Fetches performance via `initiate_login` → (e-mail 2FA) `finalize_login_web` → GraphQL.
  * Requires Gmail IMAP env vars for accounts with e-mail 2FA.
  */
-function fetchFintualPerformanceHttp(config: FintualConfig): Effect.Effect<void, Error> {
+function fetchFintualPerformanceHttp(
+  config: FintualConfig,
+): Effect.Effect<PerformanceSnapshot, Error> {
   const fetchAuthenticatedGoalPerformance = createAuthenticatedFintualIngestion({
     fetch: globalThis.fetch,
     get2FACode: (options) => get2FACodeFromEmail(config.email2FA, options),
@@ -22,20 +29,22 @@ function fetchFintualPerformanceHttp(config: FintualConfig): Effect.Effect<void,
       goalId: config.goalId,
     })
 
-    const performanceData = yield* trySync({
+    const snapshot = yield* trySync({
       try: () => foldGoalPerformanceData(reference, recent),
       catch: "Failed to fold Fintual performance data",
     })
-    if (!performanceData) {
+    if (!snapshot) {
       return yield* Effect.fail(new Error("Fintual HTTP sync: missing Goal Performance Data"))
     }
 
-    yield* writePerformanceFile(performanceData)
-    yield* log(`Balance data saved to ${BALANCE_FILE_PATH}`)
+    const validatedSnapshot = yield* validatePerformanceSnapshot(snapshot)
+    yield* writePerformanceSnapshot(validatedSnapshot)
+
+    return validatedSnapshot
   })
 }
 
-export function runFintualSync(config: FintualConfig): Effect.Effect<void, Error> {
+export function runFintualSync(config: FintualConfig): Effect.Effect<PerformanceSnapshot, Error> {
   return Effect.catch(fetchFintualPerformanceHttp(config), (cause) =>
     Effect.andThen(error(`Error: ${getErrorMessage(cause)}`), Effect.fail(cause)),
   )

@@ -15,3 +15,7 @@ _Avoid_: Six-month data, baseline data
 **Recent Goal Performance Data**:
 Goal Performance Data that supplies the observations used to calculate recent balance and deposit changes. Its Fintual time interval is an implementation detail.
 _Avoid_: Last-month data, current data
+
+**Performance Snapshot**:
+The typed balance and deposit observations passed from the Fintual sync step to the Actual sync step. One module owns its shape and persistence; the JSON file is a write-only implementation detail kept for inspection.
+_Avoid_: Balance file, balance-2.json, performance payload
