@@ -23,14 +23,6 @@ test("folds reference and recent Goal Performance Data into a Performance Snapsh
   })
 })
 
-test("returns null when reference or recent Goal Performance Data is missing", () => {
-  const data = performanceData([performancePoint("2026-08-01")])
-
-  expect(foldGoalPerformanceData(data, null)).toBeNull()
-  expect(foldGoalPerformanceData(null, data)).toBeNull()
-  expect(foldGoalPerformanceData(null, null)).toBeNull()
-})
-
 test("starts with zero differences when reference does not precede the recent window", () => {
   const snapshot = foldGoalPerformanceData(
     performanceData([performancePoint("2026-08-01", { valuation: 1000, costBasis: 800 })]),

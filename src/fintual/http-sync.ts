@@ -33,9 +33,6 @@ function fetchFintualPerformanceHttp(
       try: () => foldGoalPerformanceData(reference, recent),
       catch: "Failed to fold Fintual performance data",
     })
-    if (!snapshot) {
-      return yield* Effect.fail(new Error("Fintual HTTP sync: missing Goal Performance Data"))
-    }
 
     const validatedSnapshot = yield* validatePerformanceSnapshot(snapshot)
     yield* writePerformanceSnapshot(validatedSnapshot)
