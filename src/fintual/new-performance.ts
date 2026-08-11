@@ -70,10 +70,6 @@ function getValidationFailure(parsedJson: unknown): string {
     return "response is not an object"
   }
 
-  if ("errors" in parsedJson) {
-    return "GraphQL response contains errors"
-  }
-
   return "response does not match the Goal Performance Data schema"
 }
 
