@@ -5,6 +5,7 @@ import * as v from "valibot"
 import { log, sleep, tryPromise, trySync, warn } from "./effect.ts"
 import type { ActualConfig } from "./env.ts"
 import { getErrorMessage } from "./log.ts"
+import { planReconciliation } from "./actual/reconciliation-policy.ts"
 
 const ACTUAL_DATA_DIR = "./tmp/actual-data"
 const BALANCE_FILE_PATH = "./tmp/fintual-data/balance-2.json"
@@ -12,8 +13,6 @@ const MAX_SYNC_ATTEMPTS = 5
 const INITIAL_RETRY_DELAY_MS = 5000
 const MAX_RETRY_DELAY_MS = 60000
 const RETRY_JITTER_RATIO = 0.2
-const VARIATION_NOTES = "Variation"
-const VARIATION_IMPORTED_ID_PREFIX = "fintual-variation:"
 
 const balanceFileSchema = v.object({
   balance: v.array(
@@ -35,16 +34,6 @@ const balanceFileSchema = v.object({
 
 type BalanceEntry = v.InferOutput<typeof balanceFileSchema>["balance"][number]
 type ActualInitConfig = Parameters<typeof api.init>[0]
-type ActualTransaction = Awaited<ReturnType<typeof api.getTransactions>>[number]
-
-interface VariationTransactionFields {
-  date: string
-  amount: number
-  payee: string | undefined
-  notes: string
-  imported_id: string
-  cleared: boolean
-}
 
 interface SyncCounts {
   created: number
@@ -124,56 +113,51 @@ function syncDailyVariationTransactions(config: ActualConfig): Effect.Effect<Syn
       catch: "Failed to fetch Actual transactions",
     })
 
-    const balanceEntries = yield* normalizeBalanceEntries(yield* loadBalanceEntries(config))
+    const balanceEntries = yield* loadBalanceEntries(config)
     const payeeId = yield* getPayeeId(config)
-    const variationTransactionsByDate = groupVariationTransactionsByDate(transactions, payeeId)
-    const processedDates = new Set<string>()
+    const plan = planReconciliation({
+      balanceEntries,
+      existingTransactions: transactions,
+      payeeId,
+    })
+
+    for (const warning of plan.warnings) {
+      yield* warn(warning)
+    }
+
     const syncCounts: SyncCounts = {
       created: 0,
       updated: 0,
       deletedDuplicates: 0,
     }
 
-    for (const balanceEntry of balanceEntries) {
-      const transaction = createVariationTransaction(balanceEntry, payeeId)
-      const existingTransactions = variationTransactionsByDate.get(transaction.date) ?? []
-      processedDates.add(transaction.date)
-
-      if (existingTransactions.length === 0) {
-        yield* tryPromise({
-          try: () => api.addTransactions(config.fintualAccount, [transaction]),
-          catch: "Failed to add Actual transaction",
-        })
-        syncCounts.created += 1
-        continue
+    for (const action of plan.actions) {
+      switch (action.type) {
+        case "create": {
+          yield* tryPromise({
+            try: () => api.addTransactions(config.fintualAccount, [action.transaction]),
+            catch: "Failed to add Actual transaction",
+          })
+          syncCounts.created += 1
+          break
+        }
+        case "update": {
+          yield* tryPromise({
+            try: () => api.updateTransaction(action.id, action.transaction),
+            catch: "Failed to update Actual transaction",
+          })
+          syncCounts.updated += 1
+          break
+        }
+        case "delete": {
+          yield* tryPromise({
+            try: () => api.deleteTransaction(action.id),
+            catch: "Failed to delete duplicate Actual transaction",
+          })
+          syncCounts.deletedDuplicates += 1
+          break
+        }
       }
-
-      const canonicalTransaction = getCanonicalVariationTransaction(
-        existingTransactions,
-        transaction.date,
-      )
-      yield* tryPromise({
-        try: () => api.updateTransaction(canonicalTransaction.id, transaction),
-        catch: "Failed to update Actual transaction",
-      })
-      syncCounts.updated += 1
-
-      syncCounts.deletedDuplicates += yield* deleteDuplicateVariationTransactions(
-        existingTransactions,
-        canonicalTransaction.id,
-      )
-    }
-
-    for (const [date, existingTransactions] of variationTransactionsByDate.entries()) {
-      if (processedDates.has(date) || existingTransactions.length < 2) {
-        continue
-      }
-
-      const canonicalTransaction = getCanonicalVariationTransaction(existingTransactions, date)
-      syncCounts.deletedDuplicates += yield* deleteDuplicateVariationTransactions(
-        existingTransactions,
-        canonicalTransaction.id,
-      )
     }
 
     yield* tryPromise({
@@ -214,139 +198,6 @@ function loadBalanceEntries(config: ActualConfig): Effect.Effect<BalanceEntry[],
   })
 }
 
-function normalizeBalanceEntries(
-  balanceEntries: BalanceEntry[],
-): Effect.Effect<BalanceEntry[], Error> {
-  return Effect.gen(function* () {
-    const entriesByDate = new Map<string, BalanceEntry[]>()
-
-    for (const balanceEntry of balanceEntries) {
-      const date = toIsoDate(balanceEntry.date)
-      const entries = entriesByDate.get(date) ?? []
-      entries.push(balanceEntry)
-      entriesByDate.set(date, entries)
-    }
-
-    const normalizedEntries: BalanceEntry[] = []
-
-    for (const [date, entries] of entriesByDate.entries()) {
-      const latestEntry = entries.sort((left, right) => right.date - left.date)[0]
-      normalizedEntries.push(latestEntry)
-
-      if (entries.length > 1) {
-        yield* warn(
-          `Fintual balance data contains ${entries.length} entries for ${date}. Keeping latest timestamp ${latestEntry.date}.`,
-        )
-      }
-    }
-
-    return normalizedEntries.sort((left, right) => left.date - right.date)
-  })
-}
-
-function createVariationTransaction(
-  balanceEntry: BalanceEntry,
-  payeeId: string | undefined,
-): VariationTransactionFields {
-  const date = toIsoDate(balanceEntry.date)
-
-  return {
-    date,
-    amount: Math.round(Math.round(balanceEntry.real_difference) * 100),
-    payee: payeeId,
-    notes: VARIATION_NOTES,
-    imported_id: getVariationImportedId(date),
-    cleared: true,
-  }
-}
-
-function getVariationImportedId(date: string): string {
-  return `${VARIATION_IMPORTED_ID_PREFIX}${date}`
-}
-
-function groupVariationTransactionsByDate(
-  transactions: ActualTransaction[],
-  payeeId: string | undefined,
-): Map<string, ActualTransaction[]> {
-  const transactionsByDate = new Map<string, ActualTransaction[]>()
-
-  for (const transaction of transactions) {
-    if (!isManagedVariationTransaction(transaction, payeeId)) {
-      continue
-    }
-
-    const date = getVariationTransactionDate(transaction)
-    if (!date) {
-      continue
-    }
-
-    const dateTransactions = transactionsByDate.get(date) ?? []
-    dateTransactions.push(transaction)
-    transactionsByDate.set(date, dateTransactions)
-  }
-
-  return transactionsByDate
-}
-
-function isManagedVariationTransaction(
-  transaction: ActualTransaction,
-  payeeId: string | undefined,
-): boolean {
-  return transaction.notes === VARIATION_NOTES && (!payeeId || transaction.payee === payeeId)
-}
-
-function getVariationTransactionDate(transaction: ActualTransaction): string | null {
-  if (transaction.imported_id?.startsWith(VARIATION_IMPORTED_ID_PREFIX)) {
-    const date = transaction.imported_id.slice(VARIATION_IMPORTED_ID_PREFIX.length)
-    if (isIsoDate(date)) {
-      return date
-    }
-  }
-
-  if (transaction.imported_id && isNumericTimestamp(transaction.imported_id)) {
-    return toIsoDate(Number(transaction.imported_id))
-  }
-
-  if (transaction.date && isIsoDate(transaction.date)) {
-    return transaction.date
-  }
-
-  return null
-}
-
-function getCanonicalVariationTransaction(
-  transactions: ActualTransaction[],
-  date: string,
-): ActualTransaction {
-  return (
-    transactions.find((transaction) => transaction.imported_id === getVariationImportedId(date)) ??
-    transactions[0]
-  )
-}
-
-function deleteDuplicateVariationTransactions(
-  transactions: ActualTransaction[],
-  canonicalTransactionId: string,
-): Effect.Effect<number, Error> {
-  return Effect.gen(function* () {
-    let deletedDuplicates = 0
-
-    for (const transaction of transactions) {
-      if (transaction.id === canonicalTransactionId) {
-        continue
-      }
-
-      yield* tryPromise({
-        try: () => api.deleteTransaction(transaction.id),
-        catch: "Failed to delete duplicate Actual transaction",
-      })
-      deletedDuplicates += 1
-    }
-
-    return deletedDuplicates
-  })
-}
-
 function getPayeeId(config: ActualConfig): Effect.Effect<string | undefined, Error> {
   return Effect.gen(function* () {
     const payees = yield* tryPromise({
@@ -366,18 +217,6 @@ function getPayeeId(config: ActualConfig): Effect.Effect<string | undefined, Err
 
 function getTodayIsoDate(): string {
   return new Date().toISOString().split("T")[0]
-}
-
-function toIsoDate(timestamp: number): string {
-  return new Date(timestamp).toISOString().split("T")[0]
-}
-
-function isIsoDate(value: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value)
-}
-
-function isNumericTimestamp(value: string): boolean {
-  return /^\d+$/.test(value)
 }
 
 function isRetryableActualError(error: unknown): boolean {
