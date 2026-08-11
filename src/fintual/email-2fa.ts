@@ -9,7 +9,7 @@ import {
   isGmailImapHost,
   selectEmail2FACode,
   type Email2FACandidate,
-} from "./email-2fa-policy.ts"
+} from "./email-2fa/email-2fa-policy.ts"
 
 const DEFAULT_TIMEOUT_MS = 10000
 const DEFAULT_POLL_INTERVAL_MS = 2000
