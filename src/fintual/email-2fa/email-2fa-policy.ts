@@ -1,7 +1,7 @@
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 import type { SearchObject } from "imapflow"
 import { simpleParser } from "mailparser"
-import { toError } from "../../log.ts"
+import { getErrorMessage } from "../../log.ts"
 
 export interface Email2FASearchPolicy {
   host: string
@@ -12,6 +12,17 @@ export interface Email2FACandidate {
   source: Buffer | Uint8Array
   envelopeSubject?: string
   receivedAt?: Date
+}
+
+export class EmailMessageParseFailure extends Schema.TaggedError<EmailMessageParseFailure>()(
+  "EmailMessageParseFailure",
+  {
+    cause: Schema.Defect(),
+  },
+) {
+  override get message(): string {
+    return `Failed to parse Gmail IMAP message: ${getErrorMessage(this.cause)}`
+  }
 }
 
 export function buildEmail2FASearchQueries(
@@ -36,7 +47,7 @@ export function buildEmail2FASearchQueries(
 export const selectEmail2FACode = Effect.fn("Email2FA.selectEmail2FACode")(function* (
   candidates: Iterable<Email2FACandidate>,
   afterTimestamp: Date,
-): Effect.fn.Return<string | null, Error> {
+): Effect.fn.Return<string | null, EmailMessageParseFailure> {
   for (const candidate of candidates) {
     if (candidate.receivedAt && candidate.receivedAt < afterTimestamp) {
       continue
@@ -69,7 +80,7 @@ function formatGmailAfterDate(date: Date): string {
 
 const collectMessageSources = Effect.fn("Email2FA.collectMessageSources")(function* (
   candidate: Email2FACandidate,
-): Effect.fn.Return<string[], Error> {
+): Effect.fn.Return<string[], EmailMessageParseFailure> {
   const sources: string[] = []
   if (candidate.envelopeSubject) {
     sources.push(candidate.envelopeSubject)
@@ -77,7 +88,7 @@ const collectMessageSources = Effect.fn("Email2FA.collectMessageSources")(functi
 
   const parsedMessage = yield* Effect.tryPromise({
     try: () => simpleParser(Buffer.from(candidate.source)),
-    catch: (error) => toError(error, "Failed to parse Gmail IMAP message"),
+    catch: (cause) => new EmailMessageParseFailure({ cause }),
   })
   if (parsedMessage.subject) {
     sources.push(parsedMessage.subject)
