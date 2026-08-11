@@ -1,6 +1,7 @@
 ---
 title: 'Fallow audit flags a public Environment type after Effect.fn refactoring'
 severity: 'minor'
+issue: 'samaluk/fintual-api#337'
 ---
 
 ## Expected Behavior

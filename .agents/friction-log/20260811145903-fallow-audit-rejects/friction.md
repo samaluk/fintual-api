@@ -1,6 +1,7 @@
 ---
 title: 'Fallow audit rejects valid dependency entry patterns'
 severity: 'minor'
+issue: 'samaluk/fintual-api#338'
 ---
 
 ## Expected Behavior
