@@ -51,7 +51,9 @@ export function resolveRuntimeConfig(
     const provider = ConfigProvider.fromUnknown(
       Object.fromEntries(
         Object.entries(environment).flatMap(([name, value]) =>
-          value === undefined ? [] : [[name, normalizeEnvValue(value)]],
+          value === undefined || (value === "" && !isGmailCredential(name))
+            ? []
+            : [[name, normalizeEnvValue(value)]],
         ),
       ),
       { preserveEmptyStrings: true },
@@ -160,6 +162,10 @@ function resolveEmail2FAConfig(
 function missingEmail2FACredential(name: string): Effect.Effect<never, RuntimeConfigError> {
   const cause = new Error(`Missing environment variables: ${name}`)
   return Effect.fail(new RuntimeConfigError({ message: cause.message, cause }))
+}
+
+function isGmailCredential(name: string): boolean {
+  return name === "GMAIL_USER_EMAIL" || name === "GMAIL_APP_PASSWORD"
 }
 
 function normalizeEnvValue(value: string): string {

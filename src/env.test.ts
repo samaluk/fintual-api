@@ -94,6 +94,35 @@ test("reports all missing required runtime values", async () => {
   }
 })
 
+test("treats unquoted empty required values as missing", async () => {
+  const result = await Effect.runPromise(
+    Effect.result(
+      resolveRuntimeConfig({
+        ...requiredEnvironment(),
+        ACTUAL_SERVER_URL: "",
+      }),
+    ),
+  )
+
+  expect(result._tag).toBe("Failure")
+  if (Result.isFailure(result)) {
+    expect(result.failure.message).toContain("ACTUAL_SERVER_URL")
+  }
+})
+
+test("uses defaults when optional non-Gmail values are unquoted empty strings", async () => {
+  const configuration = await Effect.runPromise(
+    resolveRuntimeConfig({
+      ...requiredEnvironment(),
+      ACTUAL_PAYEE: "",
+      GMAIL_IMAP_PORT: "",
+    }),
+  )
+
+  expect(configuration.actual.payee).toBe("Fintual")
+  expect(configuration.fintual.email2FA).toBeNull()
+})
+
 test("rejects partially configured email 2FA credentials", async () => {
   const result = await Effect.runPromise(
     Effect.result(
