@@ -1,7 +1,7 @@
 import { Effect } from "effect"
 import type { SearchObject } from "imapflow"
 import { simpleParser } from "mailparser"
-import { tryPromise } from "../../effect.ts"
+import { toError } from "../../log.ts"
 
 export interface Email2FASearchPolicy {
   host: string
@@ -76,9 +76,9 @@ function collectMessageSources(candidate: Email2FACandidate): Effect.Effect<stri
       sources.push(candidate.envelopeSubject)
     }
 
-    const parsedMessage = yield* tryPromise({
+    const parsedMessage = yield* Effect.tryPromise({
       try: () => simpleParser(Buffer.from(candidate.source)),
-      catch: "Failed to parse Gmail IMAP message",
+      catch: (error) => toError(error, "Failed to parse Gmail IMAP message"),
     })
     if (parsedMessage.subject) {
       sources.push(parsedMessage.subject)

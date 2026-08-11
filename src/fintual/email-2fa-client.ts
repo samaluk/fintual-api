@@ -1,8 +1,7 @@
 import { Effect, Predicate, Schema } from "effect"
 import { ImapFlow, type SearchObject } from "imapflow"
-import { tryPromise } from "../effect.ts"
 import type { Email2FAConfig } from "../env.ts"
-import { getErrorMessage } from "../log.ts"
+import { getErrorMessage, toError } from "../log.ts"
 
 export interface ImapMailboxLock {
   release(): void
@@ -51,9 +50,9 @@ export class ImapFlowClient implements ImapClient {
   }
 
   connect(): Effect.Effect<void, Error> {
-    return tryPromise({
+    return Effect.tryPromise({
       try: () => this.raw.connect(),
-      catch: "Failed to connect to Gmail IMAP",
+      catch: (error) => toError(error, "Failed to connect to Gmail IMAP"),
     })
   }
 
@@ -87,14 +86,14 @@ export class ImapFlowClient implements ImapClient {
 
   fetchOne(uid: number): Effect.Effect<ImapMessage | null, Error> {
     return Effect.map(
-      tryPromise({
+      Effect.tryPromise({
         try: () =>
           this.raw.fetchOne(
             String(uid),
             { source: true, envelope: true, internalDate: true },
             { uid: true },
           ),
-        catch: "Failed to fetch Gmail IMAP message",
+        catch: (error) => toError(error, "Failed to fetch Gmail IMAP message"),
       }),
       (message) =>
         message
@@ -108,9 +107,9 @@ export class ImapFlowClient implements ImapClient {
   }
 
   logout(): Effect.Effect<void, Error> {
-    return tryPromise({
+    return Effect.tryPromise({
       try: () => this.raw.logout(),
-      catch: "Failed to close IMAP connection cleanly",
+      catch: (error) => toError(error, "Failed to close IMAP connection cleanly"),
     })
   }
 }
