@@ -36,7 +36,7 @@ function fetchFintualPerformanceHttp(config: FintualConfig): Effect.Effect<void,
 }
 
 export function runFintualSync(config: FintualConfig): Effect.Effect<void, Error> {
-  return Effect.catchAll(fetchFintualPerformanceHttp(config), (cause) =>
-    Effect.zipRight(error(`Error: ${getErrorMessage(cause)}`), Effect.fail(cause)),
+  return Effect.catch(fetchFintualPerformanceHttp(config), (cause) =>
+    Effect.andThen(error(`Error: ${getErrorMessage(cause)}`), Effect.fail(cause)),
   )
 }

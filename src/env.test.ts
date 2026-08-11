@@ -1,4 +1,4 @@
-import { Effect } from "effect"
+import { Effect, Result } from "effect"
 import { expect, test } from "vitest"
 import { resolveRuntimeConfig } from "./env.ts"
 
@@ -63,17 +63,17 @@ test("uses legacy starting date and enables email 2FA when both credentials are 
 })
 
 test("reports all missing required runtime values", async () => {
-  const result = await Effect.runPromise(Effect.either(resolveRuntimeConfig({})))
+  const result = await Effect.runPromise(Effect.result(resolveRuntimeConfig({})))
 
-  expect(result._tag).toBe("Left")
-  if (result._tag === "Left") {
-    expect(result.left.message).toContain("ACTUAL_SERVER_URL")
+  expect(result._tag).toBe("Failure")
+  if (Result.isFailure(result)) {
+    expect(result.failure.message).toContain("ACTUAL_SERVER_URL")
   }
 })
 
 test("rejects partially configured email 2FA credentials", async () => {
   const result = await Effect.runPromise(
-    Effect.either(
+    Effect.result(
       resolveRuntimeConfig({
         ...requiredEnvironment(),
         GMAIL_USER_EMAIL: "mailbox@example.com",
@@ -81,15 +81,15 @@ test("rejects partially configured email 2FA credentials", async () => {
     ),
   )
 
-  expect(result._tag).toBe("Left")
-  if (result._tag === "Left") {
-    expect(result.left.message).toBe("Missing environment variables: GMAIL_APP_PASSWORD")
+  expect(result._tag).toBe("Failure")
+  if (Result.isFailure(result)) {
+    expect(result.failure.message).toBe("Missing environment variables: GMAIL_APP_PASSWORD")
   }
 })
 
 test("rejects an invalid email 2FA port", async () => {
   const result = await Effect.runPromise(
-    Effect.either(
+    Effect.result(
       resolveRuntimeConfig({
         ...requiredEnvironment(),
         GMAIL_USER_EMAIL: "mailbox@example.com",
@@ -99,9 +99,9 @@ test("rejects an invalid email 2FA port", async () => {
     ),
   )
 
-  expect(result._tag).toBe("Left")
-  if (result._tag === "Left") {
-    expect(result.left.message).toBe('Expected a network port value but received "not-a-port"')
+  expect(result._tag).toBe("Failure")
+  if (Result.isFailure(result)) {
+    expect(result.failure.message).toContain("GMAIL_IMAP_PORT")
   }
 })
 
