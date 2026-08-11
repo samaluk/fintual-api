@@ -1,25 +1,35 @@
-# Redaction at the logging render edge
-
-Credentials and email addresses must never appear in job output. Redaction currently runs while error messages are created, coupling message construction to the policy and leaving any logging path that bypasses the aliases unprotected. Keep `src/log.ts` as the redaction policy module, and install a custom `Logger` at the `once.ts` process edge through `NodeRuntime.runMain` from `@effect/platform-node`. The logger redacts message, cause, and annotation values when it renders every log event. Retain creation-time redaction through `getErrorMessage` during the domain migration as an additional safeguard.
-
-The rendered output is timestamped, level-prefixed plain text because the cron output is read by humans.
+# Redaction is enforced by an Effect logger layer
 
 ## Status
 
-accepted
+Accepted
 
-## Considered Options
+## Context
 
-- **Creation-time-only redaction** — rejected because every call site becomes a possible leak boundary.
-- **No logger integration** — rejected because causes and annotations can contain secrets even when the main message has already been sanitized.
-- **Structured JSON output** — rejected for now because the job output is consumed directly by humans rather than a log ingestion system.
+Credentials, tokens, account identifiers, and email addresses can appear in messages, causes, annotations, or third-party failures. Call-site sanitization alone is incomplete because every new logging path becomes another security boundary.
+
+## Decision
+
+All application logs use Effect logging. The application composition root installs one custom `Logger` layer before running the program with `NodeRuntime.runMain`. The logger applies redaction to the fully rendered event, including message values, cause output, spans, and annotations.
+
+The redaction policy is an explicit service/layer built from validated runtime configuration. It is immutable for the lifetime of the application runtime; the design does not use a mutable module-global registry. Secrets remain `Redacted` in application configuration. Plaintext access is confined to the external adapter that must send a secret and to the redaction layer that must recognize it; domain and orchestration code never reveal it. The logger's policy is initialized with all values that must be suppressed before application work starts.
+
+Domain errors retain structured evidence and original causes. Redaction changes only rendering, never error construction, tags, retry classification, or program control flow. Adapters must still avoid logging entire request headers, cookies, credentials, or private response bodies.
+
+The process entry point is intentionally thin: load the `ConfigProvider`, construct the application and logger layers, provide them once, and invoke `NodeRuntime.runMain`. Runtime-reported terminal failures pass through the same logger. Application modules do not call `console`, format terminal failures independently, or maintain a second redaction mechanism.
+
+Human-readable output may remain a configured logger format for the cron environment; the event data and redaction policy stay independent of that renderer so a structured sink can replace it without changing domain code.
+
+## Considered options
+
+- **Sanitize only while constructing errors** — rejected because causes, annotations, and future logging sites can bypass it.
+- **Maintain a mutable global set of discovered secrets** — rejected because it introduces hidden process state, ordering dependence, and test isolation problems.
+- **Discard causes before logging** — rejected because it removes essential diagnostics instead of securing their rendering.
+- **Let `NodeRuntime` print failures separately** — rejected because it creates an unredacted output path.
 
 ## Consequences
 
-- All Effect logs cross one redacting render edge before reaching process output.
-- `src/log.ts` remains the policy module and keeps its current configuration API; #285 does not introduce a new configuration service.
-- `once.ts` uses `NodeRuntime.runMain`, preserving the runtime's standard exit behavior while reporting unhandled failures through the logger.
-
-## Amendment (2026-08-11)
-
-Issue #315 changes what the existing logging policy receives from runtime configuration. Credentials are decoded as `Redacted` values and are no longer copied into the redaction registry during startup. The owning adapter calls `revealSecret` at the external boundary; that helper reveals the value for the request and registers the plaintext with `src/log.ts` so the render edge continues to redact it. `configureSensitiveValues` remains the configuration entry point for non-secret identifiers and addresses.
+- Every Effect log event and terminal failure crosses one redaction boundary.
+- Tests provide an isolated policy/logger layer and cannot leak redaction state across cases.
+- Error models remain useful for diagnosis without coupling domain construction to presentation policy.
+- Adding a new sensitive configuration value requires updating the redaction-policy layer before that value can be logged safely.

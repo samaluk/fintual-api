@@ -1,33 +1,44 @@
-# Fintual ingestion is one Effect Service around the Performance Snapshot
-
-The Fintual sync seam currently exposes intermediate Reference and Recent Goal Performance Data through `createAuthenticatedFintualIngestion`, with login, folding, Valibot validation, and inspection-artifact writing composed in a shallow `http-sync.ts` that fails the deletion test; snapshot writes warn instead of failing, and the fold carries dead `null` paths. The design collapses all of it into one deep module, `src/fintual/performance.ts`, exposing a single Effect Service — `FintualPerformance.fetchPerformanceSnapshot(): Effect<PerformanceSnapshot, FintualError>` — with `FintualConfig` provided as a service value and fetch, email 2FA, and snapshot writing as internal services.
-
-`FintualError` is a tagged union that enumerates every failure the public seam can produce, one variant per failure source:
-
-- `UnexpectedHttpStatus { stage, status }` — login/GraphQL responses outside the expected statuses
-- `HttpTransportFailure { stage, cause }` — fetch or response-body reads that throw
-- `LoginFailed { status }` — 401 on `initiate_login` (wrong credentials)
-- `MalformedGoalPerformanceData { purpose, cause }` — malformed JSON, schema mismatch, or GraphQL errors in the reference/recent response
-- `MalformedPerformanceSnapshot { issues }` — fold output failing snapshot validation
-- `Email2FAFailure { cause }` — no code before timeout, or IMAP retrieval failures
-- `SnapshotWriteFailure { cause }` — the inspection artifact could not be written
-
-Folding becomes total (no `null` inputs or outputs; empty arrays surface as `MalformedPerformanceSnapshot`), and write failures fail the sync instead of warning.
+# Fintual performance ingestion is one Effect service
 
 ## Status
 
-accepted
+Accepted
 
-## Considered Options
+## Context
 
-- **Plain factory composition (current design)** — `createAuthenticatedFintualIngestion` plus a thin wrapper in `http-sync.ts`; intermediate Reference/Recent Goal Performance Data cross module boundaries and the composition module fails the deletion test. Rejected: the external seam should be the business outcome, a validated Performance Snapshot.
-- **Config as a plain argument** — `fetchPerformanceSnapshot(config)` with stateless dependency services. Rejected in favor of config as a service value: the layer requires `FintualConfig` and the email-2FA live impl reads `config.email2FA` from context, so provision-time wiring stays explicit and env.ts remains the only env reader.
-- **Untyped `Error` failures** — rejected: a typed `FintualError` union makes every failure mode of the public seam discoverable and testable without reading the module.
-- **Warn-and-succeed on write failure (previous behavior)** — rejected: the sync should report when it cannot produce its inspection artifact.
-- **Defensive `null` folding** — rejected as dead code; the ingestion never produces null data.
+Callers need a validated `PerformanceSnapshot`, not login steps, GraphQL payloads, cookie handling, fold inputs, or inspection-file mechanics. Exposing those intermediate concepts would leak provider protocol into the application workflow and force callers to coordinate resource lifetime and failure mapping.
+
+## Decision
+
+`FintualPerformance` is a `Context.Service` exposing one named operation:
+
+```text
+fetchPerformanceSnapshot(): Effect<PerformanceSnapshot, FintualError>
+```
+
+Its live layer acquires validated Fintual configuration, an Effect `HttpClient`-backed session adapter, `Email2FA`, and `SnapshotWriter`. The method itself has no remaining environment requirements.
+
+The module owns the complete workflow: establish a scoped authenticated session, perform login and optional email 2FA, fetch reference and recent performance data, decode both responses with Schema, fold them into the domain model, validate the final snapshot, and persist the inspection artifact.
+
+The HTTP adapter owns cookies, authentication headers, cancellation, status classification, body decoding, and transport-error mapping. Provider calls never use raw `fetch` in the domain service. Intermediate provider DTOs remain private to the adapter/module.
+
+`FintualError` is a Schema union of domain-owned `Schema.TaggedError` variants covering authentication rejection, transport failure, unexpected provider response, malformed provider data, invalid folded snapshot, email 2FA failure, and snapshot persistence failure. Each variant carries structured diagnostic fields and a `Schema.Defect()` cause when appropriate. Message strings are not control-flow APIs.
+
+Empty or malformed provider datasets fail explicitly. Folding is total over validated inputs and does not accept defensive `null` states that the boundary cannot produce. Failure to write the required inspection artifact fails the operation.
+
+All public and non-trivial internal operations use stable `Effect.fn` names. Runtime configuration is obtained by the live layer from Effect `Config`; credentials remain `Redacted` until the HTTP adapter uses them.
+
+## Considered options
+
+- **Expose login and GraphQL operations to callers** — rejected because it leaks protocol sequencing and weakens the domain seam.
+- **Keep a plain factory around raw `fetch`** — rejected because Effect `HttpClient` provides the native cancellation, layers, transforms, status handling, and schema decoding this application requires.
+- **Pass configuration into every call** — rejected because configuration is an implementation dependency of the live layer, not domain input.
+- **Return third-party or generic errors** — rejected because callers need a closed, discoverable failure surface.
+- **Warn when the artifact write fails** — rejected because the operation promises both the validated snapshot and its required inspection artifact.
 
 ## Consequences
 
-- Callers learn one domain outcome; interval and sequencing knowledge gains locality; the shallow `http-sync.ts` composition module disappears.
-- This is the repo's first Effect Service, deliberately module-scoped: Actual sync, email 2FA, and env config keep their plain styles until the repo-wide Effect-native push (#284, #285, #286) decides their shape — this module is the pattern-setting precedent for those.
-- The design was settled by `/grill-with-docs` (issue #283); implementation tickets are the follow-up.
+- Callers depend on one business outcome and one typed failure union.
+- Provider protocol and raw payloads cannot spread into orchestration code.
+- Tests replace the leaf layers and exercise the complete service workflow without network, filesystem, environment, or real-time dependencies.
+- Provider contract changes are localized to schemas and the HTTP adapter.
