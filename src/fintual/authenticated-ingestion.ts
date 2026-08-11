@@ -17,9 +17,15 @@ export class FetchService extends Context.Service<
     ) => Effect.Effect<Response, FintualError>
   }
 >()("FetchService") {
-  static readonly layer = (fetch: typeof globalThis.fetch) =>
+  static readonly layer = (
+    fetch: typeof globalThis.fetch,
+    options: { readonly requestTimeoutMs?: number } = {},
+  ) =>
     Layer.sync(FetchService, () => {
-      const session = new FintualHttpSession(fetch)
+      const session = new FintualHttpSession(
+        fetch,
+        options.requestTimeoutMs ?? HTTP_REQUEST_TIMEOUT_MS,
+      )
       return FetchService.of({
         request: (path, init, stage) => session.request(path, init, stage),
       })
@@ -29,9 +35,11 @@ export class FetchService extends Context.Service<
 class FintualHttpSession {
   private readonly cookies = new Map<string, string>()
   private readonly fetchRequest: typeof globalThis.fetch
+  private readonly requestTimeoutMs: number
 
-  constructor(fetchRequest: typeof globalThis.fetch) {
+  constructor(fetchRequest: typeof globalThis.fetch, requestTimeoutMs: number) {
     this.fetchRequest = fetchRequest
+    this.requestTimeoutMs = requestTimeoutMs
   }
 
   readonly request = Effect.fn("FintualHttpSession.request")(
@@ -57,7 +65,7 @@ class FintualHttpSession {
             this.fetchRequest(`${FINTUAL_ORIGIN}${path}`, {
               ...init,
               headers,
-              signal: AbortSignal.any([signal, AbortSignal.timeout(HTTP_REQUEST_TIMEOUT_MS)]),
+              signal: AbortSignal.any([signal, AbortSignal.timeout(this.requestTimeoutMs)]),
             }),
           catch: (cause) =>
             new Error(`${stage}: request failed: ${getErrorMessage(cause)}`, { cause }),
