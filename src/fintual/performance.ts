@@ -85,7 +85,7 @@ export class FintualPerformance extends Context.Service<
 
   static readonly live = FintualPerformance.layer.pipe(
     Layer.provide(FetchService.layer((input, init) => globalThis.fetch(input, init))),
-    Layer.provide(Email2FAService.layer),
+    Layer.provide(Email2FAService.live),
     Layer.provide(SnapshotWriter.layer),
   )
 }
@@ -148,7 +148,7 @@ const authenticate = Effect.fn("FintualPerformance.authenticate")(function* (
 
   const loginStartedAt = yield* DateTime.now
   const code = yield* email2FAService
-    .get2FACode(config.email2FA, { afterTimestamp: DateTime.toDate(loginStartedAt) })
+    .get2FACode({ afterTimestamp: DateTime.toDate(loginStartedAt) })
     .pipe(
       Effect.catchTags({
         TimedOut: () =>

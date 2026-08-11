@@ -174,7 +174,7 @@ export class ImapFlowClient implements ImapClient {
   )
 }
 
-export function createImapClient(config: Email2FAConfig): ImapClient {
+function createImapClient(config: Email2FAConfig): ImapClient {
   return new ImapFlowClient(
     new ImapFlow({
       host: config.host,

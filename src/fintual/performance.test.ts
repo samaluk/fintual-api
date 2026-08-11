@@ -5,7 +5,7 @@ import { FintualConfigService, type FintualConfig } from "../env.ts"
 import { SnapshotWriter, type PerformanceSnapshot } from "../performance-snapshot.ts"
 import { FetchService } from "./authenticated-ingestion.ts"
 import { Email2FAService } from "./email-2fa.ts"
-import { Email2FACode, Operational, TimedOut } from "./email-2fa/retrieve.ts"
+import { Email2FACode, Operational, TimedOut } from "./email-2fa.ts"
 import { SnapshotWriteFailure } from "./fintual-error.ts"
 import { FintualPerformance } from "./performance.ts"
 
