@@ -60,10 +60,23 @@ test("fails when email 2FA does not return a code", async () => {
     get2FACode: () => Effect.succeed(null),
   })
 
-  await expect(Effect.runPromise(ingestion(OPTIONS))).rejects.toThrow(
-    "no code received before timeout",
-  )
+  await expect(Effect.runPromise(ingestion(OPTIONS))).rejects.toMatchObject({
+    _tag: "Email2FAFailure",
+  })
   expect(script.requests).toHaveLength(2)
+})
+
+test("fails with LoginFailed on a 401 initiate_login response", async () => {
+  const script = createFetchScript([response(""), response("{}", 401)])
+  const ingestion = createAuthenticatedFintualIngestion({
+    fetch: script.fetch,
+    get2FACode: () => Effect.succeed(null),
+  })
+
+  await expect(Effect.runPromise(ingestion(OPTIONS))).rejects.toMatchObject({
+    _tag: "LoginFailed",
+    status: 401,
+  })
 })
 
 test("fails on an unexpected login response without exposing its body", async () => {
@@ -73,9 +86,18 @@ test("fails on an unexpected login response without exposing its body", async ()
     get2FACode: () => Effect.succeed(null),
   })
 
-  await expect(Effect.runPromise(ingestion(OPTIONS))).rejects.toSatisfy((error) =>
-    errorMessageIncludes(error, "Fintual login: unexpected HTTP status 418", "secret"),
-  )
+  await expect(Effect.runPromise(ingestion(OPTIONS))).rejects.toSatisfy((error) => {
+    expect(error).toMatchObject({
+      _tag: "UnexpectedHttpStatus",
+      stage: "Fintual login",
+      status: 418,
+    })
+    expect(error).toBeInstanceOf(Error)
+    if (error instanceof Error) {
+      expect(error.message).not.toContain("secret")
+    }
+    return true
+  })
 })
 
 test("fails atomically when the reference request fails", async () => {
@@ -85,9 +107,11 @@ test("fails atomically when the reference request fails", async () => {
     get2FACode: () => Effect.succeed(null),
   })
 
-  await expect(Effect.runPromise(ingestion(OPTIONS))).rejects.toThrow(
-    "Fintual reference Goal Performance Data: unexpected HTTP status 503",
-  )
+  await expect(Effect.runPromise(ingestion(OPTIONS))).rejects.toMatchObject({
+    _tag: "UnexpectedHttpStatus",
+    stage: "Fintual reference Goal Performance Data",
+    status: 503,
+  })
   expect(script.requests).toHaveLength(3)
 })
 
@@ -103,9 +127,45 @@ test("fails atomically when the recent request fails", async () => {
     get2FACode: () => Effect.succeed(null),
   })
 
-  await expect(Effect.runPromise(ingestion(OPTIONS))).rejects.toThrow(
-    "Fintual recent Goal Performance Data: unexpected HTTP status 503",
-  )
+  await expect(Effect.runPromise(ingestion(OPTIONS))).rejects.toMatchObject({
+    _tag: "UnexpectedHttpStatus",
+    stage: "Fintual recent Goal Performance Data",
+    status: 503,
+  })
+})
+
+test("fails with HttpTransportFailure when a request throws", async () => {
+  const script = createFetchScript([response(""), response("{}")])
+  const ingestion = createAuthenticatedFintualIngestion({
+    fetch: script.fetch,
+    get2FACode: () => Effect.succeed(null),
+  })
+
+  await expect(Effect.runPromise(ingestion(OPTIONS))).rejects.toSatisfy((error) => {
+    expect(error).toMatchObject({
+      _tag: "HttpTransportFailure",
+      stage: "Fintual reference Goal Performance Data",
+    })
+    if (error instanceof Error) {
+      expect(error.cause).toBeInstanceOf(Error)
+    }
+    return true
+  })
+})
+
+test("fails with HttpTransportFailure when a response body cannot be read", async () => {
+  const brokenBody = response("")
+  brokenBody.text = () => Promise.reject(new Error("stream broken"))
+  const script = createFetchScript([brokenBody])
+  const ingestion = createAuthenticatedFintualIngestion({
+    fetch: script.fetch,
+    get2FACode: () => Effect.succeed(null),
+  })
+
+  await expect(Effect.runPromise(ingestion(OPTIONS))).rejects.toMatchObject({
+    _tag: "HttpTransportFailure",
+    stage: "Fintual sign-in page",
+  })
 })
 
 describe("fails when Goal Performance Data is malformed or invalid", () => {
@@ -116,7 +176,16 @@ describe("fails when Goal Performance Data is malformed or invalid", () => {
       get2FACode: () => Effect.succeed(null),
     })
 
-    await expect(Effect.runPromise(ingestion(OPTIONS))).rejects.toThrow("validation failed")
+    await expect(Effect.runPromise(ingestion(OPTIONS))).rejects.toSatisfy((error) => {
+      expect(error).toMatchObject({
+        _tag: "MalformedGoalPerformanceData",
+        purpose: "reference",
+      })
+      if (error instanceof Error) {
+        expect(error.cause).toBeInstanceOf(Error)
+      }
+      return true
+    })
   })
 
   test("invalid shape", async () => {
@@ -130,7 +199,10 @@ describe("fails when Goal Performance Data is malformed or invalid", () => {
       get2FACode: () => Effect.succeed(null),
     })
 
-    await expect(Effect.runPromise(ingestion(OPTIONS))).rejects.toThrow("validation failed")
+    await expect(Effect.runPromise(ingestion(OPTIONS))).rejects.toMatchObject({
+      _tag: "MalformedGoalPerformanceData",
+      purpose: "reference",
+    })
   })
 })
 
@@ -230,14 +302,4 @@ function requestBody(request: RecordedRequest | undefined): string {
 
 function requestHeaders(request: RecordedRequest | undefined): Headers {
   return new Headers(request?.init.headers)
-}
-
-function errorMessageIncludes(error: unknown, included: string, excluded: string): boolean {
-  if (!(error instanceof Error)) {
-    return false
-  }
-
-  expect(error.message).toContain(included)
-  expect(error.message).not.toContain(excluded)
-  return true
 }
