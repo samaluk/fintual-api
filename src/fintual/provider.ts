@@ -174,7 +174,7 @@ export class FintualProvider extends Context.Service<
 
         return FintualProvider.of({
           signIn: Effect.fn("FintualProvider.signIn")(function* (requestCode: RequestCode) {
-            yield* signIn(session, config, requestCode)
+            yield* authenticate(session, config, requestCode)
           }),
           fetchReferenceGoalPerformanceData: Effect.fn(
             "FintualProvider.fetchReferenceGoalPerformanceData",
@@ -226,7 +226,7 @@ export class FetchService extends Context.Service<
     })
 }
 
-const signIn = Effect.fn("FintualProvider.signIn")(function* (
+const authenticate = Effect.fn("FintualProvider.authenticate")(function* (
   session: FintualHttpSession,
   config: FintualConfig,
   requestCode: (whenSignInBegan: Date) => Effect.Effect<Email2FACode, TimedOut | Operational>,
