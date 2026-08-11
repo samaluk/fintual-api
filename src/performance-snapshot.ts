@@ -25,7 +25,7 @@ export class SnapshotWriter extends Context.Service<
   )
 }
 
-export class PerformanceSnapshotValidationError extends Schema.TaggedError<PerformanceSnapshotValidationError>()(
+class PerformanceSnapshotValidationError extends Schema.TaggedError<PerformanceSnapshotValidationError>()(
   "PerformanceSnapshotValidationError",
   {
     issues: Schema.String,
