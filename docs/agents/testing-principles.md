@@ -22,8 +22,8 @@ For example:
 
 ```text
 src/fintual/
-├── authenticated-ingestion.ts
-├── authenticated-ingestion.test.ts
+├── performance.ts
+├── performance.test.ts
 ├── new-performance.ts
 └── new-performance.test.ts
 ```

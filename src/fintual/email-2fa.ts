@@ -1,8 +1,9 @@
-import { Clock, Effect } from "effect"
+import { Clock, Context, Effect, Layer } from "effect"
 import { ImapFlow } from "imapflow"
 import { error, log, sleep, tryPromise, warn } from "../effect.ts"
-import type { Email2FAConfig } from "../env.ts"
+import { FintualConfigService, type Email2FAConfig } from "../env.ts"
 import { getErrorMessage } from "../log.ts"
+import { Email2FAFailure } from "./fintual-error.ts"
 import {
   buildEmail2FASearchQueries,
   isGmailImapHost,
@@ -17,13 +18,35 @@ const MAX_RESULTS = 10
 /** Gmail can file 2FA under categories; IMAP search is per-folder. */
 const GMAIL_IMAP_SEARCH_PATHS = ["INBOX", "[Gmail]/All Mail", "[Gmail]/Spam"] as const
 
-export interface Email2FAOptions {
+export class Email2FAService extends Context.Service<
+  Email2FAService,
+  {
+    get2FACode: (options: Email2FAOptions) => Effect.Effect<string | null, Email2FAFailure>
+  }
+>()("Email2FAService") {
+  static readonly layer = Layer.effect(
+    Email2FAService,
+    Effect.gen(function* () {
+      const config = yield* FintualConfigService
+
+      return Email2FAService.of({
+        get2FACode: Effect.fn("Email2FAService.get2FACode")(function* (options) {
+          return yield* get2FACodeFromEmail(config.email2FA, options).pipe(
+            Effect.mapError((cause) => new Email2FAFailure({ cause })),
+          )
+        }),
+      })
+    }),
+  )
+}
+
+interface Email2FAOptions {
   afterTimestamp: Date
   timeoutMs?: number
   pollIntervalMs?: number
 }
 
-export function get2FACodeFromEmail(
+function get2FACodeFromEmail(
   config: Email2FAConfig | null,
   options: Email2FAOptions,
 ): Effect.Effect<string | null, Error> {

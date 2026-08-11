@@ -1,4 +1,4 @@
-import { Config, ConfigProvider, Effect, Option } from "effect"
+import { Config, ConfigProvider, Context, Effect, Option } from "effect"
 
 export interface ActualConfig {
   serverUrl: string
@@ -24,6 +24,10 @@ export interface FintualConfig {
   goalId: string
   email2FA: Email2FAConfig | null
 }
+
+export class FintualConfigService extends Context.Service<FintualConfigService, FintualConfig>()(
+  "FintualConfig",
+) {}
 
 export interface RuntimeConfig {
   actual: ActualConfig
