@@ -27,7 +27,11 @@ export function writePerformanceSnapshot(
   return Effect.gen(function* () {
     const validation = v.safeParse(performanceSnapshotSchema, snapshot)
     if (!validation.success) {
-      return yield* Effect.fail(new Error("Fintual performance snapshot is invalid"))
+      return yield* Effect.fail(
+        new Error(
+          `Fintual performance snapshot is invalid: ${JSON.stringify(v.flatten(validation.issues))}`,
+        ),
+      )
     }
 
     yield* trySync({
