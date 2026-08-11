@@ -1,4 +1,4 @@
-import { Effect, Schema } from "effect"
+import { Effect, Predicate, Schema } from "effect"
 import { ImapFlow, type SearchObject } from "imapflow"
 import { tryPromise } from "../effect.ts"
 import type { Email2FAConfig } from "../env.ts"
@@ -17,7 +17,7 @@ export interface ImapMessage {
 export interface ImapClient {
   readonly usable: boolean
   connect(): Effect.Effect<void, Error>
-  getMailboxLock(path: string): Effect.Effect<ImapMailboxLock, Error>
+  getMailboxLock(path: string): Effect.Effect<ImapMailboxLock, Error | MissingMailbox>
   search(query: SearchObject): Effect.Effect<number[] | false, Error | MissingServerExtension>
   fetchOne(uid: number): Effect.Effect<ImapMessage | null, Error>
   logout(): Effect.Effect<void, Error>
@@ -33,6 +33,11 @@ export class MissingServerExtension extends Schema.TaggedError<MissingServerExte
     return getErrorMessage(this.cause)
   }
 }
+
+export class MissingMailbox extends Schema.TaggedError<MissingMailbox>()("MissingMailbox", {
+  path: Schema.String,
+  cause: Schema.Defect(),
+}) {}
 
 export class ImapFlowClient implements ImapClient {
   private readonly raw: ImapFlow
@@ -52,10 +57,15 @@ export class ImapFlowClient implements ImapClient {
     })
   }
 
-  getMailboxLock(path: string): Effect.Effect<ImapMailboxLock, Error> {
-    return tryPromise({
+  getMailboxLock(path: string): Effect.Effect<ImapMailboxLock, Error | MissingMailbox> {
+    return Effect.tryPromise({
       try: () => this.raw.getMailboxLock(path),
-      catch: `Failed to lock Gmail IMAP mailbox ${path}`,
+      catch: (cause) =>
+        Predicate.isObject(cause) && cause.mailboxMissing === true
+          ? new MissingMailbox({ path, cause })
+          : new Error(`Failed to lock Gmail IMAP mailbox ${path}: ${getErrorMessage(cause)}`, {
+              cause,
+            }),
     })
   }
 

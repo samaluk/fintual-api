@@ -4,6 +4,7 @@ import { describe, expect, test } from "vitest"
 import type { SearchObject } from "imapflow"
 import type { Email2FAConfig } from "../../env.ts"
 import {
+  MissingMailbox,
   MissingServerExtension,
   type ImapClient,
   type ImapMailboxLock,
@@ -34,6 +35,7 @@ const GMAIL_CONFIG: Email2FAConfig = { ...NON_GMAIL_CONFIG, host: "imap.gmail.co
 interface FakeClientOptions {
   connectError?: Error
   lockFailures?: ReadonlySet<string>
+  lockError?: Error
   search?: (query: SearchObject, searchCount: number) => number[] | false | Error
   fetchOne?: (uid: number) => ImapMessage | null | Error
 }
@@ -64,8 +66,13 @@ function createFakeClient(options: FakeClientOptions = {}): FakeClient {
     },
     getMailboxLock: (path: string): Effect.Effect<ImapMailboxLock, Error> => {
       ops.push(`lock:${path}`)
+      if (options.lockError) {
+        return Effect.fail(options.lockError)
+      }
       if (options.lockFailures?.has(path)) {
-        return Effect.fail(new Error(`missing mailbox ${path}`))
+        return Effect.fail(
+          new MissingMailbox({ path, cause: new Error(`missing mailbox ${path}`) }),
+        )
       }
       return Effect.sync(() => ({
         release: () => {
@@ -246,6 +253,21 @@ describe("retrieveEmail2FACode recoverability", () => {
     expect(failureOf(exit)).toBeInstanceOf(TimedOut)
     expect(fake.ops).toContain("lock:[Gmail]/All Mail")
     expect(fake.ops).toContain("lock:[Gmail]/Spam")
+    expect(countOps(fake.ops, "logout")).toBe(1)
+  })
+
+  test("surfaces a non-missing mailbox lock failure as Operational", async () => {
+    const fake = createFakeClient({ lockError: new Error("connection dropped") })
+
+    const exit = await runRetrieval(
+      GMAIL_CONFIG,
+      { afterTimestamp: AFTER_TIMESTAMP },
+      fake.client,
+      () => Effect.void,
+    )
+
+    expect(failureOf(exit)).toBeInstanceOf(Operational)
+    expect(fake.ops).not.toContain("lock:[Gmail]/All Mail")
     expect(countOps(fake.ops, "logout")).toBe(1)
   })
 

@@ -178,10 +178,13 @@ function searchMailbox(
   seenMessageKeys: Set<string>,
 ): Effect.Effect<Option.Option<Email2FACode>, Error> {
   return Effect.gen(function* () {
-    const lock = yield* Effect.catch(imapClient.getMailboxLock(mailboxPath), () =>
-      config.debug
-        ? Effect.as(Effect.log(`Gmail IMAP: skip missing mailbox ${mailboxPath}`), undefined)
-        : Effect.succeed(undefined),
+    const lock = yield* Effect.catchTag(
+      imapClient.getMailboxLock(mailboxPath),
+      "MissingMailbox",
+      () =>
+        config.debug
+          ? Effect.as(Effect.log(`Gmail IMAP: skip missing mailbox ${mailboxPath}`), undefined)
+          : Effect.succeed(undefined),
     )
     if (!lock) {
       return Option.none()
