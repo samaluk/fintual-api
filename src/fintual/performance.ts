@@ -3,7 +3,6 @@ import { tryPromise, trySync } from "../effect.ts"
 import { FintualConfigService } from "../env.ts"
 import { getErrorMessage } from "../log.ts"
 import {
-  PerformanceSnapshotValidationError,
   SnapshotWriter,
   validatePerformanceSnapshot,
   type PerformanceSnapshot,
@@ -70,11 +69,9 @@ export class FintualPerformance extends Context.Service<
             (cause) => new MalformedPerformanceSnapshot({ issues: getErrorMessage(cause) }),
           )
 
-          const validatedSnapshot = yield* Effect.catchIf(
+          const validatedSnapshot = yield* Effect.mapError(
             validatePerformanceSnapshot(snapshot),
-            (error): error is PerformanceSnapshotValidationError =>
-              error instanceof PerformanceSnapshotValidationError,
-            (error) => Effect.fail(new MalformedPerformanceSnapshot({ issues: error.issues })),
+            (cause) => new MalformedPerformanceSnapshot({ issues: cause.issues }),
           )
           yield* snapshotWriter.write(validatedSnapshot)
 
