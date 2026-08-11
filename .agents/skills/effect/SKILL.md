@@ -86,6 +86,21 @@ If a task spans several branches, read all matching files before editing.
 - Retry only when the operation has proven idempotency.
 - Let exhausted failures remain visible unless the boundary has a real fallback.
 
+## Typed Failure Checklist
+
+When introducing or changing an expected failure at a domain seam, verify all of
+these before moving to the next seam:
+
+- Use `Schema.TaggedErrorClass` rather than global `Error` in the typed failure
+  channel.
+- Preserve the established human-readable message.
+- Store the original failure in a `cause: Schema.Defect` field.
+- Keep the error class module-local unless consumers intentionally need it in the
+  public failure union.
+- Recover or classify with tags and stable fields, never message text.
+- Exercise message and cause behavior with a focused test when the seam already
+  has a compatibility contract.
+
 ## Do Nots
 
 - Do not use `as any`, non-null assertions, or unchecked casts to silence Effect typing problems.
