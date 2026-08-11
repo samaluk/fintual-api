@@ -9,7 +9,6 @@ import {
 import { FetchService, FINTUAL_ORIGIN } from "./authenticated-ingestion.ts"
 import { Email2FAService } from "./email-2fa.ts"
 import {
-  Email2FAFailure,
   HttpTransportFailure,
   LoginFailed,
   MalformedGoalPerformanceData,
@@ -148,13 +147,6 @@ function authenticate(
       afterTimestamp: loginStartedAt,
       timeoutMs: HTTP_2FA_EMAIL_TIMEOUT_MS,
     })
-    if (!code) {
-      return yield* Effect.fail(
-        new Email2FAFailure({
-          cause: new Error("Fintual email 2FA: no code received before timeout"),
-        }),
-      )
-    }
 
     const finalizeResponse = yield* session.request(
       "/auth/sessions/finalize_login_web",
