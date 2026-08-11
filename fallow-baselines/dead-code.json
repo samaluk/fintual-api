@@ -4,9 +4,10 @@
     "semantic_schema_version": 2,
     "capabilities": [
       "symbol-use",
-      "api-surface"
+      "api-surface",
+      "type-coupling"
     ],
-    "project_config_hash": "deferred:no-semantic-queries",
+    "project_config_hash": "sha256:76a6319b0f34c1bd0047de6a465336ce482adefc7c2e7c3d7e0f53c5dc3d53f1",
     "backend_family": "typescript-go",
     "completeness": "complete"
   },

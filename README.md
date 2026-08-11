@@ -116,7 +116,7 @@ Details and observed endpoints are in [`docs/fintual-http-capture.md`](docs/fint
 
 ## Quality ratchet
 
-Fallow 3.14 runs type-aware dead-code, duplication, and health gates in CI. See [`docs/fallow.md`](docs/fallow.md).
+Fallow 3.14 audits changed files (dead code, duplication, complexity) on every PR via `fallow audit`. See [`docs/fallow.md`](docs/fallow.md).
 
 ## Git hooks
 
