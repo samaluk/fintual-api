@@ -1,8 +1,16 @@
-import { Config, ConfigProvider, Context, Effect, Option } from "effect"
+import { Config, ConfigProvider, Context, Effect, Option, Redacted, Schema } from "effect"
+
+export class RuntimeConfigError extends Schema.TaggedError<RuntimeConfigError>()(
+  "RuntimeConfigError",
+  {
+    message: Schema.String,
+    cause: Schema.Defect(),
+  },
+) {}
 
 export interface ActualConfig {
   serverUrl: string
-  password: string
+  password: Redacted.Redacted<string>
   syncId: string
   fintualAccount: string
   startingDate: string
@@ -11,7 +19,7 @@ export interface ActualConfig {
 
 export interface Email2FAConfig {
   userEmail: string
-  appPassword: string
+  appPassword: Redacted.Redacted<string>
   host: string
   port: number
   debug: boolean
@@ -20,7 +28,7 @@ export interface Email2FAConfig {
 
 export interface FintualConfig {
   email: string
-  password: string
+  password: Redacted.Redacted<string>
   goalId: string
   email2FA: Email2FAConfig | null
 }
@@ -38,23 +46,33 @@ export type Environment = Readonly<Record<string, string | undefined>>
 
 export function resolveRuntimeConfig(
   environment: Environment,
-): Effect.Effect<RuntimeConfig, Error> {
+): Effect.Effect<RuntimeConfig, RuntimeConfigError> {
   return Effect.gen(function* () {
     const provider = ConfigProvider.fromUnknown(
       Object.fromEntries(
         Object.entries(environment).flatMap(([name, value]) =>
-          value ? [[name, normalizeEnvValue(value)]] : [],
+          value === undefined || (value === "" && !isGmailCredential(name))
+            ? []
+            : [[name, normalizeEnvValue(value)]],
         ),
       ),
       { preserveEmptyStrings: true },
     )
     const values = yield* runtimeValueConfig.pipe(
       Effect.provideService(ConfigProvider.ConfigProvider, provider),
-      Effect.mapError((cause) => new Error(cause.message)),
+      Effect.mapError(
+        (cause) =>
+          new RuntimeConfigError({
+            message: cause.message,
+            cause,
+          }),
+      ),
     )
-    const gmailUserEmail = Option.getOrElse(values.gmailUserEmail, () => "")
-    const gmailAppPassword = Option.getOrElse(values.gmailAppPassword, () => "")
-    const email2FA = yield* resolveEmail2FAConfig(provider, gmailUserEmail, gmailAppPassword)
+    const email2FA = yield* resolveEmail2FAConfig(
+      provider,
+      values.gmailUserEmail,
+      values.gmailAppPassword,
+    )
 
     return {
       actual: {
@@ -77,7 +95,7 @@ export function resolveRuntimeConfig(
 
 const runtimeValueConfig = Config.all({
   actualServerUrl: Config.string("ACTUAL_SERVER_URL"),
-  actualPassword: Config.string("ACTUAL_PASSWORD"),
+  actualPassword: Config.redacted("ACTUAL_PASSWORD"),
   actualSyncId: Config.string("ACTUAL_SYNC_ID"),
   actualFintualAccount: Config.string("ACTUAL_FINTUAL_ACCOUNT"),
   actualStartingDate: Config.string("ACTUAL_STARTING_DATE").pipe(
@@ -86,10 +104,10 @@ const runtimeValueConfig = Config.all({
   ),
   actualPayee: Config.string("ACTUAL_PAYEE").pipe(Config.withDefault("Fintual")),
   fintualUserEmail: Config.string("FINTUAL_USER_EMAIL"),
-  fintualUserPassword: Config.string("FINTUAL_USER_PASSWORD"),
+  fintualUserPassword: Config.redacted("FINTUAL_USER_PASSWORD"),
   fintualGoalId: Config.string("FINTUAL_GOAL_ID"),
   gmailUserEmail: Config.option(Config.string("GMAIL_USER_EMAIL")),
-  gmailAppPassword: Config.option(Config.string("GMAIL_APP_PASSWORD")),
+  gmailAppPassword: Config.option(Config.redacted("GMAIL_APP_PASSWORD")),
 })
 
 const email2FAValueConfig = Config.all({
@@ -106,30 +124,48 @@ const email2FAValueConfig = Config.all({
 
 function resolveEmail2FAConfig(
   provider: ConfigProvider.ConfigProvider,
-  userEmail: string,
-  appPassword: string,
-): Effect.Effect<Email2FAConfig | null, Error> {
-  if (!userEmail && !appPassword) {
+  userEmail: Option.Option<string>,
+  appPassword: Option.Option<Redacted.Redacted<string>>,
+): Effect.Effect<Email2FAConfig | null, RuntimeConfigError> {
+  if (Option.isNone(userEmail) && Option.isNone(appPassword)) {
     return Effect.succeed(null)
   }
 
-  const missingName = userEmail ? "GMAIL_APP_PASSWORD" : "GMAIL_USER_EMAIL"
-  if (!userEmail || !appPassword) {
-    return Effect.fail(new Error(`Missing environment variables: ${missingName}`))
+  if (Option.isNone(userEmail)) {
+    return missingEmail2FACredential("GMAIL_USER_EMAIL")
+  }
+
+  if (Option.isNone(appPassword)) {
+    return missingEmail2FACredential("GMAIL_APP_PASSWORD")
   }
 
   return email2FAValueConfig.pipe(
     Effect.provideService(ConfigProvider.ConfigProvider, provider),
-    Effect.mapError((cause) => new Error(cause.message)),
+    Effect.mapError(
+      (cause) =>
+        new RuntimeConfigError({
+          message: cause.message,
+          cause,
+        }),
+    ),
     Effect.map((values) => ({
-      userEmail,
-      appPassword,
+      userEmail: userEmail.value,
+      appPassword: appPassword.value,
       host: values.gmailImapHost,
       port: values.gmailImapPort,
       debug: values.gmailImapDebug,
       sender: values.fintual2FASender,
     })),
   )
+}
+
+function missingEmail2FACredential(name: string): Effect.Effect<never, RuntimeConfigError> {
+  const cause = new Error(`Missing environment variables: ${name}`)
+  return Effect.fail(new RuntimeConfigError({ message: cause.message, cause }))
+}
+
+function isGmailCredential(name: string): boolean {
+  return name === "GMAIL_USER_EMAIL" || name === "GMAIL_APP_PASSWORD"
 }
 
 function normalizeEnvValue(value: string): string {

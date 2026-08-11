@@ -1,6 +1,6 @@
-import { Effect, Result } from "effect"
+import { Effect, Redacted, Result } from "effect"
 import { expect, test } from "vitest"
-import { resolveRuntimeConfig } from "./env.ts"
+import { resolveRuntimeConfig, RuntimeConfigError } from "./env.ts"
 
 function requiredEnvironment(): Record<string, string> {
   return {
@@ -17,22 +17,25 @@ function requiredEnvironment(): Record<string, string> {
 test("normalizes runtime values and applies defaults once for every domain", async () => {
   const configuration = await Effect.runPromise(resolveRuntimeConfig(requiredEnvironment()))
 
-  expect(configuration).toEqual({
-    actual: {
-      serverUrl: "https://actual.example.test",
-      password: "actual password",
-      syncId: "sync-id",
-      fintualAccount: "account-id",
-      startingDate: "2024-03-01",
-      payee: "Fintual",
-    },
-    fintual: {
-      email: "investor@example.com",
-      password: "fintual password",
-      goalId: "goal-id",
-      email2FA: null,
-    },
+  expect(configuration.actual).toMatchObject({
+    serverUrl: "https://actual.example.test",
+    syncId: "sync-id",
+    fintualAccount: "account-id",
+    startingDate: "2024-03-01",
+    payee: "Fintual",
   })
+  expect(configuration.fintual).toMatchObject({
+    email: "investor@example.com",
+    goalId: "goal-id",
+    email2FA: null,
+  })
+  // Redacted intentionally exposes a safe placeholder through String().
+  // oxlint-disable-next-line typescript/no-base-to-string
+  expect(String(configuration.actual.password)).toBe("<redacted>")
+  expect(Redacted.value(configuration.actual.password)).toBe("actual password")
+  // oxlint-disable-next-line typescript/no-base-to-string
+  expect(String(configuration.fintual.password)).toBe("<redacted>")
+  expect(Redacted.value(configuration.fintual.password)).toBe("fintual password")
 })
 
 test("uses legacy starting date and enables email 2FA when both credentials are present", async () => {
@@ -52,14 +55,19 @@ test("uses legacy starting date and enables email 2FA when both credentials are 
 
   expect(configuration.actual.startingDate).toBe("2025-01-02")
   expect(configuration.actual.payee).toBe("Investments")
-  expect(configuration.fintual.email2FA).toEqual({
-    userEmail: "mailbox@example.com",
-    appPassword: "app password",
-    host: "mail.example.com",
-    port: 1993,
-    debug: true,
-    sender: "security@example.com",
-  })
+  expect(configuration.fintual.email2FA).not.toBeNull()
+  if (configuration.fintual.email2FA) {
+    expect(configuration.fintual.email2FA).toMatchObject({
+      userEmail: "mailbox@example.com",
+      host: "mail.example.com",
+      port: 1993,
+      debug: true,
+      sender: "security@example.com",
+    })
+    // oxlint-disable-next-line typescript/no-base-to-string
+    expect(String(configuration.fintual.email2FA.appPassword)).toBe("<redacted>")
+    expect(Redacted.value(configuration.fintual.email2FA.appPassword)).toBe("app password")
+  }
 })
 
 test("preserves quoted-empty values instead of falling back to defaults", async () => {
@@ -80,8 +88,41 @@ test("reports all missing required runtime values", async () => {
 
   expect(result._tag).toBe("Failure")
   if (Result.isFailure(result)) {
+    expect(result.failure).toBeInstanceOf(RuntimeConfigError)
+    expect(result.failure.cause).toBeDefined()
     expect(result.failure.message).toContain("ACTUAL_SERVER_URL")
   }
+})
+
+test("treats unquoted empty required values as missing", async () => {
+  const result = await Effect.runPromise(
+    Effect.result(
+      resolveRuntimeConfig({
+        ...requiredEnvironment(),
+        ACTUAL_SERVER_URL: "",
+      }),
+    ),
+  )
+
+  expect(result._tag).toBe("Failure")
+  if (Result.isFailure(result)) {
+    expect(result.failure.message).toContain("ACTUAL_SERVER_URL")
+  }
+})
+
+test("uses defaults when optional non-Gmail values are unquoted empty strings", async () => {
+  const configuration = await Effect.runPromise(
+    resolveRuntimeConfig({
+      ...requiredEnvironment(),
+      ACTUAL_PAYEE: "",
+      GMAIL_USER_EMAIL: "mailbox@example.com",
+      GMAIL_APP_PASSWORD: "app password",
+      GMAIL_IMAP_PORT: "",
+    }),
+  )
+
+  expect(configuration.actual.payee).toBe("Fintual")
+  expect(configuration.fintual.email2FA?.port).toBe(993)
 })
 
 test("rejects partially configured email 2FA credentials", async () => {
@@ -96,7 +137,41 @@ test("rejects partially configured email 2FA credentials", async () => {
 
   expect(result._tag).toBe("Failure")
   if (Result.isFailure(result)) {
+    expect(result.failure).toBeInstanceOf(RuntimeConfigError)
     expect(result.failure.message).toBe("Missing environment variables: GMAIL_APP_PASSWORD")
+  }
+})
+
+test("rejects a Gmail app password without its user email", async () => {
+  const result = await Effect.runPromise(
+    Effect.result(
+      resolveRuntimeConfig({
+        ...requiredEnvironment(),
+        GMAIL_APP_PASSWORD: "app password",
+      }),
+    ),
+  )
+
+  expect(result._tag).toBe("Failure")
+  if (Result.isFailure(result)) {
+    expect(result.failure).toBeInstanceOf(RuntimeConfigError)
+    expect(result.failure.message).toBe("Missing environment variables: GMAIL_USER_EMAIL")
+  }
+})
+
+test("preserves explicitly supplied empty Gmail credentials as present values", async () => {
+  const configuration = await Effect.runPromise(
+    resolveRuntimeConfig({
+      ...requiredEnvironment(),
+      GMAIL_USER_EMAIL: "",
+      GMAIL_APP_PASSWORD: "",
+    }),
+  )
+
+  expect(configuration.fintual.email2FA).not.toBeNull()
+  if (configuration.fintual.email2FA) {
+    expect(configuration.fintual.email2FA.userEmail).toBe("")
+    expect(Redacted.value(configuration.fintual.email2FA.appPassword)).toBe("")
   }
 })
 

@@ -2,19 +2,23 @@ import { pathToFileURL } from "node:url"
 import { NodeRuntime } from "@effect/platform-node"
 import { config as loadDotEnv } from "dotenv"
 import { Array as EffectArray, Cause, Effect, Formatter, Logger, References } from "effect"
-import { resolveRuntimeConfig } from "./env.ts"
+import { resolveRuntimeConfig, type RuntimeConfigError } from "./env.ts"
+import type { ActualError } from "./actual.ts"
+import type { FintualError } from "./fintual/fintual-error.ts"
 import { runJob } from "./job.ts"
 import { configureSensitiveValues, redactSensitiveText } from "./log.ts"
 
 loadDotEnv()
 
-const main: Effect.Effect<void, Error> = Effect.gen(function* () {
-  const runtimeConfig = yield* resolveRuntimeConfig(process.env)
-  configureSensitiveValues(runtimeConfig)
-  yield* Effect.logInfo("Running task once...")
-  yield* runJob(runtimeConfig)
-  yield* Effect.logInfo("Task completed.")
-})
+const main: Effect.Effect<void, RuntimeConfigError | ActualError | FintualError> = Effect.gen(
+  function* () {
+    const runtimeConfig = yield* resolveRuntimeConfig(process.env)
+    configureSensitiveValues(runtimeConfig)
+    yield* Effect.logInfo("Running task once...")
+    yield* runJob(runtimeConfig)
+    yield* Effect.logInfo("Task completed.")
+  },
+)
 
 export const redactingLogger = Logger.withLeveledConsole(
   Logger.make(({ cause, date, fiber, logLevel, message }) => {

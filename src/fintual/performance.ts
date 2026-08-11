@@ -1,6 +1,6 @@
 import { Context, DateTime, Effect, Layer } from "effect"
 import { FintualConfigService, type FintualConfig } from "../env.ts"
-import { getErrorMessage } from "../log.ts"
+import { getErrorMessage, revealSecret } from "../log.ts"
 import {
   SnapshotWriter,
   validatePerformanceSnapshot,
@@ -123,7 +123,7 @@ const authenticate = Effect.fn("authenticate")(function* (
         "Content-Type": "application/json",
         Referer: `${FINTUAL_ORIGIN}/f/sign-in/`,
       },
-      body: JSON.stringify({ email: config.email, password: config.password }),
+      body: JSON.stringify({ email: config.email, password: revealSecret(config.password) }),
     },
     "Fintual login",
   )
@@ -174,7 +174,11 @@ const authenticate = Effect.fn("authenticate")(function* (
         "Content-Type": "application/json",
         Referer: `${FINTUAL_ORIGIN}/f/sign-in/`,
       },
-      body: JSON.stringify({ email: config.email, password: config.password, code }),
+      body: JSON.stringify({
+        email: config.email,
+        password: revealSecret(config.password),
+        code,
+      }),
     },
     EMAIL_2FA_STAGE,
   )
