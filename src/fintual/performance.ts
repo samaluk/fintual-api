@@ -55,21 +55,27 @@ export class FintualPerformance extends Context.Service<
     }),
   )
 
-  static readonly live = FintualPerformance.layer.pipe(
-    Layer.provide(FintualProvider.layer((input, init) => globalThis.fetch(input, init))),
-    Layer.provide(Email2FAService.live),
-    Layer.provide(SnapshotWriter.layer),
+  static readonly live = Layer.unwrap(
+    Effect.gen(function* () {
+      const config = yield* FintualConfigService
+
+      return FintualPerformance.layer.pipe(
+        Layer.provide(FintualProvider.layer((input, init) => globalThis.fetch(input, init))),
+        Layer.provide(config.email2FA ? Email2FAService.live : Layer.empty),
+        Layer.provide(SnapshotWriter.layer),
+      )
+    }),
   )
 }
 
 const acquireEmail2FAService = Effect.fn("FintualPerformance.acquireEmail2FAService")(function* (
   email2FAConfig: Email2FAConfig | null,
-): Effect.fn.Return<Option.Option<Email2FAService["Service"]>, never, Email2FAService> {
+): Effect.fn.Return<Option.Option<Email2FAService["Service"]>, never> {
   if (!email2FAConfig) {
     return Option.none()
   }
 
-  return Option.some(yield* Email2FAService)
+  return yield* Effect.serviceOption(Email2FAService)
 })
 
 const requestEmail2FACode =

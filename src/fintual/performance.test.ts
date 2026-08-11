@@ -111,6 +111,34 @@ it.effect(
     }),
 )
 
+it.effect("builds the live layer without Email 2FA configuration", () =>
+  Effect.gen(function* () {
+    const service = yield* FintualPerformance
+
+    expect(service.fetchPerformanceSnapshot).toBeTypeOf("function")
+  }).pipe(
+    Effect.provide(FintualPerformance.live),
+    Effect.provideService(FintualConfigService, { ...CONFIG, email2FA: null }),
+  ),
+)
+
+it.effect("direct login succeeds when Email 2FA is not configured", () =>
+  Effect.gen(function* () {
+    let codeRequests = 0
+
+    const snapshot = yield* performanceProgram({
+      config: { ...CONFIG, email2FA: null },
+      get2FACode: () => {
+        codeRequests += 1
+        return Effect.succeed(Email2FACode.make("123456"))
+      },
+    })
+
+    expect(codeRequests).toBe(0)
+    expect(snapshot.balance).toHaveLength(1)
+  }),
+)
+
 it.effect("completes Email 2FA sign-in before it requests Goal Performance Data", () =>
   Effect.gen(function* () {
     let codeRequests = 0
