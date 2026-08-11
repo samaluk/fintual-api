@@ -1,6 +1,7 @@
 ---
 title: 'fallow audit warnings'
 severity: 'minor'
+issue: 'samaluk/fintual-api#328'
 ---
 
 ## Expected Behavior

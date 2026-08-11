@@ -1,6 +1,7 @@
 ---
 title: 'Fallow audit emits invalid dependency entry-pattern warnings'
 severity: 'minor'
+issue: 'samaluk/fintual-api#331'
 ---
 
 ## Expected Behavior

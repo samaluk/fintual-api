@@ -1,6 +1,7 @@
 ---
 title: 'Concurrent pnpm pre-push checks race over node_modules binaries'
 severity: 'minor'
+issue: 'samaluk/fintual-api#332'
 ---
 
 ## Expected Behavior
