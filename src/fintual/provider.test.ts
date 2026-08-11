@@ -2,7 +2,7 @@ import { it } from "@effect/vitest"
 import { Effect, Fiber, Redacted } from "effect"
 import { expect } from "vitest"
 import { FintualConfigService, type FintualConfig } from "../env.ts"
-import { Email2FACode, Operational, TimedOut } from "./email-2fa/retrieve.ts"
+import { Email2FACode, Operational, TimedOut } from "./email-2fa.ts"
 import { FintualProvider } from "./provider.ts"
 
 const CONFIG: FintualConfig = {
