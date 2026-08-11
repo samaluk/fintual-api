@@ -1,5 +1,5 @@
 import { inspect } from "node:util"
-import { Redacted } from "effect"
+import { Predicate, Redacted } from "effect"
 import type { RuntimeConfig } from "./env.ts"
 
 let configuredRedactionSecrets = new Set<string>()
@@ -30,7 +30,7 @@ export function getErrorMessage(error: unknown): string {
     return redactSensitiveText(error.message)
   }
 
-  if (isRecord(error)) {
+  if (Predicate.isObject(error)) {
     const structuredMessage = getStructuredErrorMessage(error)
     if (structuredMessage) {
       return redactSensitiveText(structuredMessage)
@@ -85,8 +85,4 @@ function getStructuredErrorMessage(error: Record<string, unknown>): string {
   }
 
   return parts.join(": ")
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
 }
