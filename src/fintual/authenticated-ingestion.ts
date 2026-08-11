@@ -34,8 +34,14 @@ class FintualHttpSession {
     this.fetchRequest = fetchRequest
   }
 
-  request(path: string, init: RequestInit, stage: string): Effect.Effect<Response, FintualError> {
-    return Effect.gen({ self: this }, function* () {
+  readonly request = Effect.fn("FintualHttpSession.request")(
+    { self: this },
+    function* (
+      this: FintualHttpSession,
+      path: string,
+      init: RequestInit,
+      stage: string,
+    ): Effect.fn.Return<Response, FintualError> {
       const headers = new Headers(init.headers)
       headers.set("User-Agent", BROWSER_USER_AGENT)
       headers.set("Origin", FINTUAL_ORIGIN)
@@ -47,11 +53,11 @@ class FintualHttpSession {
 
       const response = yield* Effect.mapError(
         Effect.tryPromise({
-          try: () =>
+          try: (signal) =>
             this.fetchRequest(`${FINTUAL_ORIGIN}${path}`, {
               ...init,
               headers,
-              signal: AbortSignal.timeout(HTTP_REQUEST_TIMEOUT_MS),
+              signal: AbortSignal.any([signal, AbortSignal.timeout(HTTP_REQUEST_TIMEOUT_MS)]),
             }),
           catch: (cause) =>
             new Error(`${stage}: request failed: ${getErrorMessage(cause)}`, { cause }),
@@ -71,8 +77,8 @@ class FintualHttpSession {
       )
 
       return response
-    })
-  }
+    },
+  )
 }
 
 function mergeSetCookieHeaders(headers: Headers, jar: Map<string, string>): void {
