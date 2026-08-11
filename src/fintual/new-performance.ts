@@ -1,5 +1,4 @@
-import { Effect } from "effect"
-import * as v from "valibot"
+import { Effect, Predicate, Schema } from "effect"
 import { getErrorMessage } from "../log.ts"
 
 export const TimeIntervalCode = {
@@ -15,31 +14,57 @@ export type TimeIntervalCode = (typeof TimeIntervalCode)[keyof typeof TimeInterv
 const NEW_PERFORMANCE_QUERY =
   "query GoalInvestedBalanceGraphDataPoints($goalId: ID!, $timeIntervalCode: String!) {\n  balanceGraphDataPoints: clGoalBalanceGraphDataPoints(\n    goalId: $goalId\n    timeIntervalCode: $timeIntervalCode\n  ) {\n    date\n    unrealizedCostBasisAmount\n    unrealizedGainOrLossAmount\n    realizedCostBasisAmount\n    realizedGainOrLossAmount\n    sharesCostBasisAmount\n    sharesValuationAmount\n    pendingFulfillmentReinvestmentDepositsCostBasisAmount\n    pendingFulfillmentReinvestmentDepositsAmount\n    withdrawnAmount\n    __typename\n  }\n}"
 
-const newPerformanceSchema = v.object({
-  data: v.object({
-    balanceGraphDataPoints: v.array(
-      v.object({
-        date: v.pipe(v.string(), v.isoDate()),
-        unrealizedCostBasisAmount: v.number(),
-        unrealizedGainOrLossAmount: v.number(),
-        realizedCostBasisAmount: v.number(),
-        realizedGainOrLossAmount: v.number(),
-        sharesCostBasisAmount: v.number(),
-        sharesValuationAmount: v.number(),
-        pendingFulfillmentReinvestmentDepositsCostBasisAmount: v.number(),
-        pendingFulfillmentReinvestmentDepositsAmount: v.number(),
-        withdrawnAmount: v.number(),
-      }),
+const ISO_DATE_PATTERN = /^(\d{4})-(0[1-9]|1[0-2])-([12]\d|0[1-9]|3[01])$/u
+
+function isValidIsoDate(date: string): boolean {
+  const match = ISO_DATE_PATTERN.exec(date)
+  if (!match) {
+    return false
+  }
+
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const daysInMonth =
+    month === 2
+      ? year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)
+        ? 29
+        : 28
+      : [4, 6, 9, 11].includes(month)
+        ? 30
+        : 31
+
+  return day <= daysInMonth
+}
+
+const goalPerformancePointSchema = Schema.Struct({
+  date: Schema.String.pipe(
+    Schema.check(Schema.isPattern(ISO_DATE_PATTERN)),
+    Schema.check(
+      Schema.makeFilter((date) => (isValidIsoDate(date) ? undefined : "a valid ISO calendar date")),
     ),
+  ),
+  unrealizedCostBasisAmount: Schema.Number,
+  unrealizedGainOrLossAmount: Schema.Number,
+  realizedCostBasisAmount: Schema.Number,
+  realizedGainOrLossAmount: Schema.Number,
+  sharesCostBasisAmount: Schema.Number,
+  sharesValuationAmount: Schema.Number,
+  pendingFulfillmentReinvestmentDepositsCostBasisAmount: Schema.Number,
+  pendingFulfillmentReinvestmentDepositsAmount: Schema.Number,
+  withdrawnAmount: Schema.Number,
+})
+
+const goalPerformanceDataResponseSchema = Schema.Struct({
+  data: Schema.Struct({
+    balanceGraphDataPoints: Schema.Array(goalPerformancePointSchema),
   }),
 })
 
-export type GoalPerformanceData = v.InferOutput<typeof newPerformanceSchema>["data"]
+export type GoalPerformanceData = (typeof goalPerformanceDataResponseSchema.Type)["data"]
 
-export function parseGoalPerformanceResponseBody(
-  body: string,
-): Effect.Effect<GoalPerformanceData, Error> {
-  return Effect.gen(function* () {
+export const parseGoalPerformanceResponseBody = Effect.fn("parseGoalPerformanceResponseBody")(
+  function* (body: string): Effect.fn.Return<GoalPerformanceData, Error> {
     const parsedJson = yield* Effect.try({
       // oxlint-disable-next-line typescript/consistent-type-assertions
       try: () => JSON.parse(body) as unknown,
@@ -49,31 +74,31 @@ export function parseGoalPerformanceResponseBody(
         }),
     })
 
-    const parsedData = v.safeParse(newPerformanceSchema, parsedJson)
-    if (!parsedData.success) {
+    if (Predicate.isObject(parsedJson) && "errors" in parsedJson) {
       return yield* Effect.fail(
-        new Error(`Failed to validate goal performance data: ${getValidationFailure(parsedJson)}`),
+        new Error("Failed to validate goal performance data: GraphQL response contains errors"),
       )
     }
 
-    return parsedData.output.data
-  })
-}
+    return yield* Schema.decodeUnknownEffect(goalPerformanceDataResponseSchema)(parsedJson).pipe(
+      Effect.map((response) => response.data),
+      Effect.mapError(
+        (cause) =>
+          new Error(
+            `Failed to validate goal performance data: ${getValidationFailure(parsedJson)}`,
+            { cause },
+          ),
+      ),
+    )
+  },
+)
 
 function getValidationFailure(parsedJson: unknown): string {
-  if (!isRecord(parsedJson)) {
+  if (!Predicate.isObject(parsedJson)) {
     return "response is not an object"
   }
 
-  if ("errors" in parsedJson) {
-    return "GraphQL response contains errors"
-  }
-
   return "response does not match the Goal Performance Data schema"
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
 }
 
 export function createGoalPerformanceRequest(
