@@ -84,7 +84,7 @@ export class FintualPerformance extends Context.Service<
   )
 
   static readonly live = FintualPerformance.layer.pipe(
-    Layer.provide(FetchService.layer(globalThis.fetch)),
+    Layer.provide(FetchService.layer((input, init) => globalThis.fetch(input, init))),
     Layer.provide(Email2FAService.layer),
     Layer.provide(SnapshotWriter.layer),
   )
