@@ -69,6 +69,7 @@ function runActualSyncAttempt(
           dataDir: ACTUAL_DATA_DIR,
           serverURL: config.serverUrl,
           password: config.password,
+          verbose: false,
         } satisfies ActualInitConfig),
       catch: (error) => toError(error, "Failed to initialize Actual API"),
     })
