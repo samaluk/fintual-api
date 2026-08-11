@@ -19,7 +19,7 @@ interface TestOverrides {
   write?: SnapshotWriter["Service"]["write"]
 }
 
-function runSync(script: FetchScript, overrides: TestOverrides = {}) {
+function performanceProgram(script: FetchScript, overrides: TestOverrides = {}) {
   return Effect.gen(function* () {
     const service = yield* FintualPerformance
     return yield* service.fetchPerformanceSnapshot()
@@ -46,7 +46,7 @@ test("returns a validated Performance Snapshot after direct login", async () => 
   ])
 
   const snapshot = await Effect.runPromise(
-    runSync(script, { write: (value) => Effect.sync(() => written.push(value)) }),
+    performanceProgram(script, { write: (value) => Effect.sync(() => written.push(value)) }),
   )
 
   expect(snapshot).toEqual({
@@ -70,7 +70,7 @@ test("completes email 2FA before it requests Goal Performance Data", async () =>
   let codeRequests = 0
 
   const snapshot = await Effect.runPromise(
-    runSync(script, {
+    performanceProgram(script, {
       get2FACode: () => {
         codeRequests += 1
         return Effect.succeed("123456")
@@ -88,7 +88,7 @@ describe("fails when email 2FA cannot produce a code", () => {
   test("no code received", async () => {
     const script = createFetchScript([response(""), response("{}", 201)])
 
-    await expect(Effect.runPromise(runSync(script))).rejects.toMatchObject({
+    await expect(Effect.runPromise(performanceProgram(script))).rejects.toMatchObject({
       _tag: "Email2FAFailure",
     })
     expect(script.requests).toHaveLength(2)
@@ -99,7 +99,7 @@ describe("fails when email 2FA cannot produce a code", () => {
 
     await expect(
       Effect.runPromise(
-        runSync(script, {
+        performanceProgram(script, {
           get2FACode: () =>
             Effect.fail(new Email2FAFailure({ cause: new Error("IMAP connection refused") })),
         }),
@@ -117,7 +117,7 @@ describe("fails when email 2FA cannot produce a code", () => {
 test("fails with LoginFailed on a 401 initiate_login response", async () => {
   const script = createFetchScript([response(""), response("{}", 401)])
 
-  await expect(Effect.runPromise(runSync(script))).rejects.toMatchObject({
+  await expect(Effect.runPromise(performanceProgram(script))).rejects.toMatchObject({
     _tag: "LoginFailed",
     status: 401,
   })
@@ -126,7 +126,7 @@ test("fails with LoginFailed on a 401 initiate_login response", async () => {
 test("fails on an unexpected login response without exposing its body", async () => {
   const script = createFetchScript([response(""), response("session-token=secret", 418)])
 
-  await expect(Effect.runPromise(runSync(script))).rejects.toSatisfy((error) => {
+  await expect(Effect.runPromise(performanceProgram(script))).rejects.toSatisfy((error) => {
     expect(error).toMatchObject({
       _tag: "UnexpectedHttpStatus",
       stage: "Fintual login",
@@ -144,7 +144,7 @@ describe("fails atomically when a Goal Performance Data request fails", () => {
   test("reference request", async () => {
     const script = createFetchScript([response(""), response("{}"), response("{}", 503)])
 
-    await expect(Effect.runPromise(runSync(script))).rejects.toMatchObject({
+    await expect(Effect.runPromise(performanceProgram(script))).rejects.toMatchObject({
       _tag: "UnexpectedHttpStatus",
       stage: "Fintual reference Goal Performance Data",
       status: 503,
@@ -160,7 +160,7 @@ describe("fails atomically when a Goal Performance Data request fails", () => {
       response("{}", 503),
     ])
 
-    await expect(Effect.runPromise(runSync(script))).rejects.toMatchObject({
+    await expect(Effect.runPromise(performanceProgram(script))).rejects.toMatchObject({
       _tag: "UnexpectedHttpStatus",
       stage: "Fintual recent Goal Performance Data",
       status: 503,
@@ -171,7 +171,7 @@ describe("fails atomically when a Goal Performance Data request fails", () => {
 test("fails with HttpTransportFailure when a request throws", async () => {
   const script = createFetchScript([response(""), response("{}")])
 
-  await expect(Effect.runPromise(runSync(script))).rejects.toSatisfy((error) => {
+  await expect(Effect.runPromise(performanceProgram(script))).rejects.toSatisfy((error) => {
     expect(error).toMatchObject({
       _tag: "HttpTransportFailure",
       stage: "Fintual reference Goal Performance Data",
@@ -188,7 +188,7 @@ test("fails with HttpTransportFailure when a response body cannot be read", asyn
   brokenBody.text = () => Promise.reject(new Error("stream broken"))
   const script = createFetchScript([brokenBody])
 
-  await expect(Effect.runPromise(runSync(script))).rejects.toMatchObject({
+  await expect(Effect.runPromise(performanceProgram(script))).rejects.toMatchObject({
     _tag: "HttpTransportFailure",
     stage: "Fintual sign-in page",
   })
@@ -198,7 +198,7 @@ describe("fails when Goal Performance Data is malformed or invalid", () => {
   test("malformed JSON", async () => {
     const script = createFetchScript([response(""), response("{}"), response("{")])
 
-    await expect(Effect.runPromise(runSync(script))).rejects.toSatisfy((error) => {
+    await expect(Effect.runPromise(performanceProgram(script))).rejects.toSatisfy((error) => {
       expect(error).toMatchObject({
         _tag: "MalformedGoalPerformanceData",
         purpose: "reference",
@@ -217,7 +217,7 @@ describe("fails when Goal Performance Data is malformed or invalid", () => {
       response(JSON.stringify({ data: {} })),
     ])
 
-    await expect(Effect.runPromise(runSync(script))).rejects.toMatchObject({
+    await expect(Effect.runPromise(performanceProgram(script))).rejects.toMatchObject({
       _tag: "MalformedGoalPerformanceData",
       purpose: "reference",
     })
@@ -232,7 +232,7 @@ test("fails with MalformedPerformanceSnapshot when the fold output is invalid", 
     response(JSON.stringify({ data: { balanceGraphDataPoints: [] } })),
   ])
 
-  await expect(Effect.runPromise(runSync(script))).rejects.toMatchObject({
+  await expect(Effect.runPromise(performanceProgram(script))).rejects.toMatchObject({
     _tag: "MalformedPerformanceSnapshot",
   })
 })
@@ -247,7 +247,7 @@ test("fails with SnapshotWriteFailure when the snapshot cannot be written", asyn
 
   await expect(
     Effect.runPromise(
-      runSync(script, {
+      performanceProgram(script, {
         write: () => Effect.fail(new SnapshotWriteFailure({ cause: new Error("disk full") })),
       }),
     ),
@@ -268,7 +268,7 @@ test("propagates cookies and browser headers through the ephemeral session", asy
     goalPerformanceResponse("2026-07-01"),
   ])
 
-  await Effect.runPromise(runSync(script))
+  await Effect.runPromise(performanceProgram(script))
 
   expect(requestHeaders(script.requests[0]).get("Cookie")).toBeNull()
   expect(requestHeaders(script.requests[1]).get("Cookie")).toBe("session=sign-in")
