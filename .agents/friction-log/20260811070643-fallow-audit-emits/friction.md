@@ -1,6 +1,7 @@
 ---
 title: 'Fallow audit emits invalid glob warnings for package keys'
 severity: 'minor'
+issue: 'samaluk/fintual-api#330'
 ---
 
 ## Expected Behavior
