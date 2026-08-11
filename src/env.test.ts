@@ -1,8 +1,8 @@
 import { Effect, Redacted, Result } from "effect"
 import { expect, test } from "vitest"
-import { resolveRuntimeConfig, RuntimeConfigError } from "./env.ts"
+import { resolveRuntimeConfig, RuntimeConfigError, type Environment } from "./env.ts"
 
-function requiredEnvironment(): Record<string, string> {
+function requiredEnvironment(): Environment {
   return {
     ACTUAL_SERVER_URL: " https://actual.example.test ",
     ACTUAL_PASSWORD: " 'actual password' ",

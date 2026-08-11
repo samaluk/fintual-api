@@ -10,15 +10,16 @@ import { configureSensitiveValues, redactSensitiveText } from "./log.ts"
 
 loadDotEnv()
 
-const main: Effect.Effect<void, RuntimeConfigError | ActualError | FintualError> = Effect.gen(
-  function* () {
-    const runtimeConfig = yield* resolveRuntimeConfig(process.env)
-    configureSensitiveValues(runtimeConfig)
-    yield* Effect.logInfo("Running task once...")
-    yield* runJob(runtimeConfig)
-    yield* Effect.logInfo("Task completed.")
-  },
-)
+const main = Effect.fn("Once.main")(function* (): Effect.fn.Return<
+  void,
+  RuntimeConfigError | ActualError | FintualError
+> {
+  const runtimeConfig = yield* resolveRuntimeConfig(process.env)
+  configureSensitiveValues(runtimeConfig)
+  yield* Effect.logInfo("Running task once...")
+  yield* runJob(runtimeConfig)
+  yield* Effect.logInfo("Task completed.")
+})
 
 export const redactingLogger = Logger.withLeveledConsole(
   Logger.make(({ cause, date, fiber, logLevel, message }) => {
@@ -58,7 +59,7 @@ function isMainModule(): boolean {
 
 if (isMainModule()) {
   NodeRuntime.runMain(
-    main.pipe(
+    main().pipe(
       Effect.tapCause(reportUnhandledFailure),
       Effect.provide(Logger.layer([redactingLogger])),
     ),

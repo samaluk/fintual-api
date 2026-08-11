@@ -56,17 +56,17 @@ export const ImapClientFactoryLive = Layer.succeed(ImapClientFactory, {
 
 const toOperational = (cause: unknown): Operational => new Operational({ cause })
 
-export function retrieveEmail2FACode(
+export const retrieveEmail2FACode = Effect.fn("Email2FA.retrieveEmail2FACode")(function* (
   config: Email2FAConfig,
   options: Email2FAOptions,
-): Effect.Effect<Email2FACode, TimedOut | Operational, ImapClientFactory> {
+): Effect.fn.Return<Email2FACode, TimedOut | Operational, ImapClientFactory> {
   const {
     afterTimestamp,
     timeoutMs = DEFAULT_TIMEOUT_MS,
     pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
   } = options
 
-  return Effect.scoped(
+  return yield* Effect.scoped(
     Effect.gen(function* () {
       yield* Effect.logInfo("Connecting to Gmail IMAP for automatic 2FA retrieval...")
       const clientFactory = yield* ImapClientFactory
@@ -108,60 +108,58 @@ export function retrieveEmail2FACode(
         : Effect.void,
     ),
   )
-}
+})
 
-function connectImapClient(
+const connectImapClient = Effect.fn("Email2FA.connectImapClient")(function* (
   clientFactory: ImapClientFactory["Service"],
   config: Email2FAConfig,
-): Effect.Effect<ImapClient, Error> {
-  return Effect.gen(function* () {
-    const imapClient = clientFactory.create(config)
-    yield* imapClient.connect()
-    return imapClient
-  })
-}
+): Effect.fn.Return<ImapClient, Error> {
+  const imapClient = clientFactory.create(config)
+  yield* imapClient.connect()
+  return imapClient
+})
 
-function closeImapClient(imapClient: ImapClient): Effect.Effect<void, never> {
+const closeImapClient = Effect.fn("Email2FA.closeImapClient")(function* (
+  imapClient: ImapClient,
+): Effect.fn.Return<void> {
   if (!imapClient.usable) {
-    return Effect.void
+    return
   }
 
-  return Effect.catch(imapClient.logout(), (cause) =>
+  yield* Effect.catch(imapClient.logout(), (cause) =>
     Effect.logWarning(`Failed to close IMAP connection cleanly: ${getErrorMessage(cause)}`),
   )
-}
+})
 
-function logPollWait(startedAt: number): Effect.Effect<void> {
-  return Effect.gen(function* () {
-    const now = yield* Clock.currentTimeMillis
-    const elapsedSeconds = Math.round((now - startedAt) / 1000)
-    yield* Effect.logDebug(`Waiting for 2FA email... (${elapsedSeconds}s elapsed)`)
-  })
-}
+const logPollWait = Effect.fn("Email2FA.logPollWait")(function* (
+  startedAt: number,
+): Effect.fn.Return<void> {
+  const now = yield* Clock.currentTimeMillis
+  const elapsedSeconds = Math.round((now - startedAt) / 1000)
+  yield* Effect.logDebug(`Waiting for 2FA email... (${elapsedSeconds}s elapsed)`)
+})
 
-function pollForCode(
+const pollForCode = Effect.fn("Email2FA.pollForCode")(function* (
   config: Email2FAConfig,
   imapClient: ImapClient,
   afterTimestamp: Date,
   seenMessageKeys: Set<string>,
-): Effect.Effect<Option.Option<Email2FACode>, Error> {
-  return Effect.gen(function* () {
-    for (const mailboxPath of imapSearchMailboxes(config)) {
-      const code = yield* searchMailbox(
-        config,
-        imapClient,
-        mailboxPath,
-        afterTimestamp,
-        seenMessageKeys,
-      )
-      if (Option.isSome(code)) {
-        return code
-      }
+): Effect.fn.Return<Option.Option<Email2FACode>, Error> {
+  for (const mailboxPath of imapSearchMailboxes(config)) {
+    const code = yield* searchMailbox(
+      config,
+      imapClient,
+      mailboxPath,
+      afterTimestamp,
+      seenMessageKeys,
+    )
+    if (Option.isSome(code)) {
+      return code
     }
+  }
 
-    return Option.none()
-  })
-}
+  return Option.none()
+})
 
 function imapSearchMailboxes(config: Email2FAConfig): string[] {
   if (isGmailImapHost(config.host)) {
@@ -170,123 +168,115 @@ function imapSearchMailboxes(config: Email2FAConfig): string[] {
   return ["INBOX"]
 }
 
-function searchMailbox(
+const searchMailbox = Effect.fn("Email2FA.searchMailbox")(function* (
   config: Email2FAConfig,
   imapClient: ImapClient,
   mailboxPath: string,
   afterTimestamp: Date,
   seenMessageKeys: Set<string>,
-): Effect.Effect<Option.Option<Email2FACode>, Error> {
-  return Effect.gen(function* () {
-    const lock = yield* Effect.catchTag(
-      imapClient.getMailboxLock(mailboxPath),
-      "MissingMailbox",
-      () =>
-        config.debug
-          ? Effect.as(Effect.log(`Gmail IMAP: skip missing mailbox ${mailboxPath}`), undefined)
-          : Effect.succeed(undefined),
-    )
-    if (!lock) {
-      return Option.none()
-    }
+): Effect.fn.Return<Option.Option<Email2FACode>, Error> {
+  const lock = yield* Effect.catchTag(
+    imapClient.getMailboxLock(mailboxPath),
+    "MissingMailbox",
+    () =>
+      config.debug
+        ? Effect.as(Effect.log(`Gmail IMAP: skip missing mailbox ${mailboxPath}`), undefined)
+        : Effect.succeed(undefined),
+  )
+  if (!lock) {
+    return Option.none()
+  }
 
-    return yield* Effect.ensuring(
-      searchLockedMailbox(config, imapClient, mailboxPath, afterTimestamp, seenMessageKeys),
-      Effect.sync(() => lock.release()),
-    )
-  })
-}
+  return yield* Effect.ensuring(
+    searchLockedMailbox(config, imapClient, mailboxPath, afterTimestamp, seenMessageKeys),
+    Effect.sync(() => lock.release()),
+  )
+})
 
-function searchLockedMailbox(
+const searchLockedMailbox = Effect.fn("Email2FA.searchLockedMailbox")(function* (
   config: Email2FAConfig,
   imapClient: ImapClient,
   mailboxPath: string,
   afterTimestamp: Date,
   seenMessageKeys: Set<string>,
-): Effect.Effect<Option.Option<Email2FACode>, Error> {
-  return Effect.gen(function* () {
-    const messageUids = yield* runMailboxSearch(config, imapClient, afterTimestamp)
-    if (config.debug) {
-      yield* Effect.log(
-        `Gmail IMAP: ${mailboxPath} search -> ${messageUids === false ? "no match" : `${messageUids.length} uid(s)`}`,
-      )
-    }
-    if (!messageUids) {
-      return Option.none()
-    }
-
-    return yield* extractCodeFromMailboxUids(
-      imapClient,
-      mailboxPath,
-      messageUids,
-      afterTimestamp,
-      seenMessageKeys,
+): Effect.fn.Return<Option.Option<Email2FACode>, Error> {
+  const messageUids = yield* runMailboxSearch(config, imapClient, afterTimestamp)
+  if (config.debug) {
+    yield* Effect.log(
+      `Gmail IMAP: ${mailboxPath} search -> ${messageUids === false ? "no match" : `${messageUids.length} uid(s)`}`,
     )
-  })
-}
+  }
+  if (!messageUids) {
+    return Option.none()
+  }
 
-function runMailboxSearch(
+  return yield* extractCodeFromMailboxUids(
+    imapClient,
+    mailboxPath,
+    messageUids,
+    afterTimestamp,
+    seenMessageKeys,
+  )
+})
+
+const runMailboxSearch = Effect.fn("Email2FA.runMailboxSearch")(function* (
   config: Email2FAConfig,
   imapClient: ImapClient,
   afterTimestamp: Date,
-): Effect.Effect<number[] | false, Error> {
+): Effect.fn.Return<number[] | false, Error> {
   const queries = buildEmail2FASearchQueries(config, afterTimestamp)
 
-  return Effect.gen(function* () {
-    for (const query of queries) {
-      const messageUids = yield* Effect.catchIf(
-        imapClient.search(query),
-        (cause): cause is MissingServerExtension => cause instanceof MissingServerExtension,
-        () => Effect.succeed(false as const),
-      )
-      if (messageUids && messageUids.length > 0) {
-        return messageUids
-      }
+  for (const query of queries) {
+    const messageUids = yield* Effect.catchIf(
+      imapClient.search(query),
+      (cause): cause is MissingServerExtension => cause instanceof MissingServerExtension,
+      () => Effect.succeed(false as const),
+    )
+    if (messageUids && messageUids.length > 0) {
+      return messageUids
     }
+  }
 
-    return false
-  })
-}
+  return false
+})
 
-function extractCodeFromMailboxUids(
+const extractCodeFromMailboxUids = Effect.fn("Email2FA.extractCodeFromMailboxUids")(function* (
   imapClient: ImapClient,
   mailboxPath: string,
   messageUids: number[],
   afterTimestamp: Date,
   seenMessageKeys: Set<string>,
-): Effect.Effect<Option.Option<Email2FACode>, Error> {
+): Effect.fn.Return<Option.Option<Email2FACode>, Error> {
   const recentUids = messageUids.slice(-MAX_RESULTS).reverse()
 
-  return Effect.gen(function* () {
-    const candidates: Email2FACandidate[] = []
-    for (const uid of recentUids) {
-      const key = messageSeenKey(mailboxPath, uid)
-      if (seenMessageKeys.has(key)) {
-        continue
-      }
-
-      const message = yield* Effect.catch(imapClient.fetchOne(uid), () => Effect.succeed(null))
-      if (!message || !message.source) {
-        continue
-      }
-      seenMessageKeys.add(key)
-
-      const internalDate =
-        typeof message.internalDate === "string"
-          ? new Date(message.internalDate)
-          : message.internalDate
-      candidates.push({
-        source: message.source,
-        envelopeSubject: message.envelope?.subject,
-        receivedAt: internalDate,
-      })
+  const candidates: Email2FACandidate[] = []
+  for (const uid of recentUids) {
+    const key = messageSeenKey(mailboxPath, uid)
+    if (seenMessageKeys.has(key)) {
+      continue
     }
 
-    return yield* selectEmail2FACode(candidates, afterTimestamp).pipe(
-      Effect.map((code) => (code ? Option.some(Email2FACode.make(code)) : Option.none())),
-    )
-  })
-}
+    const message = yield* Effect.catch(imapClient.fetchOne(uid), () => Effect.succeed(null))
+    if (!message || !message.source) {
+      continue
+    }
+    seenMessageKeys.add(key)
+
+    const internalDate =
+      typeof message.internalDate === "string"
+        ? new Date(message.internalDate)
+        : message.internalDate
+    candidates.push({
+      source: message.source,
+      envelopeSubject: message.envelope?.subject,
+      receivedAt: internalDate,
+    })
+  }
+
+  return yield* selectEmail2FACode(candidates, afterTimestamp).pipe(
+    Effect.map((code) => (code ? Option.some(Email2FACode.make(code)) : Option.none())),
+  )
+})
 
 function messageSeenKey(mailboxPath: string, uid: number): string {
   return `${mailboxPath}:${uid}`

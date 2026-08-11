@@ -44,54 +44,52 @@ export interface RuntimeConfig {
 
 export type Environment = Readonly<Record<string, string | undefined>>
 
-export function resolveRuntimeConfig(
+export const resolveRuntimeConfig = Effect.fn("RuntimeConfig.resolveRuntimeConfig")(function* (
   environment: Environment,
-): Effect.Effect<RuntimeConfig, RuntimeConfigError> {
-  return Effect.gen(function* () {
-    const provider = ConfigProvider.fromUnknown(
-      Object.fromEntries(
-        Object.entries(environment).flatMap(([name, value]) =>
-          value === undefined || (value === "" && !isGmailCredential(name))
-            ? []
-            : [[name, normalizeEnvValue(value)]],
-        ),
+): Effect.fn.Return<RuntimeConfig, RuntimeConfigError> {
+  const provider = ConfigProvider.fromUnknown(
+    Object.fromEntries(
+      Object.entries(environment).flatMap(([name, value]) =>
+        value === undefined || (value === "" && !isGmailCredential(name))
+          ? []
+          : [[name, normalizeEnvValue(value)]],
       ),
-      { preserveEmptyStrings: true },
-    )
-    const values = yield* runtimeValueConfig.pipe(
-      Effect.provideService(ConfigProvider.ConfigProvider, provider),
-      Effect.mapError(
-        (cause) =>
-          new RuntimeConfigError({
-            message: cause.message,
-            cause,
-          }),
-      ),
-    )
-    const email2FA = yield* resolveEmail2FAConfig(
-      provider,
-      values.gmailUserEmail,
-      values.gmailAppPassword,
-    )
+    ),
+    { preserveEmptyStrings: true },
+  )
+  const values = yield* runtimeValueConfig.pipe(
+    Effect.provideService(ConfigProvider.ConfigProvider, provider),
+    Effect.mapError(
+      (cause) =>
+        new RuntimeConfigError({
+          message: cause.message,
+          cause,
+        }),
+    ),
+  )
+  const email2FA = yield* resolveEmail2FAConfig(
+    provider,
+    values.gmailUserEmail,
+    values.gmailAppPassword,
+  )
 
-    return {
-      actual: {
-        serverUrl: values.actualServerUrl,
-        password: values.actualPassword,
-        syncId: values.actualSyncId,
-        fintualAccount: values.actualFintualAccount,
-        startingDate: values.actualStartingDate,
-        payee: values.actualPayee,
-      },
-      fintual: {
-        email: values.fintualUserEmail,
-        password: values.fintualUserPassword,
-        goalId: values.fintualGoalId,
-        email2FA,
-      },
-    }
-  })
-}
+  return {
+    actual: {
+      serverUrl: values.actualServerUrl,
+      password: values.actualPassword,
+      syncId: values.actualSyncId,
+      fintualAccount: values.actualFintualAccount,
+      startingDate: values.actualStartingDate,
+      payee: values.actualPayee,
+    },
+    fintual: {
+      email: values.fintualUserEmail,
+      password: values.fintualUserPassword,
+      goalId: values.fintualGoalId,
+      email2FA,
+    },
+  }
+})
 
 const runtimeValueConfig = Config.all({
   actualServerUrl: Config.string("ACTUAL_SERVER_URL"),
@@ -122,24 +120,24 @@ const email2FAValueConfig = Config.all({
   ),
 })
 
-function resolveEmail2FAConfig(
+const resolveEmail2FAConfig = Effect.fn("RuntimeConfig.resolveEmail2FAConfig")(function* (
   provider: ConfigProvider.ConfigProvider,
   userEmail: Option.Option<string>,
   appPassword: Option.Option<Redacted.Redacted<string>>,
-): Effect.Effect<Email2FAConfig | null, RuntimeConfigError> {
+): Effect.fn.Return<Email2FAConfig | null, RuntimeConfigError> {
   if (Option.isNone(userEmail) && Option.isNone(appPassword)) {
-    return Effect.succeed(null)
+    return null
   }
 
   if (Option.isNone(userEmail)) {
-    return missingEmail2FACredential("GMAIL_USER_EMAIL")
+    return yield* missingEmail2FACredential("GMAIL_USER_EMAIL")
   }
 
   if (Option.isNone(appPassword)) {
-    return missingEmail2FACredential("GMAIL_APP_PASSWORD")
+    return yield* missingEmail2FACredential("GMAIL_APP_PASSWORD")
   }
 
-  return email2FAValueConfig.pipe(
+  return yield* email2FAValueConfig.pipe(
     Effect.provideService(ConfigProvider.ConfigProvider, provider),
     Effect.mapError(
       (cause) =>
@@ -157,7 +155,7 @@ function resolveEmail2FAConfig(
       sender: values.fintual2FASender,
     })),
   )
-}
+})
 
 function missingEmail2FACredential(name: string): Effect.Effect<never, RuntimeConfigError> {
   const cause = new Error(`Missing environment variables: ${name}`)

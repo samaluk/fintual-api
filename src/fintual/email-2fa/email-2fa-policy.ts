@@ -33,28 +33,26 @@ export function buildEmail2FASearchQueries(
   return queries
 }
 
-export function selectEmail2FACode(
+export const selectEmail2FACode = Effect.fn("Email2FA.selectEmail2FACode")(function* (
   candidates: Iterable<Email2FACandidate>,
   afterTimestamp: Date,
-): Effect.Effect<string | null, Error> {
-  return Effect.gen(function* () {
-    for (const candidate of candidates) {
-      if (candidate.receivedAt && candidate.receivedAt < afterTimestamp) {
-        continue
-      }
-
-      const sources = yield* collectMessageSources(candidate)
-      for (const source of sources) {
-        const code = extractCodeFromText(source)
-        if (code) {
-          return code
-        }
-      }
+): Effect.fn.Return<string | null, Error> {
+  for (const candidate of candidates) {
+    if (candidate.receivedAt && candidate.receivedAt < afterTimestamp) {
+      continue
     }
 
-    return null
-  })
-}
+    const sources = yield* collectMessageSources(candidate)
+    for (const source of sources) {
+      const code = extractCodeFromText(source)
+      if (code) {
+        return code
+      }
+    }
+  }
+
+  return null
+})
 
 export function isGmailImapHost(host: string): boolean {
   const normalized = host.trim().toLowerCase()
@@ -69,30 +67,30 @@ function formatGmailAfterDate(date: Date): string {
   return `${yyyy}/${mm}/${dd}`
 }
 
-function collectMessageSources(candidate: Email2FACandidate): Effect.Effect<string[], Error> {
-  return Effect.gen(function* () {
-    const sources: string[] = []
-    if (candidate.envelopeSubject) {
-      sources.push(candidate.envelopeSubject)
-    }
+const collectMessageSources = Effect.fn("Email2FA.collectMessageSources")(function* (
+  candidate: Email2FACandidate,
+): Effect.fn.Return<string[], Error> {
+  const sources: string[] = []
+  if (candidate.envelopeSubject) {
+    sources.push(candidate.envelopeSubject)
+  }
 
-    const parsedMessage = yield* Effect.tryPromise({
-      try: () => simpleParser(Buffer.from(candidate.source)),
-      catch: (error) => toError(error, "Failed to parse Gmail IMAP message"),
-    })
-    if (parsedMessage.subject) {
-      sources.push(parsedMessage.subject)
-    }
-    if (parsedMessage.text) {
-      sources.push(parsedMessage.text)
-    }
-    if (parsedMessage.html) {
-      sources.push(String(parsedMessage.html))
-    }
-
-    return sources
+  const parsedMessage = yield* Effect.tryPromise({
+    try: () => simpleParser(Buffer.from(candidate.source)),
+    catch: (error) => toError(error, "Failed to parse Gmail IMAP message"),
   })
-}
+  if (parsedMessage.subject) {
+    sources.push(parsedMessage.subject)
+  }
+  if (parsedMessage.text) {
+    sources.push(parsedMessage.text)
+  }
+  if (parsedMessage.html) {
+    sources.push(String(parsedMessage.html))
+  }
+
+  return sources
+})
 
 function decodeQuotedPrintable(value: string): string {
   return (

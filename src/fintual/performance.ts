@@ -92,24 +92,24 @@ export class FintualPerformance extends Context.Service<
   )
 }
 
-function loadSignInPage(session: FetchService["Service"]): Effect.Effect<void, FintualError> {
-  return Effect.gen(function* () {
-    const response = yield* session.request(
-      "/f/sign-in/",
-      {
-        redirect: "follow",
-        headers: {
-          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        },
+const loadSignInPage = Effect.fn("FintualPerformance.loadSignInPage")(function* (
+  session: FetchService["Service"],
+): Effect.fn.Return<void, FintualError> {
+  const response = yield* session.request(
+    "/f/sign-in/",
+    {
+      redirect: "follow",
+      headers: {
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       },
-      "Fintual sign-in page",
-    )
+    },
+    "Fintual sign-in page",
+  )
 
-    yield* readResponseBody(response, "Fintual sign-in page")
-  })
-}
+  yield* readResponseBody(response, "Fintual sign-in page")
+})
 
-const authenticate = Effect.fn("authenticate")(function* (
+const authenticate = Effect.fn("FintualPerformance.authenticate")(function* (
   session: FetchService["Service"],
   email2FAService: Email2FAService["Service"],
   config: FintualConfig,
@@ -189,15 +189,15 @@ const authenticate = Effect.fn("authenticate")(function* (
   }
 })
 
-function fetchGoalPerformanceData(
-  session: FetchService["Service"],
-  goalId: string,
-  timeInterval: GoalPerformanceTimeInterval,
-  purpose: "reference" | "recent",
-): Effect.Effect<GoalPerformanceData, FintualError> {
-  const stage = `Fintual ${purpose} Goal Performance Data`
+const fetchGoalPerformanceData = Effect.fn("FintualPerformance.fetchGoalPerformanceData")(
+  function* (
+    session: FetchService["Service"],
+    goalId: string,
+    timeInterval: GoalPerformanceTimeInterval,
+    purpose: "reference" | "recent",
+  ): Effect.fn.Return<GoalPerformanceData, FintualError> {
+    const stage = `Fintual ${purpose} Goal Performance Data`
 
-  return Effect.gen(function* () {
     const response = yield* session.request(
       "/gql/",
       {
@@ -221,11 +221,14 @@ function fetchGoalPerformanceData(
       parseGoalPerformanceResponseBody(body),
       (cause) => new MalformedGoalPerformanceData({ purpose, cause }),
     )
-  })
-}
+  },
+)
 
-function readResponseBody(response: Response, stage: string): Effect.Effect<string, FintualError> {
-  return Effect.mapError(
+const readResponseBody = Effect.fn("FintualPerformance.readResponseBody")(function* (
+  response: Response,
+  stage: string,
+): Effect.fn.Return<string, FintualError> {
+  return yield* Effect.mapError(
     Effect.tryPromise({
       try: () => response.text(),
       catch: (cause) =>
@@ -233,7 +236,7 @@ function readResponseBody(response: Response, stage: string): Effect.Effect<stri
     }),
     (cause) => new HttpTransportFailure({ stage, cause }),
   )
-}
+})
 
 function failUnexpectedStatus(stage: string, status: number): Effect.Effect<never, FintualError> {
   return Effect.fail(new UnexpectedHttpStatus({ stage, status }))

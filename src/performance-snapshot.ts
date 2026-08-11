@@ -52,7 +52,7 @@ const performanceSnapshotSchema = Schema.Struct({
 
 export type PerformanceSnapshot = typeof performanceSnapshotSchema.Type
 
-export const validatePerformanceSnapshot = Effect.fn("validatePerformanceSnapshot")(function* (
+export const validatePerformanceSnapshot = Effect.fn("PerformanceSnapshot.validate")(function* (
   snapshot: unknown,
 ): Effect.fn.Return<PerformanceSnapshot, PerformanceSnapshotValidationError> {
   return yield* Schema.decodeUnknownEffect(performanceSnapshotSchema)(snapshot).pipe(
@@ -65,10 +65,10 @@ export const validatePerformanceSnapshot = Effect.fn("validatePerformanceSnapsho
   )
 })
 
-export function writePerformanceSnapshot(
+export const writePerformanceSnapshot = Effect.fn("PerformanceSnapshot.write")(function* (
   snapshot: PerformanceSnapshot,
-): Effect.Effect<void, Error> {
-  return Effect.andThen(
+): Effect.fn.Return<void, Error> {
+  return yield* Effect.andThen(
     Effect.try({
       try: () => {
         fs.mkdirSync(SNAPSHOT_DATA_DIR, { recursive: true })
@@ -81,4 +81,4 @@ export function writePerformanceSnapshot(
     }),
     () => Effect.logInfo(`Performance snapshot saved to ${PERFORMANCE_SNAPSHOT_PATH}`),
   )
-}
+})
