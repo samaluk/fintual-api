@@ -247,7 +247,7 @@ it.effect("shuts down the scoped Actual session when the workflow is interrupted
       download: () =>
         Effect.gen(function* () {
           calls.push("download")
-          yield* Effect.never
+          return yield* Effect.never
         }),
     })
     const fiber = yield* Effect.forkChild(synchronizationProgram([client], calls))

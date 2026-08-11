@@ -3,6 +3,7 @@
 	"packageManager": "pnpm@11.20.0",
 	"type": "module",
 	"devDependencies": {
+		"@effect/tsgo": "0.36.3",
 		"@effect/vitest": "4.0.0-beta.106",
 		"@types/mailparser": "3.4.6",
 		"@types/node": "24.13.3",
@@ -35,6 +36,7 @@
 		"fallow:fix": "fallow fix --yes",
 		"dev": "node src/once.ts",
 		"once": "node src/once.ts",
-		"capture:har": "sh bin/capture-fintual-har.sh"
+		"capture:har": "sh bin/capture-fintual-har.sh",
+		"prepare": "if [ -x node_modules/.bin/effect-tsgo ]; then effect-tsgo patch --typescript; fi"
 	}
 }

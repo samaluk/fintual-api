@@ -8,7 +8,7 @@ export class ActualDataDirectoryFailure extends Schema.TaggedError<ActualDataDir
     retryable: Schema.Boolean,
   },
 ) {
-  get message(): string {
+  override get message(): string {
     return `Failed to reset Actual data directory: ${getErrorMessage(this.cause)}`
   }
 }
@@ -22,7 +22,7 @@ export class ActualHealthCheckFailure extends Schema.TaggedError<ActualHealthChe
     retryable: Schema.Boolean,
   },
 ) {
-  get message(): string {
+  override get message(): string {
     return `Actual server is unreachable at ${this.url}: ${getErrorMessage(this.cause)}`
   }
 }
@@ -34,7 +34,7 @@ export class ActualInitializationFailure extends Schema.TaggedError<ActualInitia
     retryable: Schema.Boolean,
   },
 ) {
-  get message(): string {
+  override get message(): string {
     return `Failed to initialize Actual API: ${getErrorMessage(this.cause)}`
   }
 }
@@ -46,7 +46,7 @@ export class ActualBudgetDownloadFailure extends Schema.TaggedError<ActualBudget
     retryable: Schema.Boolean,
   },
 ) {
-  get message(): string {
+  override get message(): string {
     return `Failed to download Actual budget: ${getErrorMessage(this.cause)}`
   }
 }
@@ -58,7 +58,7 @@ export class ActualTransactionsReadFailure extends Schema.TaggedError<ActualTran
     retryable: Schema.Boolean,
   },
 ) {
-  get message(): string {
+  override get message(): string {
     return `Failed to fetch Actual transactions: ${getErrorMessage(this.cause)}`
   }
 }
@@ -70,7 +70,7 @@ export class ActualPayeesReadFailure extends Schema.TaggedError<ActualPayeesRead
     retryable: Schema.Boolean,
   },
 ) {
-  get message(): string {
+  override get message(): string {
     return `Failed to fetch Actual payees: ${getErrorMessage(this.cause)}`
   }
 }
@@ -82,7 +82,7 @@ export class ActualTransactionCreationFailure extends Schema.TaggedError<ActualT
     retryable: Schema.Boolean,
   },
 ) {
-  get message(): string {
+  override get message(): string {
     return `Failed to add Actual transaction: ${getErrorMessage(this.cause)}`
   }
 }
@@ -94,7 +94,7 @@ export class ActualTransactionUpdateFailure extends Schema.TaggedError<ActualTra
     retryable: Schema.Boolean,
   },
 ) {
-  get message(): string {
+  override get message(): string {
     return `Failed to update Actual transaction: ${getErrorMessage(this.cause)}`
   }
 }
@@ -106,7 +106,7 @@ export class ActualDuplicateDeletionFailure extends Schema.TaggedError<ActualDup
     retryable: Schema.Boolean,
   },
 ) {
-  get message(): string {
+  override get message(): string {
     return `Failed to delete duplicate Actual transaction: ${getErrorMessage(this.cause)}`
   }
 }
@@ -118,7 +118,7 @@ export class ActualSyncFailure extends Schema.TaggedError<ActualSyncFailure>()(
     retryable: Schema.Boolean,
   },
 ) {
-  get message(): string {
+  override get message(): string {
     return `Failed to sync Actual budget: ${getErrorMessage(this.cause)}`
   }
 }
@@ -130,7 +130,7 @@ export class ActualShutdownFailure extends Schema.TaggedError<ActualShutdownFail
     retryable: Schema.Boolean,
   },
 ) {
-  get message(): string {
+  override get message(): string {
     return `Failed to shutdown Actual API: ${getErrorMessage(this.cause)}`
   }
 }
@@ -142,7 +142,7 @@ export class ActualInvalidStartingDate extends Schema.TaggedError<ActualInvalidS
     retryable: Schema.Boolean,
   },
 ) {
-  get message(): string {
+  override get message(): string {
     return `Actual starting date is invalid: ${this.startingDate}`
   }
 }

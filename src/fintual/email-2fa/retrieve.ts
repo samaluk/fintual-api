@@ -32,7 +32,7 @@ export class TimedOut extends Schema.TaggedError<TimedOut>()("TimedOut", {}) {}
 export class Operational extends Schema.TaggedError<Operational>()("Operational", {
   cause: Schema.Defect(),
 }) {
-  get message(): string {
+  override get message(): string {
     return getErrorMessage(this.cause)
   }
 }

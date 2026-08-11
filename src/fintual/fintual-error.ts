@@ -8,7 +8,7 @@ export class UnexpectedHttpStatus extends Schema.TaggedError<UnexpectedHttpStatu
     status: Schema.Number,
   },
 ) {
-  get message(): string {
+  override get message(): string {
     return `${this.stage}: unexpected HTTP status ${this.status}`
   }
 }
@@ -20,7 +20,7 @@ export class HttpTransportFailure extends Schema.TaggedError<HttpTransportFailur
     cause: Schema.Defect(),
   },
 ) {
-  get message(): string {
+  override get message(): string {
     return getErrorMessage(this.cause)
   }
 }
@@ -28,7 +28,7 @@ export class HttpTransportFailure extends Schema.TaggedError<HttpTransportFailur
 export class LoginFailed extends Schema.TaggedError<LoginFailed>()("LoginFailed", {
   status: Schema.Number,
 }) {
-  get message(): string {
+  override get message(): string {
     return `Fintual login: unexpected HTTP status ${this.status}`
   }
 }
@@ -40,7 +40,7 @@ export class MalformedGoalPerformanceData extends Schema.TaggedError<MalformedGo
     cause: Schema.Defect(),
   },
 ) {
-  get message(): string {
+  override get message(): string {
     return `Fintual ${this.purpose} Goal Performance Data: validation failed`
   }
 }
@@ -51,7 +51,7 @@ export class MalformedPerformanceSnapshot extends Schema.TaggedError<MalformedPe
     issues: Schema.String,
   },
 ) {
-  get message(): string {
+  override get message(): string {
     return `Fintual performance snapshot is invalid: ${this.issues}`
   }
 }
@@ -60,7 +60,7 @@ export class Email2FAFailure extends Schema.TaggedError<Email2FAFailure>()("Emai
   stage: Schema.String,
   cause: Schema.Defect(),
 }) {
-  get message(): string {
+  override get message(): string {
     return getErrorMessage(this.cause)
   }
 }
@@ -71,7 +71,7 @@ export class SnapshotWriteFailure extends Schema.TaggedError<SnapshotWriteFailur
     cause: Schema.Defect(),
   },
 ) {
-  get message(): string {
+  override get message(): string {
     return getErrorMessage(this.cause)
   }
 }
