@@ -27,6 +27,33 @@ test("surfaces a plain search failure with the preserved message and original ca
   expect(error.cause).toBe(originalError)
 })
 
+test("exposes only the subject from the message envelope across the seam", async () => {
+  const raw = new ImapFlow({
+    host: "imap.example.com",
+    port: 993,
+    secure: true,
+    auth: { user: "user@example.com", pass: "app-password" },
+    logger: false,
+  })
+  raw.fetchOne = async () => ({
+    seq: 1,
+    uid: 123,
+    source: Buffer.from("Subject: Codigo 123456\n\nCodigo: 123456"),
+    envelope: {
+      subject: "Codigo 123456",
+      date: new Date("2026-07-14T10:31:00"),
+      from: [{ address: "security@fintual.com" }],
+      to: [{ address: "user@example.com" }],
+      messageId: "<message-id>",
+    },
+    internalDate: new Date("2026-07-14T10:31:00"),
+  })
+
+  const message = await Effect.runPromise(new ImapFlowClient(raw).fetchOne(123))
+
+  expect(message?.envelope).toEqual({ subject: "Codigo 123456" })
+})
+
 function clientWithSearchError(error: Error): ImapFlowClient {
   const raw = new ImapFlow({
     host: "imap.example.com",

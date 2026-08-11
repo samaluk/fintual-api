@@ -90,7 +90,7 @@ export class ImapFlowClient implements ImapClient {
         message
           ? {
               source: message.source,
-              envelope: message.envelope,
+              envelope: message.envelope ? { subject: message.envelope.subject } : undefined,
               internalDate: message.internalDate,
             }
           : null,
