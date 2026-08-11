@@ -18,7 +18,7 @@ getCode(request): Effect<Email2FACode, Email2FATimedOut | Email2FAOperationalErr
 
 The live layer acquires validated email configuration and an `ImapClientFactory`; callers never pass credentials or construct clients. Disabled email 2FA is represented while decoding application configuration and is handled before requiring this service. It is not a retrieval result.
 
-`Email2FACode` is a constrained branded Schema. Public failures are `Schema.TaggedErrorClass` values. Vendor errors are mapped at the IMAP adapter boundary and never escape the service.
+`Email2FACode` is a constrained branded Schema. Public failures are `Schema.TaggedError` values. Vendor errors are mapped at the IMAP adapter boundary and never escape the service.
 
 The service owns the IMAP client with `Effect.acquireRelease` in a `Scope`. Logout runs exactly once and is uninterruptible. Polling and the overall deadline use `Schedule` and `Clock`; mailbox and query fallback policy remains pure domain logic. The implementation preserves interruption rather than translating it into an operational failure.
 

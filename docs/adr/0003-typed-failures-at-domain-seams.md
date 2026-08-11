@@ -10,7 +10,7 @@ Generic `Error` values and third-party rejection types erase the operation that 
 
 ## Decision
 
-Every domain or adapter seam maps expected failures into domain-owned `Schema.TaggedErrorClass` values. Public failure surfaces are explicit unions and, when they cross a serialization or API boundary, Schema unions.
+Every domain or adapter seam maps expected failures into domain-owned `Schema.TaggedError` values. Public failure surfaces are explicit unions and, when they cross a serialization or API boundary, Schema unions.
 
 Failure types follow these rules:
 

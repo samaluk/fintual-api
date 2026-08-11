@@ -22,7 +22,7 @@ The module owns the complete workflow: establish a scoped authenticated session,
 
 The HTTP adapter owns cookies, authentication headers, cancellation, status classification, body decoding, and transport-error mapping. Provider calls never use raw `fetch` in the domain service. Intermediate provider DTOs remain private to the adapter/module.
 
-`FintualError` is a Schema union of domain-owned `Schema.TaggedErrorClass` variants covering authentication rejection, transport failure, unexpected provider response, malformed provider data, invalid folded snapshot, email 2FA failure, and snapshot persistence failure. Each variant carries structured diagnostic fields and a `Schema.Defect()` cause when appropriate. Message strings are not control-flow APIs.
+`FintualError` is a Schema union of domain-owned `Schema.TaggedError` variants covering authentication rejection, transport failure, unexpected provider response, malformed provider data, invalid folded snapshot, email 2FA failure, and snapshot persistence failure. Each variant carries structured diagnostic fields and a `Schema.Defect()` cause when appropriate. Message strings are not control-flow APIs.
 
 Empty or malformed provider datasets fail explicitly. Folding is total over validated inputs and does not accept defensive `null` states that the boundary cannot produce. Failure to write the required inspection artifact fails the operation.
 

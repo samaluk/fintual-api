@@ -21,7 +21,7 @@ The following rules govern every other ADR:
 - Public and non-trivial internal operations use named `Effect.fn` functions. Multi-step workflows use `Effect.gen`.
 - Runtime configuration is decoded with `Config` in layers. Secrets use `Redacted`; application logic does not read `process.env` or mutate global configuration.
 - Records and boundary contracts use `Schema.Struct` with same-name interfaces. Scalar identifiers use constrained branded schemas. Unknown HTTP, file, and SDK data is decoded with `Schema.decodeUnknownEffect` at the owning boundary.
-- Expected failures use domain-owned `Schema.TaggedErrorClass` values. Defects, interruption, and expected failures remain distinct. Public services do not expose plain `Error`, third-party error types, or message-text classification.
+- Expected failures use domain-owned `Schema.TaggedError` values. Defects, interruption, and expected failures remain distinct. Public services do not expose plain `Error`, third-party error types, or message-text classification.
 - External HTTP uses Effect `HttpClient`. Each adapter owns request construction, authentication, status classification, response decoding, cancellation, and domain-error mapping.
 - Resources use `Scope`, `Effect.acquireRelease`, or the corresponding scoped layer constructor. Background work is forked into its owning scope and never outlives that scope.
 - Retry, repetition, polling, timeout, and pacing use `Schedule`, `Clock`, and the relevant Effect combinators. Retry is bounded and limited to operations proven safe to repeat.
@@ -30,6 +30,10 @@ The following rules govern every other ADR:
 - Tests use `@effect/vitest`, explicit test layers, `ConfigProvider`, `TestClock`, and deterministic synchronization. Tests do not mutate process globals or wait with real sleeps.
 
 Modules expose the smallest domain capability that callers need. Leaf adapters remain replaceable services, while orchestration and policy remain free of platform and vendor APIs. Compatibility shims and duplicate legacy entry points are removed rather than retained.
+
+## Delivery status
+
+This ADR set records the normative target architecture. The implementation may temporarily differ while its reviewable PR stack lands; those intermediate states do not amend these decisions. Delivery progress belongs in the issue tracker and PR stack rather than in the durable ADR text. Once the stack is complete, shipped code must conform to these decisions or a new ADR must explicitly supersede them.
 
 ## Considered options
 
