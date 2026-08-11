@@ -1,8 +1,8 @@
 import { Context, Effect, Layer } from "effect"
 import type { Email2FAConfig } from "../env.ts"
+import { ImapClientFactoryLive } from "./email-2fa-client.ts"
 import {
   Email2FACode,
-  ImapClientFactoryLive,
   Operational,
   retrieveEmail2FACode,
   TimedOut,

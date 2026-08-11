@@ -1,8 +1,8 @@
-import { Clock, Context, Effect, Layer, Option, Schedule, Schema } from "effect"
+import { Clock, Effect, Option, Schedule, Schema } from "effect"
 import type { Email2FAConfig } from "../../env.ts"
 import { getErrorMessage } from "../../log.ts"
 import {
-  createImapClient,
+  ImapClientFactory,
   ImapMailboxLockFailure,
   ImapOperationFailure,
   MissingServerExtension,
@@ -49,17 +49,6 @@ export interface Email2FAOptions {
   timeoutMs?: number
   pollIntervalMs?: number
 }
-
-export class ImapClientFactory extends Context.Service<
-  ImapClientFactory,
-  {
-    readonly create: (config: Email2FAConfig) => ImapClient
-  }
->()("Email2FA/ImapClientFactory") {}
-
-export const ImapClientFactoryLive = Layer.succeed(ImapClientFactory, {
-  create: createImapClient,
-})
 
 const toOperational = (cause: unknown): Operational => new Operational({ cause })
 

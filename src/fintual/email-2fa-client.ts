@@ -1,4 +1,4 @@
-import { Effect, Predicate, Schema } from "effect"
+import { Context, Effect, Layer, Predicate, Schema } from "effect"
 import { ImapFlow, type SearchObject } from "imapflow"
 import type { Email2FAConfig } from "../env.ts"
 import { getErrorMessage, revealSecret } from "../log.ts"
@@ -188,3 +188,14 @@ export function createImapClient(config: Email2FAConfig): ImapClient {
     }),
   )
 }
+
+export class ImapClientFactory extends Context.Service<
+  ImapClientFactory,
+  {
+    readonly create: (config: Email2FAConfig) => ImapClient
+  }
+>()("Email2FA/ImapClientFactory") {}
+
+export const ImapClientFactoryLive = Layer.succeed(ImapClientFactory, {
+  create: createImapClient,
+})

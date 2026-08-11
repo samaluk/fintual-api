@@ -5,6 +5,7 @@ import { describe, expect } from "vitest"
 import type { SearchObject } from "imapflow"
 import type { Email2FAConfig } from "../../env.ts"
 import {
+  ImapClientFactory,
   ImapMailboxLockFailure,
   ImapOperationFailure,
   MissingMailbox,
@@ -15,7 +16,6 @@ import {
 } from "../email-2fa-client.ts"
 import {
   Email2FACode,
-  ImapClientFactory,
   Operational,
   retrieveEmail2FACode,
   TimedOut,
