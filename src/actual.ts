@@ -1,38 +1,18 @@
 import * as fs from "node:fs"
 import * as api from "@actual-app/api"
 import { Effect } from "effect"
-import * as v from "valibot"
 import { log, sleep, tryPromise, trySync, warn } from "./effect.ts"
 import type { ActualConfig } from "./env.ts"
 import { getErrorMessage } from "./log.ts"
-import { planReconciliation } from "./actual/reconciliation-policy.ts"
+import { readPerformanceSnapshot } from "./performance-snapshot.ts"
+import { planReconciliation, type BalanceEntry } from "./actual/reconciliation-policy.ts"
 
 const ACTUAL_DATA_DIR = "./tmp/actual-data"
-const BALANCE_FILE_PATH = "./tmp/fintual-data/balance-2.json"
 const MAX_SYNC_ATTEMPTS = 5
 const INITIAL_RETRY_DELAY_MS = 5000
 const MAX_RETRY_DELAY_MS = 60000
 const RETRY_JITTER_RATIO = 0.2
 
-const balanceFileSchema = v.object({
-  balance: v.array(
-    v.object({
-      date: v.number(),
-      value: v.number(),
-      difference: v.number(),
-      real_difference: v.number(),
-    }),
-  ),
-  deposits: v.array(
-    v.object({
-      date: v.number(),
-      value: v.number(),
-      difference: v.number(),
-    }),
-  ),
-})
-
-type BalanceEntry = v.InferOutput<typeof balanceFileSchema>["balance"][number]
 type ActualInitConfig = Parameters<typeof api.init>[0]
 
 interface SyncCounts {
@@ -181,20 +161,9 @@ function resetDataDirectory(): Effect.Effect<void, Error> {
 
 function loadBalanceEntries(config: ActualConfig): Effect.Effect<BalanceEntry[], Error> {
   return Effect.gen(function* () {
-    const parsedFile = yield* trySync({
-      // oxlint-disable-next-line typescript/consistent-type-assertions
-      try: () => JSON.parse(fs.readFileSync(BALANCE_FILE_PATH, "utf-8")) as unknown,
-      catch: "Failed to load Fintual balance file",
-    })
-    const validation = v.safeParse(balanceFileSchema, parsedFile)
-
-    if (!validation.success) {
-      yield* log("Balance file is invalid")
-      return []
-    }
-
+    const snapshot = yield* readPerformanceSnapshot()
     const startingTimestamp = Date.parse(config.startingDate)
-    return validation.output.balance.filter((entry) => entry.date >= startingTimestamp)
+    return snapshot.balance.filter((entry) => entry.date >= startingTimestamp)
   })
 }
 
