@@ -57,6 +57,7 @@ export class MalformedPerformanceSnapshot extends Schema.TaggedError<MalformedPe
 }
 
 export class Email2FAFailure extends Schema.TaggedError<Email2FAFailure>()("Email2FAFailure", {
+  stage: Schema.String,
   cause: Schema.Defect(),
 }) {
   get message(): string {
