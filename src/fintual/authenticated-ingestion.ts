@@ -3,6 +3,7 @@ import { tryPromise, trySync } from "../effect.ts"
 import { HttpTransportFailure, type FintualError } from "./fintual-error.ts"
 
 export const FINTUAL_ORIGIN = "https://fintual.cl"
+const HTTP_REQUEST_TIMEOUT_MS = 30_000
 const BROWSER_USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 
@@ -46,7 +47,12 @@ class FintualHttpSession {
 
       const response = yield* Effect.mapError(
         tryPromise({
-          try: () => this.fetchRequest(`${FINTUAL_ORIGIN}${path}`, { ...init, headers }),
+          try: () =>
+            this.fetchRequest(`${FINTUAL_ORIGIN}${path}`, {
+              ...init,
+              headers,
+              signal: AbortSignal.timeout(HTTP_REQUEST_TIMEOUT_MS),
+            }),
           catch: `${stage}: request failed`,
         }),
         (cause) => new HttpTransportFailure({ stage, cause }),
