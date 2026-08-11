@@ -35,7 +35,7 @@ This document describes what we observed when recording traffic with **agent-bro
 
    Reuse the **`Cookie`** header from the session established by **GET** sign-in and **`initiate_login`** (often includes `_fintual_session_cookie`). Use `Referer: https://fintual.cl/f/sign-in/`, `Origin: https://fintual.cl`, `Accept: application/json`.
 
-5. **POST** `https://fintual.cl/gql/` — same shape as in [`src/fintual/new-performance.ts`](../src/fintual/new-performance.ts): `operationName: "GoalInvestedBalanceGraphDataPoints"`, variables `goalId`, `timeIntervalCode`. **401** without a valid session.
+5. **POST** `https://fintual.cl/gql/` — same shape as in [`src/fintual/provider.ts`](../src/fintual/provider.ts): `operationName: "GoalInvestedBalanceGraphDataPoints"`, variables `goalId`, `timeIntervalCode`. **401** without a valid session.
 
 ## What you must capture locally (success + 2FA)
 
@@ -52,7 +52,7 @@ Use **Preserve log** in Chrome DevTools Network, or **`network har start` … `h
 ## Programmatic follow-up in this repo
 
 - [`src/fintual/performance.ts`](../src/fintual/performance.ts) — the `FintualPerformance` service: sign-in → optional Gmail IMAP 2FA → GraphQL ingestion, then fold, validate, and persist the performance snapshot.
-- [`src/fintual/authenticated-ingestion.ts`](../src/fintual/authenticated-ingestion.ts) — the private `FetchService` session: ephemeral cookie jar and browser-header requests against Fintual.
+- [`src/fintual/provider.ts`](../src/fintual/provider.ts) — the provider-owned `FetchService` session: ephemeral cookie jar and browser-header requests against Fintual.
 
 **Note:** Node `fetch` may not receive `Set-Cookie` from Fintual/Cloudflare in some environments. If HTTP login fails, compare cookies in a HAR with a manual browser login.
 
