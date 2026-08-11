@@ -124,7 +124,7 @@ Fallow 3.14 audits changed files (dead code, duplication, complexity) on every P
 
 - `commit-msg` requires commit subjects to follow the [Conventional Commits](https://www.conventionalcommits.org/) format.
 - `pre-commit` checks staged TypeScript with Oxfmt and Oxlint in parallel. Safe fixes are applied and re-staged while unstaged changes are temporarily stashed.
-- `pre-push` checks the files being pushed with Oxfmt and Oxlint while running the full TypeScript and Fallow gates in parallel.
+- `pre-push` checks the files being pushed with Oxfmt and Oxlint while running the full TypeScript, test, and Fallow gates in parallel.
 
 Run the hooks explicitly when needed:
 

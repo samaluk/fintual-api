@@ -26,6 +26,20 @@ Domain documentation uses a single-context layout. See `docs/agents/domain.md`.
 
 Tests favor readable, behavior-focused workflows with explicit setup. See `docs/agents/testing-principles.md`.
 
+### Verification
+
+Do not routinely run typechecks, Fallow, formatting, linting, or the full test
+suite while working or before handing off a change. The Git hooks are the
+verification boundary:
+
+- `pre-commit` checks staged TypeScript with Oxfmt and Oxlint, applies safe
+  fixes, and re-stages the fixed files.
+- `pre-push` runs Oxfmt, Oxlint, TypeScript, tests, and Fallow.
+
+Only run an individual check outside the hooks when diagnosing a reported hook
+failure or when the user explicitly asks for it. Focused tests are still
+appropriate when they directly support development or diagnosis.
+
 ### Friction logging
 
 Friction is logged with Frog (see https://frog.fm). Use `pnpx frog log` to write an entry, and `pnpx frog list` first to see what is already known.

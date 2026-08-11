@@ -77,7 +77,9 @@ During development, pass a file path through the package script to run a focused
 pnpm test src/fintual/performance.test.ts
 ```
 
-Before publishing a change, run the complete project checks:
+The pre-push hook runs the complete project checks. Do not run these commands
+routinely before handoff; run an individual command when diagnosing a hook
+failure or when explicitly requested:
 
 ```sh
 pnpm test
