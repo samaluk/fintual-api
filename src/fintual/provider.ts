@@ -1,7 +1,7 @@
 import { Context, DateTime, Effect, Layer, Predicate, Schema } from "effect"
 import { FintualConfigService, type FintualConfig } from "../env.ts"
 import { getErrorMessage, revealSecret } from "../log.ts"
-import type { Email2FACode, Operational, TimedOut } from "./email-2fa/retrieve.ts"
+import type { Email2FACode, Operational, TimedOut } from "./email-2fa.ts"
 import {
   Email2FAFailure,
   HttpTransportFailure,

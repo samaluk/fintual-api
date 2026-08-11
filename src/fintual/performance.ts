@@ -7,7 +7,7 @@ import {
   type PerformanceSnapshot,
 } from "../performance-snapshot.ts"
 import { FetchService, FINTUAL_ORIGIN } from "./authenticated-ingestion.ts"
-import { Email2FAService } from "./email-2fa.ts"
+import { Email2FAService, EMAIL_2FA_CONFIG_MISSING_MESSAGE } from "./email-2fa.ts"
 import {
   HttpTransportFailure,
   Email2FAFailure,
@@ -85,7 +85,7 @@ export class FintualPerformance extends Context.Service<
 
   static readonly live = FintualPerformance.layer.pipe(
     Layer.provide(FetchService.layer((input, init) => globalThis.fetch(input, init))),
-    Layer.provide(Email2FAService.layer),
+    Layer.provide(Email2FAService.live),
     Layer.provide(SnapshotWriter.layer),
   )
 }
@@ -142,13 +142,13 @@ const authenticate = Effect.fn("FintualPerformance.authenticate")(function* (
   if (!config.email2FA) {
     return yield* new Email2FAFailure({
       stage: EMAIL_2FA_STAGE,
-      cause: new Error("Fintual email 2FA: Gmail IMAP credentials not configured"),
+      cause: new Error(EMAIL_2FA_CONFIG_MISSING_MESSAGE),
     })
   }
 
   const loginStartedAt = yield* DateTime.now
   const code = yield* email2FAService
-    .get2FACode(config.email2FA, { afterTimestamp: DateTime.toDate(loginStartedAt) })
+    .get2FACode({ afterTimestamp: DateTime.toDate(loginStartedAt) })
     .pipe(
       Effect.catchTags({
         TimedOut: () =>

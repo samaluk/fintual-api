@@ -3,8 +3,9 @@ import { Cause, Effect, Exit, Fiber, Option, Redacted } from "effect"
 import { TestClock } from "effect/testing"
 import { describe, expect } from "vitest"
 import type { SearchObject } from "imapflow"
-import type { Email2FAConfig } from "../../env.ts"
+import { FintualConfigService, type Email2FAConfig, type FintualConfig } from "../env.ts"
 import {
+  ImapClientFactory,
   ImapMailboxLockFailure,
   ImapOperationFailure,
   MissingMailbox,
@@ -12,15 +13,14 @@ import {
   type ImapClient,
   type ImapMailboxLock,
   type ImapMessage,
-} from "../email-2fa-client.ts"
+} from "./email-2fa-client.ts"
 import {
   Email2FACode,
-  ImapClientFactory,
+  Email2FAService,
   Operational,
-  retrieveEmail2FACode,
   TimedOut,
   type Email2FAOptions,
-} from "./retrieve.ts"
+} from "./email-2fa.ts"
 
 const AFTER_TIMESTAMP = new Date("2026-07-14T10:30:00")
 
@@ -122,14 +122,28 @@ function countOps(ops: string[], name: string): number {
   return ops.filter((op) => op === name).length
 }
 
+function fintualConfig(email2FA: Email2FAConfig | null): FintualConfig {
+  return {
+    email: "investor@example.com",
+    password: Redacted.make("secret-password"),
+    goalId: "goal-123",
+    email2FA,
+  }
+}
+
 function runRetrieval(
-  config: Email2FAConfig,
+  config: Email2FAConfig | null,
   options: Email2FAOptions,
   client: ImapClient,
   step: (fiber: Fiber.Fiber<Email2FACode, TimedOut | Operational>) => Effect.Effect<unknown>,
 ): Effect.Effect<Exit.Exit<Email2FACode, TimedOut | Operational>> {
   return Effect.gen(function* () {
-    const fiber = yield* retrieveEmail2FACode(config, options).pipe(
+    const fiber = yield* Effect.gen(function* () {
+      const service = yield* Email2FAService
+      return yield* service.get2FACode(options)
+    }).pipe(
+      Effect.provide(Email2FAService.layer),
+      Effect.provideService(FintualConfigService, fintualConfig(config)),
       Effect.provideService(ImapClientFactory, { create: () => client }),
       Effect.forkChild,
     )
@@ -149,7 +163,7 @@ function failureOf(exit: Exit.Exit<Email2FACode, TimedOut | Operational>): Timed
   )
 }
 
-describe("retrieveEmail2FACode", () => {
+describe("Email2FAService.get2FACode", () => {
   it.effect("returns the branded code on the first poll and logs out exactly once", () =>
     Effect.gen(function* () {
       const fake = createFakeClient({
@@ -253,9 +267,26 @@ describe("retrieveEmail2FACode", () => {
       expect(countOps(fake.ops, "logout")).toBe(1)
     }),
   )
+
+  it.effect("fails operationally when Email 2FA is not configured", () =>
+    Effect.gen(function* () {
+      const fake = createFakeClient({ search: () => false })
+
+      const exit = yield* runRetrieval(
+        null,
+        { afterTimestamp: AFTER_TIMESTAMP },
+        fake.client,
+        () => Effect.void,
+      )
+
+      expect(failureOf(exit)).toBeInstanceOf(Operational)
+      expect(fake.ops).not.toContain("connect")
+      expect(countOps(fake.ops, "logout")).toBe(0)
+    }),
+  )
 })
 
-describe("retrieveEmail2FACode recoverability", () => {
+describe("Email2FAService.get2FACode recoverability", () => {
   it.effect("skips a mailbox whose lock fails and keeps searching the remaining mailboxes", () =>
     Effect.gen(function* () {
       const fake = createFakeClient({
@@ -362,6 +393,32 @@ describe("retrieveEmail2FACode recoverability", () => {
       }
       expect(countOps(fake.ops, "fetchOne:111")).toBe(2)
       expect(countOps(fake.ops, "logout")).toBe(1)
+    }),
+  )
+
+  it.effect("does not re-fetch a message UID already seen on a previous poll", () =>
+    Effect.gen(function* () {
+      const fake = createFakeClient({
+        search: (_, searchCount) => (searchCount === 1 ? [555] : [555, 666]),
+        fetchOne: (uid) =>
+          uid === 555
+            ? { ...messageWithCode("111111"), internalDate: new Date("2026-07-14T10:20:00") }
+            : messageWithCode("666666"),
+      })
+
+      const exit = yield* runRetrieval(
+        NON_GMAIL_CONFIG,
+        { afterTimestamp: AFTER_TIMESTAMP, pollIntervalMs: 2_000 },
+        fake.client,
+        () => TestClock.adjust("2 seconds"),
+      )
+
+      expect(Exit.isSuccess(exit)).toBe(true)
+      if (Exit.isSuccess(exit)) {
+        expect(exit.value).toBe(Email2FACode.make("666666"))
+      }
+      expect(countOps(fake.ops, "fetchOne:555")).toBe(1)
+      expect(countOps(fake.ops, "fetchOne:666")).toBe(1)
     }),
   )
 
