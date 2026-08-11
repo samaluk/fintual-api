@@ -1,15 +1,10 @@
-import * as fs from "node:fs"
-import { Effect } from "effect"
-import { trySync } from "../effect.ts"
+import type { PerformanceSnapshot } from "../performance-snapshot.ts"
 import type { GoalPerformanceData } from "./new-performance.ts"
-
-const FINTUAL_DATA_DIR = "./tmp/fintual-data"
-export const BALANCE_FILE_PATH = `${FINTUAL_DATA_DIR}/balance-2.json`
 
 export function foldGoalPerformanceData(
   referenceData: GoalPerformanceData | null,
   recentData: GoalPerformanceData | null,
-): { balance: unknown[]; deposits: unknown[] } | null {
+): PerformanceSnapshot | null {
   if (!recentData?.balanceGraphDataPoints || !referenceData?.balanceGraphDataPoints) {
     return null
   }
@@ -75,17 +70,4 @@ function getPreviousValue(
   }
 
   return selectValue(currentPoints[0])
-}
-
-export function writePerformanceFile(performanceData: {
-  balance: unknown[]
-  deposits: unknown[]
-}): Effect.Effect<void, Error> {
-  return trySync({
-    try: () => {
-      fs.mkdirSync(FINTUAL_DATA_DIR, { recursive: true })
-      fs.writeFileSync(BALANCE_FILE_PATH, JSON.stringify(performanceData, null, 2), "utf-8")
-    },
-    catch: "Failed to write Fintual performance file",
-  })
 }
