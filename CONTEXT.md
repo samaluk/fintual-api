@@ -19,3 +19,9 @@ _Avoid_: Last-month data, current data
 **Performance Snapshot**:
 The typed balance and deposit observations passed from the Fintual sync step to the Actual sync step. One module owns its shape and persistence; the JSON file is a write-only implementation detail kept for inspection.
 _Avoid_: Balance file, balance-2.json, performance payload
+
+### Sign-in
+
+**Email 2FA Code**:
+The six-digit code Fintual sends by email to complete sign-in when the account has two-factor authentication enabled.
+_Avoid_: OTP, verification code, security code
