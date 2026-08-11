@@ -22,8 +22,8 @@ For example:
 
 ```text
 src/fintual/
-├── authenticated-ingestion.ts
-├── authenticated-ingestion.test.ts
+├── performance.ts
+├── performance.test.ts
 ├── new-performance.ts
 └── new-performance.test.ts
 ```
@@ -74,7 +74,7 @@ pnpm test
 During development, pass a file path through the package script to run a focused test file:
 
 ```sh
-pnpm test src/fintual/new-performance.test.ts
+pnpm test src/fintual/performance.test.ts
 ```
 
 Before publishing a change, run the complete project checks:

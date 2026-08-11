@@ -9,7 +9,7 @@
 - `entry` — runtime entry points (`src/once.ts`, `bin/**/*.mjs`)
 - `duplicates` — semantic mode, `minLines: 8`, `minTokens: 60`, `minOccurrences: 3`
 - `health` — cyclomatic (13), cognitive (16), CRAP (157), unit size (60)
-- `audit` — `gate: new-only` with baselines for dead code, health, and duplication
+- `audit` — `gate: new-only` with baselines for dead code, health, and duplication; scoped to `origin/main` via `FALLOW_AUDIT_BASE` so local runs match CI (the branch's own upstream would exclude files changed in earlier pushes)
 - `typeAware` — TypeScript semantic analysis (symbol use, API surface, type coupling) runs for `dead-code`, `health`, `fix`, and the audit gate
 
 Baselines live in `fallow-baselines/` and capture the current finding set, so pre-existing debt does not fail PRs. New findings in changed files do.

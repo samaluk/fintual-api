@@ -1,12 +1,31 @@
 import * as fs from "node:fs"
-import { Effect, Schema } from "effect"
+import { Context, Effect, Layer, Schema } from "effect"
 import * as v from "valibot"
 import { log, trySync } from "./effect.ts"
+import { SnapshotWriteFailure } from "./fintual/fintual-error.ts"
 
 const SNAPSHOT_DATA_DIR = "./tmp/fintual-data"
 export const PERFORMANCE_SNAPSHOT_PATH = `${SNAPSHOT_DATA_DIR}/balance-2.json`
 
-export class PerformanceSnapshotValidationError extends Schema.TaggedError<PerformanceSnapshotValidationError>()(
+export class SnapshotWriter extends Context.Service<
+  SnapshotWriter,
+  {
+    write: (snapshot: PerformanceSnapshot) => Effect.Effect<void, SnapshotWriteFailure>
+  }
+>()("SnapshotWriter") {
+  static readonly layer = Layer.sync(SnapshotWriter, () =>
+    SnapshotWriter.of({
+      write: Effect.fn("SnapshotWriter.write")(function* (snapshot) {
+        return yield* Effect.mapError(
+          writePerformanceSnapshot(snapshot),
+          (cause) => new SnapshotWriteFailure({ cause }),
+        )
+      }),
+    }),
+  )
+}
+
+class PerformanceSnapshotValidationError extends Schema.TaggedError<PerformanceSnapshotValidationError>()(
   "PerformanceSnapshotValidationError",
   {
     issues: Schema.String,

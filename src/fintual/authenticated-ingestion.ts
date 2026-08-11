@@ -1,76 +1,29 @@
-import { Effect } from "effect"
+import { Context, Effect, Layer } from "effect"
 import { tryPromise, trySync } from "../effect.ts"
-import {
-  Email2FAFailure,
-  HttpTransportFailure,
-  LoginFailed,
-  MalformedGoalPerformanceData,
-  UnexpectedHttpStatus,
-  type FintualError,
-} from "./fintual-error.ts"
-import {
-  createGoalPerformanceRequest,
-  type GoalPerformanceData,
-  parseGoalPerformanceResponseBody,
-  TimeIntervalCode,
-  type TimeIntervalCode as GoalPerformanceTimeInterval,
-} from "./new-performance.ts"
+import { HttpTransportFailure, type FintualError } from "./fintual-error.ts"
 
-const FINTUAL_ORIGIN = "https://fintual.cl"
-const HTTP_2FA_EMAIL_TIMEOUT_MS = 120_000
+export const FINTUAL_ORIGIN = "https://fintual.cl"
+const HTTP_REQUEST_TIMEOUT_MS = 30_000
 const BROWSER_USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 
-export interface AuthenticatedIngestionDependencies {
-  fetch: typeof globalThis.fetch
-  get2FACode: (options: {
-    afterTimestamp: Date
-    timeoutMs?: number
-    pollIntervalMs?: number
-  }) => Effect.Effect<string | null, Error>
-}
-
-export interface AuthenticatedIngestionOptions {
-  email: string
-  password: string
-  goalId: string
-}
-
-export interface AuthenticatedGoalPerformanceData {
-  reference: GoalPerformanceData
-  recent: GoalPerformanceData
-}
-
-export type AuthenticatedFintualIngestion = (
-  options: AuthenticatedIngestionOptions,
-) => Effect.Effect<AuthenticatedGoalPerformanceData, FintualError>
-
-export function createAuthenticatedFintualIngestion(
-  dependencies: AuthenticatedIngestionDependencies,
-): AuthenticatedFintualIngestion {
-  return ({ email, password, goalId }) => {
-    const session = new FintualHttpSession(dependencies.fetch)
-
-    return Effect.gen(function* () {
-      yield* loadSignInPage(session)
-      yield* authenticate(session, dependencies.get2FACode, email, password)
-
-      const reference = yield* fetchGoalPerformanceData(
-        session,
-        goalId,
-        TimeIntervalCode.LastSixMonths,
-        "reference",
-      )
-      const recent = yield* fetchGoalPerformanceData(
-        session,
-        goalId,
-        TimeIntervalCode.LastMonth,
-        "recent",
-      )
-
-      return { reference, recent }
-    })
+export class FetchService extends Context.Service<
+  FetchService,
+  {
+    request: (
+      path: string,
+      init: RequestInit,
+      stage: string,
+    ) => Effect.Effect<Response, FintualError>
   }
+>()("FetchService") {
+  static readonly layer = (fetch: typeof globalThis.fetch) =>
+    Layer.sync(FetchService, () => {
+      const session = new FintualHttpSession(fetch)
+      return FetchService.of({
+        request: (path, init, stage) => session.request(path, init, stage),
+      })
+    })
 }
 
 class FintualHttpSession {
@@ -94,7 +47,12 @@ class FintualHttpSession {
 
       const response = yield* Effect.mapError(
         tryPromise({
-          try: () => this.fetchRequest(`${FINTUAL_ORIGIN}${path}`, { ...init, headers }),
+          try: () =>
+            this.fetchRequest(`${FINTUAL_ORIGIN}${path}`, {
+              ...init,
+              headers,
+              signal: AbortSignal.timeout(HTTP_REQUEST_TIMEOUT_MS),
+            }),
           catch: `${stage}: request failed`,
         }),
         (cause) => new HttpTransportFailure({ stage, cause }),
@@ -111,143 +69,6 @@ class FintualHttpSession {
       return response
     })
   }
-}
-
-function loadSignInPage(session: FintualHttpSession): Effect.Effect<void, FintualError> {
-  return Effect.gen(function* () {
-    const response = yield* session.request(
-      "/f/sign-in/",
-      {
-        redirect: "follow",
-        headers: {
-          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        },
-      },
-      "Fintual sign-in page",
-    )
-
-    yield* readResponseBody(response, "Fintual sign-in page")
-  })
-}
-
-function authenticate(
-  session: FintualHttpSession,
-  get2FACode: AuthenticatedIngestionDependencies["get2FACode"],
-  email: string,
-  password: string,
-): Effect.Effect<void, FintualError> {
-  return Effect.gen(function* () {
-    const loginResponse = yield* session.request(
-      "/auth/sessions/initiate_login",
-      {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Referer: `${FINTUAL_ORIGIN}/f/sign-in/`,
-        },
-        body: JSON.stringify({ email, password }),
-      },
-      "Fintual login",
-    )
-    yield* readResponseBody(loginResponse, "Fintual login")
-
-    if (loginResponse.status === 200) {
-      return
-    }
-
-    if (loginResponse.status === 401) {
-      return yield* Effect.fail(new LoginFailed({ status: loginResponse.status }))
-    }
-
-    if (loginResponse.status !== 201) {
-      return yield* failUnexpectedStatus("Fintual login", loginResponse.status)
-    }
-
-    const loginStartedAt = new Date()
-    const code = yield* Effect.catch(
-      get2FACode({
-        afterTimestamp: loginStartedAt,
-        timeoutMs: HTTP_2FA_EMAIL_TIMEOUT_MS,
-      }),
-      (cause) => Effect.fail(new Email2FAFailure({ cause })),
-    )
-    if (!code) {
-      return yield* Effect.fail(
-        new Email2FAFailure({
-          cause: new Error("Fintual email 2FA: no code received before timeout"),
-        }),
-      )
-    }
-
-    const finalizeResponse = yield* session.request(
-      "/auth/sessions/finalize_login_web",
-      {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          Referer: `${FINTUAL_ORIGIN}/f/sign-in/`,
-        },
-        body: JSON.stringify({ email, password, code }),
-      },
-      "Fintual email 2FA",
-    )
-    yield* readResponseBody(finalizeResponse, "Fintual email 2FA")
-
-    if (!finalizeResponse.ok) {
-      return yield* failUnexpectedStatus("Fintual email 2FA", finalizeResponse.status)
-    }
-  })
-}
-
-function fetchGoalPerformanceData(
-  session: FintualHttpSession,
-  goalId: string,
-  timeInterval: GoalPerformanceTimeInterval,
-  purpose: "reference" | "recent",
-): Effect.Effect<GoalPerformanceData, FintualError> {
-  const stage = `Fintual ${purpose} Goal Performance Data`
-
-  return Effect.gen(function* () {
-    const response = yield* session.request(
-      "/gql/",
-      {
-        method: "POST",
-        headers: {
-          Accept: "*/*",
-          "Content-Type": "application/json",
-          Referer: `${FINTUAL_ORIGIN}/`,
-        },
-        body: JSON.stringify(createGoalPerformanceRequest(goalId, timeInterval)),
-      },
-      stage,
-    )
-    const body = yield* readResponseBody(response, stage)
-
-    if (!response.ok) {
-      return yield* failUnexpectedStatus(stage, response.status)
-    }
-
-    return yield* Effect.mapError(
-      parseGoalPerformanceResponseBody(body),
-      (cause) => new MalformedGoalPerformanceData({ purpose, cause }),
-    )
-  })
-}
-
-function readResponseBody(response: Response, stage: string): Effect.Effect<string, FintualError> {
-  return Effect.mapError(
-    tryPromise({
-      try: () => response.text(),
-      catch: `${stage}: failed to read response body`,
-    }),
-    (cause) => new HttpTransportFailure({ stage, cause }),
-  )
-}
-
-function failUnexpectedStatus(stage: string, status: number): Effect.Effect<never, FintualError> {
-  return Effect.fail(new UnexpectedHttpStatus({ stage, status }))
 }
 
 function mergeSetCookieHeaders(headers: Headers, jar: Map<string, string>): void {
