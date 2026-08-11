@@ -2,13 +2,9 @@ import type { PerformanceSnapshot } from "../performance-snapshot.ts"
 import type { GoalPerformanceData } from "./new-performance.ts"
 
 export function foldGoalPerformanceData(
-  referenceData: GoalPerformanceData | null,
-  recentData: GoalPerformanceData | null,
-): PerformanceSnapshot | null {
-  if (!recentData?.balanceGraphDataPoints || !referenceData?.balanceGraphDataPoints) {
-    return null
-  }
-
+  referenceData: GoalPerformanceData,
+  recentData: GoalPerformanceData,
+): PerformanceSnapshot {
   const recentPoints = recentData.balanceGraphDataPoints
   const previousDeposits = getPreviousValue(
     referenceData,
