@@ -4,8 +4,8 @@ import { Effect } from "effect"
 import { log, sleep, tryPromise, trySync, warn } from "./effect.ts"
 import type { ActualConfig } from "./env.ts"
 import { getErrorMessage } from "./log.ts"
-import { readPerformanceSnapshot } from "./performance-snapshot.ts"
-import { planReconciliation, type BalanceEntry } from "./actual/reconciliation-policy.ts"
+import { planReconciliation } from "./actual/reconciliation-policy.ts"
+import type { PerformanceSnapshot } from "./performance-snapshot.ts"
 
 const ACTUAL_DATA_DIR = "./tmp/actual-data"
 const MAX_SYNC_ATTEMPTS = 5
@@ -21,9 +21,12 @@ interface SyncCounts {
   deletedDuplicates: number
 }
 
-export function main(config: ActualConfig): Effect.Effect<void, Error> {
+export function main(
+  config: ActualConfig,
+  snapshot: PerformanceSnapshot,
+): Effect.Effect<void, Error> {
   return Effect.gen(function* () {
-    const syncCounts = yield* runActualSyncWithRetry(config, 1)
+    const syncCounts = yield* runActualSyncWithRetry(config, snapshot, 1)
     yield* log(
       `Actual sync finished. Created ${syncCounts.created} transactions, updated ${syncCounts.updated}, and deleted ${syncCounts.deletedDuplicates} duplicates.`,
     )
@@ -32,9 +35,10 @@ export function main(config: ActualConfig): Effect.Effect<void, Error> {
 
 function runActualSyncWithRetry(
   config: ActualConfig,
+  snapshot: PerformanceSnapshot,
   attempt: number,
 ): Effect.Effect<SyncCounts, Error> {
-  return Effect.catch(runActualSyncAttempt(config), (cause) => {
+  return Effect.catch(runActualSyncAttempt(config, snapshot), (cause) => {
     const shouldRetry = isRetryableActualError(cause) && attempt < MAX_SYNC_ATTEMPTS
 
     if (!shouldRetry) {
@@ -47,12 +51,15 @@ function runActualSyncWithRetry(
         `Actual sync attempt ${attempt} failed with a retryable error: ${getErrorMessage(cause)}. Retrying in ${Math.round(retryDelayMs / 1000)}s.`,
       )
       yield* sleep(retryDelayMs)
-      return yield* runActualSyncWithRetry(config, attempt + 1)
+      return yield* runActualSyncWithRetry(config, snapshot, attempt + 1)
     })
   })
 }
 
-function runActualSyncAttempt(config: ActualConfig): Effect.Effect<SyncCounts, Error> {
+function runActualSyncAttempt(
+  config: ActualConfig,
+  snapshot: PerformanceSnapshot,
+): Effect.Effect<SyncCounts, Error> {
   return Effect.gen(function* () {
     yield* resetDataDirectory()
     yield* assertActualServerReachable(config)
@@ -73,7 +80,7 @@ function runActualSyncAttempt(config: ActualConfig): Effect.Effect<SyncCounts, E
           try: () => api.downloadBudget(config.syncId),
           catch: "Failed to download Actual budget",
         })
-        return yield* syncDailyVariationTransactions(config)
+        return yield* syncDailyVariationTransactions(config, snapshot)
       }),
       Effect.ignore(
         tryPromise({
@@ -85,7 +92,10 @@ function runActualSyncAttempt(config: ActualConfig): Effect.Effect<SyncCounts, E
   })
 }
 
-function syncDailyVariationTransactions(config: ActualConfig): Effect.Effect<SyncCounts, Error> {
+function syncDailyVariationTransactions(
+  config: ActualConfig,
+  snapshot: PerformanceSnapshot,
+): Effect.Effect<SyncCounts, Error> {
   return Effect.gen(function* () {
     const endingDate = getTodayIsoDate()
     const transactions = yield* tryPromise({
@@ -93,7 +103,8 @@ function syncDailyVariationTransactions(config: ActualConfig): Effect.Effect<Syn
       catch: "Failed to fetch Actual transactions",
     })
 
-    const balanceEntries = yield* loadBalanceEntries(config)
+    const startingTimestamp = Date.parse(config.startingDate)
+    const balanceEntries = snapshot.balance.filter((entry) => entry.date >= startingTimestamp)
     const payeeId = yield* getPayeeId(config)
     const plan = planReconciliation({
       balanceEntries,
@@ -156,14 +167,6 @@ function resetDataDirectory(): Effect.Effect<void, Error> {
       fs.mkdirSync(ACTUAL_DATA_DIR, { recursive: true })
     },
     catch: "Failed to reset Actual data directory",
-  })
-}
-
-function loadBalanceEntries(config: ActualConfig): Effect.Effect<BalanceEntry[], Error> {
-  return Effect.gen(function* () {
-    const snapshot = yield* readPerformanceSnapshot()
-    const startingTimestamp = Date.parse(config.startingDate)
-    return snapshot.balance.filter((entry) => entry.date >= startingTimestamp)
   })
 }
 

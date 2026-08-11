@@ -2,7 +2,11 @@ import { Effect } from "effect"
 import { error, log, trySync } from "../effect.ts"
 import type { FintualConfig } from "../env.ts"
 import { getErrorMessage } from "../log.ts"
-import { PERFORMANCE_SNAPSHOT_PATH, writePerformanceSnapshot } from "../performance-snapshot.ts"
+import {
+  PERFORMANCE_SNAPSHOT_PATH,
+  writePerformanceSnapshot,
+  type PerformanceSnapshot,
+} from "../performance-snapshot.ts"
 import { createAuthenticatedFintualIngestion } from "./authenticated-ingestion.ts"
 import { get2FACodeFromEmail } from "./email-2fa.ts"
 import { foldGoalPerformanceData } from "./scraper.ts"
@@ -11,7 +15,9 @@ import { foldGoalPerformanceData } from "./scraper.ts"
  * Fetches performance via `initiate_login` → (e-mail 2FA) `finalize_login_web` → GraphQL.
  * Requires Gmail IMAP env vars for accounts with e-mail 2FA.
  */
-function fetchFintualPerformanceHttp(config: FintualConfig): Effect.Effect<void, Error> {
+function fetchFintualPerformanceHttp(
+  config: FintualConfig,
+): Effect.Effect<PerformanceSnapshot, Error> {
   const fetchAuthenticatedGoalPerformance = createAuthenticatedFintualIngestion({
     fetch: globalThis.fetch,
     get2FACode: (options) => get2FACodeFromEmail(config.email2FA, options),
@@ -31,12 +37,14 @@ function fetchFintualPerformanceHttp(config: FintualConfig): Effect.Effect<void,
       return yield* Effect.fail(new Error("Fintual HTTP sync: missing Goal Performance Data"))
     }
 
-    yield* writePerformanceSnapshot(snapshot)
+    const validatedSnapshot = yield* writePerformanceSnapshot(snapshot)
     yield* log(`Performance snapshot saved to ${PERFORMANCE_SNAPSHOT_PATH}`)
+
+    return validatedSnapshot
   })
 }
 
-export function runFintualSync(config: FintualConfig): Effect.Effect<void, Error> {
+export function runFintualSync(config: FintualConfig): Effect.Effect<PerformanceSnapshot, Error> {
   return Effect.catch(fetchFintualPerformanceHttp(config), (cause) =>
     Effect.andThen(error(`Error: ${getErrorMessage(cause)}`), Effect.fail(cause)),
   )

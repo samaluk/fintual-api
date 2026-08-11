@@ -7,8 +7,8 @@ import { runFintualSync } from "./fintual/http-sync.ts"
 export function runJob(config: RuntimeConfig): Effect.Effect<void, Error> {
   return Effect.gen(function* () {
     yield* log("Running job...")
-    yield* runFintualSync(config.fintual)
-    yield* mainActual(config.actual)
+    const snapshot = yield* runFintualSync(config.fintual)
+    yield* mainActual(config.actual, snapshot)
     yield* log("Job finished.")
   })
 }
