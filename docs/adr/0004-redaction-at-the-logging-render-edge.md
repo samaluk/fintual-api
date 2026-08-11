@@ -19,3 +19,7 @@ accepted
 - All Effect logs cross one redacting render edge before reaching process output.
 - `src/log.ts` remains the policy module and keeps its current configuration API; #285 does not introduce a new configuration service.
 - `once.ts` uses `NodeRuntime.runMain`, preserving the runtime's standard exit behavior while reporting unhandled failures through the logger.
+
+## Amendment (2026-08-11)
+
+Issue #315 changes what the existing logging policy receives from runtime configuration. Credentials are decoded as `Redacted` values and are no longer copied into the redaction registry during startup. The owning adapter calls `revealSecret` at the external boundary; that helper reveals the value for the request and registers the plaintext with `src/log.ts` so the render edge continues to redact it. `configureSensitiveValues` remains the configuration entry point for non-secret identifiers and addresses.
