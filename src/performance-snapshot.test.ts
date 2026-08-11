@@ -3,6 +3,7 @@ import * as path from "node:path"
 import { it } from "@effect/vitest"
 import { Effect } from "effect"
 import { expect } from "vitest"
+import { getErrorMessage } from "./log.ts"
 import {
   PERFORMANCE_SNAPSHOT_PATH,
   validatePerformanceSnapshot,
@@ -114,7 +115,8 @@ it.effect("fails when the Performance Snapshot cannot be written", () =>
       fs.mkdirSync(snapshotPath, { recursive: true })
       const error = yield* Effect.flip(writePerformanceSnapshot(performanceSnapshot()))
 
-      expect(error.message).toContain("Failed to write performance snapshot artifact")
+      expect(error).toMatchObject({ _tag: "SnapshotWriteFailure" })
+      expect(getErrorMessage(error)).toContain("Failed to write performance snapshot artifact")
     } finally {
       fs.rmSync(snapshotPath, { force: true, recursive: true })
       restoreFile(snapshotPath, originalContents)
