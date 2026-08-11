@@ -37,6 +37,19 @@ test("fails when the Goal Performance Data response has an invalid shape", async
   ).rejects.toThrow("response does not match the Goal Performance Data schema")
 })
 
+test("fails when a Goal Performance Data date is not an ISO date", async () => {
+  const response = goalPerformanceResponse()
+  const point = response.data.balanceGraphDataPoints[0]
+  if (!point) {
+    throw new Error("expected a performance point")
+  }
+  point.date = "2026-13-45"
+
+  await expect(
+    Effect.runPromise(parseGoalPerformanceResponseBody(JSON.stringify(response))),
+  ).rejects.toThrow("response does not match the Goal Performance Data schema")
+})
+
 test("fails when the GraphQL response contains errors", async () => {
   await expect(
     Effect.runPromise(

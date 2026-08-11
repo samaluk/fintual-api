@@ -15,7 +15,9 @@ const NEW_PERFORMANCE_QUERY =
   "query GoalInvestedBalanceGraphDataPoints($goalId: ID!, $timeIntervalCode: String!) {\n  balanceGraphDataPoints: clGoalBalanceGraphDataPoints(\n    goalId: $goalId\n    timeIntervalCode: $timeIntervalCode\n  ) {\n    date\n    unrealizedCostBasisAmount\n    unrealizedGainOrLossAmount\n    realizedCostBasisAmount\n    realizedGainOrLossAmount\n    sharesCostBasisAmount\n    sharesValuationAmount\n    pendingFulfillmentReinvestmentDepositsCostBasisAmount\n    pendingFulfillmentReinvestmentDepositsAmount\n    withdrawnAmount\n    __typename\n  }\n}"
 
 const goalPerformancePointSchema = Schema.Struct({
-  date: Schema.String.pipe(Schema.check(Schema.isPattern(/^\d{4}-\d{2}-\d{2}$/))),
+  date: Schema.String.pipe(
+    Schema.check(Schema.isPattern(/^\d{4}-(?:0[1-9]|1[0-2])-(?:[12]\d|0[1-9]|3[01])$/u)),
+  ),
   unrealizedCostBasisAmount: Schema.Number,
   unrealizedGainOrLossAmount: Schema.Number,
   realizedCostBasisAmount: Schema.Number,
