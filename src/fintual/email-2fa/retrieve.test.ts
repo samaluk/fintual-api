@@ -1,4 +1,4 @@
-import { Cause, Effect, Exit, Fiber, Option } from "effect"
+import { Cause, Effect, Exit, Fiber, Option, Redacted } from "effect"
 import { TestClock } from "effect/testing"
 import { describe, expect, test } from "vitest"
 import type { SearchObject } from "imapflow"
@@ -23,7 +23,7 @@ const AFTER_TIMESTAMP = new Date("2026-07-14T10:30:00")
 
 const NON_GMAIL_CONFIG: Email2FAConfig = {
   userEmail: "investor@example.com",
-  appPassword: "app-password",
+  appPassword: Redacted.make("app-password"),
   host: "imap.example.com",
   port: 993,
   debug: false,

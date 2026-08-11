@@ -1,7 +1,7 @@
-import { Cause, Console, Effect, Logger } from "effect"
+import { Cause, Console, Effect, Logger, Redacted } from "effect"
 import { describe, expect, it } from "vitest"
 import type { RuntimeConfig } from "./env.ts"
-import { configureSensitiveValues } from "./log.ts"
+import { configureSensitiveValues, redactSensitiveText, revealSecret } from "./log.ts"
 import { redactingLogger, reportUnhandledFailure } from "./once.ts"
 
 const secret = "hunter2-super-secret"
@@ -9,7 +9,7 @@ const secret = "hunter2-super-secret"
 const runtimeConfig: RuntimeConfig = {
   actual: {
     serverUrl: "http://localhost:5006",
-    password: secret,
+    password: Redacted.make(secret),
     syncId: "sync-1",
     fintualAccount: "fintual-account",
     startingDate: "2024-03-01",
@@ -17,10 +17,15 @@ const runtimeConfig: RuntimeConfig = {
   },
   fintual: {
     email: "user@example.com",
-    password: "fintual-pass",
+    password: Redacted.make("fintual-pass"),
     goalId: "goal-42",
     email2FA: null,
   },
+}
+
+function configureLoggingSecrets(): void {
+  configureSensitiveValues(runtimeConfig)
+  revealSecret(runtimeConfig.actual.password)
 }
 
 function captureConsole(lines: Array<string>): Console.Console {
@@ -47,9 +52,18 @@ function captureConsole(lines: Array<string>): Console.Console {
   }
 }
 
+it("registers redacted credentials when an adapter reveals them", () => {
+  configureSensitiveValues(runtimeConfig)
+  expect(redactSensitiveText(secret)).toBe(secret)
+
+  revealSecret(runtimeConfig.actual.password)
+
+  expect(redactSensitiveText(secret)).toBe("[redacted]")
+})
+
 describe("redactingLogger", () => {
   it("renders timestamped, level-prefixed lines with sensitive values redacted", async () => {
-    configureSensitiveValues(runtimeConfig)
+    configureLoggingSecrets()
     const lines: Array<string> = []
     const program = Effect.gen(function* () {
       yield* Effect.logInfo(`Connecting with password ${secret}`)
@@ -74,7 +88,7 @@ describe("redactingLogger", () => {
   })
 
   it("redacts annotation values", async () => {
-    configureSensitiveValues(runtimeConfig)
+    configureLoggingSecrets()
     const lines: Array<string> = []
     const program = Effect.gen(function* () {
       yield* Effect.logInfo("creating goal").pipe(Effect.annotateLogs({ goalId: "goal-42" }))
@@ -94,7 +108,7 @@ describe("redactingLogger", () => {
   })
 
   it("redacts secrets split across message parts", async () => {
-    configureSensitiveValues(runtimeConfig)
+    configureLoggingSecrets()
     const lines: Array<string> = []
     const program = Effect.gen(function* () {
       yield* Effect.logInfo("password is", secret, "on", "goal-42")
@@ -116,7 +130,7 @@ describe("redactingLogger", () => {
 
 describe("reportUnhandledFailure", () => {
   it("reports non-interrupt failures through the redacting logger", async () => {
-    configureSensitiveValues(runtimeConfig)
+    configureLoggingSecrets()
     const lines: Array<string> = []
     const program = Effect.fail(new Error(`unexpected ${secret}`)).pipe(
       Effect.tapCause(reportUnhandledFailure),
@@ -136,7 +150,7 @@ describe("reportUnhandledFailure", () => {
   })
 
   it("stays silent for interrupt-only causes", async () => {
-    configureSensitiveValues(runtimeConfig)
+    configureLoggingSecrets()
     const lines: Array<string> = []
     const program = Effect.interrupt.pipe(
       Effect.tapCause(reportUnhandledFailure),

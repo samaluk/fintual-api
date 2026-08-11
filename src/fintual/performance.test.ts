@@ -1,6 +1,6 @@
-import { Effect } from "effect"
+import { Effect, Redacted } from "effect"
 import { describe, expect, test } from "vitest"
-import { FintualConfigService } from "../env.ts"
+import { FintualConfigService, type FintualConfig } from "../env.ts"
 import { SnapshotWriter, type PerformanceSnapshot } from "../performance-snapshot.ts"
 import { FetchService } from "./authenticated-ingestion.ts"
 import { Email2FAService } from "./email-2fa.ts"
@@ -8,13 +8,13 @@ import { Email2FACode, Operational, TimedOut } from "./email-2fa/retrieve.ts"
 import { SnapshotWriteFailure } from "./fintual-error.ts"
 import { FintualPerformance } from "./performance.ts"
 
-const CONFIG = {
+const CONFIG: FintualConfig = {
   email: "investor@example.com",
-  password: "secret-password",
+  password: Redacted.make("secret-password"),
   goalId: "goal-123",
   email2FA: {
     userEmail: "inbox@example.com",
-    appPassword: "app-password",
+    appPassword: Redacted.make("app-password"),
     host: "imap.example.com",
     port: 993,
     debug: false,
@@ -25,7 +25,7 @@ const CONFIG = {
 interface TestOverrides {
   get2FACode?: Email2FAService["Service"]["get2FACode"]
   write?: SnapshotWriter["Service"]["write"]
-  config?: typeof CONFIG | (Omit<typeof CONFIG, "email2FA"> & { email2FA: null })
+  config?: FintualConfig
 }
 
 function performanceProgram(script: FetchScript, overrides: TestOverrides = {}) {
@@ -66,6 +66,7 @@ test("returns a validated Performance Snapshot after direct login", async () => 
   })
   expect(written).toEqual([snapshot])
   expect(script.requests).toHaveLength(4)
+  expect(requestBody(script.requests[1])).toContain('"password":"secret-password"')
   expect(requestBody(script.requests[2])).toMatch(/"timeIntervalCode":"last_six_months"/)
   expect(requestBody(script.requests[3])).toMatch(/"timeIntervalCode":"last_month"/)
 })
@@ -91,6 +92,8 @@ test("completes email 2FA before it requests Goal Performance Data", async () =>
 
   expect(snapshot.balance).toHaveLength(1)
   expect(codeRequests).toBe(1)
+  expect(requestBody(script.requests[1])).toContain('"password":"secret-password"')
+  expect(requestBody(script.requests[2])).toContain('"password":"secret-password"')
   expect(requestBody(script.requests[2])).toMatch(/"code":"123456"/)
   expect(script.requests[3]?.url ?? "").toMatch(/\/gql\/$/)
 })

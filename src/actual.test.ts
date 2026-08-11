@@ -1,4 +1,4 @@
-import { Duration, Effect, Fiber, Result, Schedule } from "effect"
+import { Duration, Effect, Fiber, Redacted, Result, Schedule } from "effect"
 import { TestClock } from "effect/testing"
 import { afterEach, expect, test, vi } from "vitest"
 
@@ -35,7 +35,7 @@ afterEach(() => {
 
 const CONFIG: ActualConfig = {
   serverUrl: "https://actual.example.test/",
-  password: "secret",
+  password: Redacted.make("secret"),
   syncId: "sync-id",
   fintualAccount: "account-id",
   startingDate: "2026-01-01",
@@ -163,6 +163,7 @@ test("the live Actual adapter preserves stable SDK network codes", async () => {
   )
 
   expect(Result.isFailure(result)).toBe(true)
+  expect(actualApiMock.init).toHaveBeenCalledWith(expect.objectContaining({ password: "secret" }))
   if (Result.isFailure(result)) {
     expect(result.failure).toMatchObject({
       _tag: "ActualBudgetDownloadFailure",

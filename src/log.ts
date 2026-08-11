@@ -1,20 +1,28 @@
 import { inspect } from "node:util"
+import { Redacted } from "effect"
 import type { RuntimeConfig } from "./env.ts"
 
-let configuredRedactionSecrets: string[] = []
+let configuredRedactionSecrets = new Set<string>()
 
 export function configureSensitiveValues(config: RuntimeConfig): void {
-  configuredRedactionSecrets = [
-    config.actual.password,
-    config.actual.serverUrl,
-    config.actual.syncId,
-    config.actual.fintualAccount,
-    config.fintual.email,
-    config.fintual.password,
-    config.fintual.goalId,
-    config.fintual.email2FA?.userEmail,
-    config.fintual.email2FA?.appPassword,
-  ].filter((value): value is string => Boolean(value))
+  configuredRedactionSecrets = new Set(
+    [
+      config.actual.serverUrl,
+      config.actual.syncId,
+      config.actual.fintualAccount,
+      config.fintual.email,
+      config.fintual.goalId,
+      config.fintual.email2FA?.userEmail,
+    ].filter((value): value is string => Boolean(value)),
+  )
+}
+
+export function revealSecret(secret: Redacted.Redacted<string>): string {
+  const value = Redacted.value(secret)
+  if (value) {
+    configuredRedactionSecrets.add(value)
+  }
+  return value
 }
 
 export function getErrorMessage(error: unknown): string {
