@@ -37,27 +37,32 @@ test("fails when the Goal Performance Data response has an invalid shape", async
   ).rejects.toThrow("response does not match the Goal Performance Data schema")
 })
 
-test("fails when a Goal Performance Data date is not an ISO date", async () => {
-  const response = goalPerformanceResponse()
-  const point = response.data.balanceGraphDataPoints[0]
-  if (!point) {
-    throw new Error("expected a performance point")
-  }
-  point.date = "2026-13-45"
+test.each(["2026-13-45", "2026-02-31", "2025-02-29"])(
+  "fails when a Goal Performance Data date is not a valid ISO date: %s",
+  async (date) => {
+    const response = goalPerformanceResponse()
+    const point = response.data.balanceGraphDataPoints[0]
+    if (!point) {
+      throw new Error("expected a performance point")
+    }
+    point.date = date
 
-  await expect(
-    Effect.runPromise(parseGoalPerformanceResponseBody(JSON.stringify(response))),
-  ).rejects.toThrow("response does not match the Goal Performance Data schema")
-})
+    await expect(
+      Effect.runPromise(parseGoalPerformanceResponseBody(JSON.stringify(response))),
+    ).rejects.toThrow("response does not match the Goal Performance Data schema")
+  },
+)
 
 test("fails when the GraphQL response contains errors", async () => {
-  await expect(
-    Effect.runPromise(
-      parseGoalPerformanceResponseBody(
-        JSON.stringify({ ...goalPerformanceResponse(), errors: [{ message: "request failed" }] }),
-      ),
-    ),
-  ).rejects.toThrow("GraphQL response contains errors")
+  const response = {
+    ...goalPerformanceResponse(),
+    errors: [{ message: "request failed" }],
+  }
+  const body = JSON.stringify(response)
+
+  await expect(Effect.runPromise(parseGoalPerformanceResponseBody(body))).rejects.toThrow(
+    "GraphQL response contains errors",
+  )
 })
 
 test("preserves non-finite wire amounts for snapshot validation", async () => {
