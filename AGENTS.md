@@ -12,7 +12,7 @@ guide doesn't cover, search through the source code in `node_modules/effect/src`
 
 ### Issue tracker
 
-Issues and specs are tracked in GitHub Issues for `samluk/fintual-api`. See `docs/agents/issue-tracker.md`.
+Issues and specs are tracked in GitHub Issues for `samaluk/fintual-api`. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
