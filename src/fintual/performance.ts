@@ -8,7 +8,7 @@ import {
   validatePerformanceSnapshot,
   type PerformanceSnapshot,
 } from "../performance-snapshot.ts"
-import { FetchService } from "./authenticated-ingestion.ts"
+import { FetchService, FINTUAL_ORIGIN } from "./authenticated-ingestion.ts"
 import { Email2FAService } from "./email-2fa.ts"
 import {
   Email2FAFailure,
@@ -28,7 +28,6 @@ import {
   type TimeIntervalCode as GoalPerformanceTimeInterval,
 } from "./new-performance.ts"
 
-const FINTUAL_ORIGIN = "https://fintual.cl"
 const HTTP_2FA_EMAIL_TIMEOUT_MS = 120_000
 
 export class FintualPerformance extends Context.Service<
