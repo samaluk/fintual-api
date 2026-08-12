@@ -114,6 +114,9 @@ it.effect("fails when the Performance Snapshot cannot be written", () =>
     fs.mkdirSync(path.dirname(snapshotPath), { recursive: true })
 
     try {
+      if (originalContents !== null) {
+        fs.rmSync(snapshotPath)
+      }
       fs.mkdirSync(snapshotPath, { recursive: true })
       const error = yield* Effect.flip(writePerformanceSnapshot(performanceSnapshot()))
 
