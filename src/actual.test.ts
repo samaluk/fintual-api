@@ -289,7 +289,7 @@ function synchronizationProgram(
       },
     }),
     Effect.provideService(ActualFileSystem, {
-      reset: () => Effect.sync(() => calls.push("reset")),
+      reset: Effect.sync(() => calls.push("reset")),
     }),
     Effect.provideService(ActualHealthCheck, {
       check: () => Effect.sync(() => calls.push("health")),
@@ -321,17 +321,16 @@ function scriptedClient(
         options.onTransactions?.(startDate, endDate)
         return options.transactions ?? []
       }),
-    getPayees: () =>
-      Effect.sync(() => {
-        calls.push("payees")
-        return [{ id: "payee-id", name: "Fintual" }]
-      }),
+    getPayees: Effect.sync(() => {
+      calls.push("payees")
+      return [{ id: "payee-id", name: "Fintual" }]
+    }),
     createTransaction:
       options.create ??
       ((_accountId, transaction) => Effect.sync(() => calls.push(`create:${transaction.date}`))),
     updateTransaction: (id) => Effect.sync(() => calls.push(`update:${id}`)),
     deleteTransaction: (id) => Effect.sync(() => calls.push(`delete:${id}`)),
-    sync: () => Effect.sync(() => calls.push("sync")),
-    shutdown: () => Effect.sync(() => calls.push("shutdown")),
+    sync: Effect.sync(() => calls.push("sync")),
+    shutdown: Effect.sync(() => calls.push("shutdown")),
   }
 }

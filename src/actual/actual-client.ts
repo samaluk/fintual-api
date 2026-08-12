@@ -33,7 +33,7 @@ export interface ActualClient {
     startDate: string,
     endDate: string,
   ) => Effect.Effect<ReadonlyArray<ExistingVariationTransaction>, ActualTransactionsReadFailure>
-  readonly getPayees: () => Effect.Effect<ReadonlyArray<ActualPayee>, ActualPayeesReadFailure>
+  readonly getPayees: Effect.Effect<ReadonlyArray<ActualPayee>, ActualPayeesReadFailure>
   readonly createTransaction: (
     accountId: string,
     transaction: VariationTransactionInput,
@@ -43,8 +43,8 @@ export interface ActualClient {
     transaction: VariationTransactionInput,
   ) => Effect.Effect<void, ActualTransactionUpdateFailure>
   readonly deleteTransaction: (id: string) => Effect.Effect<void, ActualDuplicateDeletionFailure>
-  readonly sync: () => Effect.Effect<void, ActualSyncFailure>
-  readonly shutdown: () => Effect.Effect<void, ActualShutdownFailure>
+  readonly sync: Effect.Effect<void, ActualSyncFailure>
+  readonly shutdown: Effect.Effect<void, ActualShutdownFailure>
 }
 
 export class ActualClientFactory extends Context.Service<
@@ -107,16 +107,14 @@ const ActualClientLive: ActualClient = {
     })
   }),
 
-  getPayees: Effect.fn("ActualClient.getPayees")(function* () {
-    return yield* Effect.tryPromise({
-      try: () => api.getPayees(),
-      catch: (cause) =>
-        new ActualPayeesReadFailure({
-          cause,
-          retryable: isRetryableActualCause(cause),
-        }),
-    })
-  }),
+  getPayees: Effect.tryPromise({
+    try: () => api.getPayees(),
+    catch: (cause) =>
+      new ActualPayeesReadFailure({
+        cause,
+        retryable: isRetryableActualCause(cause),
+      }),
+  }).pipe(Effect.withSpan("ActualClient.getPayees")),
 
   createTransaction: Effect.fn("ActualClient.createTransaction")(function* (
     accountId: string,
@@ -157,23 +155,19 @@ const ActualClientLive: ActualClient = {
     })
   }),
 
-  sync: Effect.fn("ActualClient.sync")(function* () {
-    yield* Effect.tryPromise({
-      try: () => api.sync(),
-      catch: (cause) =>
-        new ActualSyncFailure({
-          cause,
-          retryable: isRetryableActualCause(cause),
-        }),
-    })
-  }),
+  sync: Effect.tryPromise({
+    try: () => api.sync(),
+    catch: (cause) =>
+      new ActualSyncFailure({
+        cause,
+        retryable: isRetryableActualCause(cause),
+      }),
+  }).pipe(Effect.withSpan("ActualClient.sync")),
 
-  shutdown: Effect.fn("ActualClient.shutdown")(function* () {
-    yield* Effect.tryPromise({
-      try: () => api.shutdown(),
-      catch: (cause) => new ActualShutdownFailure({ cause, retryable: false }),
-    })
-  }),
+  shutdown: Effect.tryPromise({
+    try: () => api.shutdown(),
+    catch: (cause) => new ActualShutdownFailure({ cause, retryable: false }),
+  }).pipe(Effect.withSpan("ActualClient.shutdown")),
 }
 
 function isRetryableActualCause(cause: unknown): boolean {

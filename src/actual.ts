@@ -96,7 +96,7 @@ const runActualSyncAttempt = Effect.fn("ActualSynchronization.attempt")(function
 ): Effect.fn.Return<SyncCounts, ActualError> {
   return yield* Effect.scoped(
     Effect.gen(function* () {
-      yield* fileSystem.reset()
+      yield* fileSystem.reset
       yield* healthCheck.check(config.serverUrl)
 
       const client = yield* Effect.acquireRelease(clientFactory.acquire(config), closeActualClient)
@@ -168,7 +168,7 @@ const syncDailyVariationTransactions = Effect.fn(
     }
   }
 
-  yield* client.sync()
+  yield* client.sync
   return syncCounts
 })
 
@@ -176,7 +176,7 @@ const resolvePayeeId = Effect.fn("ActualSynchronization.resolvePayeeId")(functio
   client: ActualClient,
   configuredPayee: string,
 ): Effect.fn.Return<string | undefined, ActualPayeesReadFailure> {
-  const payees = yield* client.getPayees()
+  const payees = yield* client.getPayees
   const payee = payees.find((candidate) => candidate.name === configuredPayee)
 
   if (!payee) {
@@ -190,13 +190,11 @@ const resolvePayeeId = Effect.fn("ActualSynchronization.resolvePayeeId")(functio
 const closeActualClient = Effect.fn("ActualSynchronization.closeClient")(function* (
   client: ActualClient,
 ): Effect.fn.Return<void> {
-  yield* client
-    .shutdown()
-    .pipe(
-      Effect.catch((cause) =>
-        Effect.logWarning(`Failed to shutdown Actual API: ${getErrorMessage(cause)}`),
-      ),
-    )
+  yield* client.shutdown.pipe(
+    Effect.catch((cause) =>
+      Effect.logWarning(`Failed to shutdown Actual API: ${getErrorMessage(cause)}`),
+    ),
+  )
 })
 
 export function main(
