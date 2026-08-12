@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest"
 
 import type { RuntimeConfig } from "./env.ts"
 import { getErrorMessage, RedactionPolicy } from "./log.ts"
-import { makeRedactingLogger, reportUnhandledFailure } from "./once.ts"
+import { makeRedactingLogger, reportUnhandledFailure } from "./logging.ts"
 
 const secret = "hunter2-super-secret"
 const fintualSecret = "fintual-pass"
