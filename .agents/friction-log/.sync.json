@@ -1,6 +1,10 @@
 {
   "mirrors": [
     {
+      "issue": "samaluk/fintual-api#319",
+      "path": ".agents/friction-log/20260811053212-documentation-only-pr/friction.md"
+    },
+    {
       "issue": "samaluk/fintual-api#328",
       "path": ".agents/friction-log/20260811062211-fallow-audit-warnings/friction.md"
     },
@@ -11,6 +15,10 @@
     {
       "issue": "samaluk/fintual-api#338",
       "path": ".agents/friction-log/20260811145903-fallow-audit-rejects/friction.md"
+    },
+    {
+      "issue": "samaluk/fintual-api#370",
+      "path": ".agents/friction-log/20260811203610-matt-pocock-spec/friction.md"
     }
   ],
   "version": 1
