@@ -167,9 +167,9 @@ describe("redactingLogger", () => {
   effectIt.effect("redacts annotation values", () =>
     Effect.gen(function* () {
       const lines: Array<string> = []
-      const program = Effect.gen(function* () {
-        yield* Effect.logInfo("creating goal").pipe(Effect.annotateLogs({ goalId: "goal-42" }))
-      })
+      const program = Effect.logInfo("creating goal").pipe(
+        Effect.annotateLogs({ goalId: "goal-42" }),
+      )
 
       yield* program.pipe(
         Effect.provide(Logger.layer([redactingLoggerFor()])),
@@ -186,9 +186,7 @@ describe("redactingLogger", () => {
   effectIt.effect("redacts secrets split across message parts", () =>
     Effect.gen(function* () {
       const lines: Array<string> = []
-      const program = Effect.gen(function* () {
-        yield* Effect.logInfo("password is", secret, "on", "goal-42")
-      })
+      const program = Effect.logInfo("password is", secret, "on", "goal-42")
 
       yield* program.pipe(
         Effect.provide(Logger.layer([redactingLoggerFor()])),
@@ -209,7 +207,7 @@ describe("reportUnhandledFailure", () => {
       const lines: Array<string> = []
       const program = Effect.die(new Error(`config exploded with ${secret}`)).pipe(
         Effect.tapCause(reportUnhandledFailure),
-        Effect.catchCause(() => Effect.void),
+        Effect.ignoreCause,
       )
 
       yield* program.pipe(
@@ -230,10 +228,7 @@ describe("reportUnhandledFailure", () => {
       const lines: Array<string> = []
       const program = Effect.fail(
         new UnexpectedFailure({ cause: new Error(`unexpected ${secret}`) }),
-      ).pipe(
-        Effect.tapCause(reportUnhandledFailure),
-        Effect.catchCause(() => Effect.void),
-      )
+      ).pipe(Effect.tapCause(reportUnhandledFailure), Effect.ignoreCause)
 
       yield* program.pipe(
         Effect.provide(Logger.layer([redactingLoggerFor()])),
@@ -253,7 +248,7 @@ describe("reportUnhandledFailure", () => {
       const lines: Array<string> = []
       const program = Effect.interrupt.pipe(
         Effect.tapCause(reportUnhandledFailure),
-        Effect.catchCause(() => Effect.void),
+        Effect.ignoreCause,
       )
 
       yield* program.pipe(

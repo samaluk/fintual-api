@@ -79,15 +79,15 @@ const goalPerformancePointSchema = Schema.Struct({
       Schema.makeFilter((date) => (isValidIsoDate(date) ? undefined : "a valid ISO calendar date")),
     ),
   ),
-  unrealizedCostBasisAmount: Schema.Number,
-  unrealizedGainOrLossAmount: Schema.Number,
-  realizedCostBasisAmount: Schema.Number,
-  realizedGainOrLossAmount: Schema.Number,
-  sharesCostBasisAmount: Schema.Number,
-  sharesValuationAmount: Schema.Number,
-  pendingFulfillmentReinvestmentDepositsCostBasisAmount: Schema.Number,
-  pendingFulfillmentReinvestmentDepositsAmount: Schema.Number,
-  withdrawnAmount: Schema.Number,
+  unrealizedCostBasisAmount: Schema.Finite,
+  unrealizedGainOrLossAmount: Schema.Finite,
+  realizedCostBasisAmount: Schema.Finite,
+  realizedGainOrLossAmount: Schema.Finite,
+  sharesCostBasisAmount: Schema.Finite,
+  sharesValuationAmount: Schema.Finite,
+  pendingFulfillmentReinvestmentDepositsCostBasisAmount: Schema.Finite,
+  pendingFulfillmentReinvestmentDepositsAmount: Schema.Finite,
+  withdrawnAmount: Schema.Finite,
 })
 
 const goalPerformanceDataResponseSchema = Schema.Struct({
@@ -174,8 +174,8 @@ export class FintualProvider extends Context.Service<
   FintualProvider,
   {
     signIn: (requestCode: RequestCode) => Effect.Effect<void, FintualError>
-    fetchReferenceGoalPerformanceData: () => Effect.Effect<GoalPerformanceData, FintualError>
-    fetchRecentGoalPerformanceData: () => Effect.Effect<GoalPerformanceData, FintualError>
+    fetchReferenceGoalPerformanceData: Effect.Effect<GoalPerformanceData, FintualError>
+    fetchRecentGoalPerformanceData: Effect.Effect<GoalPerformanceData, FintualError>
   }
 >()("FintualProvider") {
   static readonly layer = Layer.effect(
@@ -199,26 +199,18 @@ export class FintualProvider extends Context.Service<
         signIn: Effect.fn("FintualProvider.signIn")(function* (requestCode: RequestCode) {
           yield* authenticate(session, config, requestCode)
         }),
-        fetchReferenceGoalPerformanceData: Effect.fn(
-          "FintualProvider.fetchReferenceGoalPerformanceData",
-        )(function* () {
-          return yield* fetchGoalPerformanceData(
-            session,
-            config.goalId,
-            TimeIntervalCode.LastSixMonths,
-            "reference",
-          )
-        }),
-        fetchRecentGoalPerformanceData: Effect.fn("FintualProvider.fetchRecentGoalPerformanceData")(
-          function* () {
-            return yield* fetchGoalPerformanceData(
-              session,
-              config.goalId,
-              TimeIntervalCode.LastMonth,
-              "recent",
-            )
-          },
-        ),
+        fetchReferenceGoalPerformanceData: fetchGoalPerformanceData(
+          session,
+          config.goalId,
+          TimeIntervalCode.LastSixMonths,
+          "reference",
+        ).pipe(Effect.withSpan("FintualProvider.fetchReferenceGoalPerformanceData")),
+        fetchRecentGoalPerformanceData: fetchGoalPerformanceData(
+          session,
+          config.goalId,
+          TimeIntervalCode.LastMonth,
+          "recent",
+        ).pipe(Effect.withSpan("FintualProvider.fetchRecentGoalPerformanceData")),
       })
     }),
   ).pipe(
@@ -253,7 +245,7 @@ const authenticate = Effect.fn("FintualProvider.authenticate")(function* (
   }
 
   if (loginResponse.status === 401) {
-    return yield* Effect.fail(new LoginFailed({ status: loginResponse.status }))
+    return yield* new LoginFailed({ status: loginResponse.status })
   }
 
   if (loginResponse.status !== 201) {

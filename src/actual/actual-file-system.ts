@@ -9,21 +9,19 @@ const ACTUAL_DATA_DIR = "./tmp/actual-data"
 export class ActualFileSystem extends Context.Service<
   ActualFileSystem,
   {
-    readonly reset: () => Effect.Effect<void, ActualDataDirectoryFailure>
+    readonly reset: Effect.Effect<void, ActualDataDirectoryFailure>
   }
 >()("ActualFileSystem") {
   static readonly live = Layer.succeed(
     ActualFileSystem,
     ActualFileSystem.of({
-      reset: Effect.fn("ActualFileSystem.reset")(function* () {
-        yield* Effect.try({
-          try: () => {
-            fs.rmSync(ACTUAL_DATA_DIR, { recursive: true, force: true })
-            fs.mkdirSync(ACTUAL_DATA_DIR, { recursive: true })
-          },
-          catch: (cause) => new ActualDataDirectoryFailure({ cause, retryable: false }),
-        })
-      }),
+      reset: Effect.try({
+        try: () => {
+          fs.rmSync(ACTUAL_DATA_DIR, { recursive: true, force: true })
+          fs.mkdirSync(ACTUAL_DATA_DIR, { recursive: true })
+        },
+        catch: (cause) => new ActualDataDirectoryFailure({ cause, retryable: false }),
+      }).pipe(Effect.withSpan("ActualFileSystem.reset")),
     }),
   )
 }

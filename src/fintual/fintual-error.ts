@@ -6,7 +6,7 @@ export class UnexpectedHttpStatus extends Schema.TaggedError<UnexpectedHttpStatu
   "UnexpectedHttpStatus",
   {
     stage: Schema.String,
-    status: Schema.Number,
+    status: Schema.Finite,
   },
 ) {
   override get message(): string {
@@ -27,7 +27,7 @@ export class HttpTransportFailure extends Schema.TaggedError<HttpTransportFailur
 }
 
 export class LoginFailed extends Schema.TaggedError<LoginFailed>()("LoginFailed", {
-  status: Schema.Number,
+  status: Schema.Finite,
 }) {
   override get message(): string {
     return `Fintual login: unexpected HTTP status ${this.status}`

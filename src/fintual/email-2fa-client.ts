@@ -16,7 +16,7 @@ export interface ImapMessage {
 
 export interface ImapClient {
   readonly usable: boolean
-  connect(): Effect.Effect<void, ImapOperationFailure>
+  readonly connect: Effect.Effect<void, ImapOperationFailure>
   getMailboxLock(
     path: string,
   ): Effect.Effect<ImapMailboxLock, ImapMailboxLockFailure | MissingMailbox>
@@ -24,7 +24,7 @@ export interface ImapClient {
     query: SearchObject,
   ): Effect.Effect<number[] | false, ImapOperationFailure | MissingServerExtension>
   fetchOne(uid: number): Effect.Effect<ImapMessage | null, ImapOperationFailure>
-  logout(): Effect.Effect<void, ImapOperationFailure>
+  readonly logout: Effect.Effect<void, ImapOperationFailure>
 }
 
 export class MissingServerExtension extends Schema.TaggedError<MissingServerExtension>()(
@@ -78,16 +78,10 @@ export class ImapFlowClient implements ImapClient {
     return this.raw.usable
   }
 
-  readonly connect = Effect.fn("Email2FA.ImapFlowClient.connect")(
-    { self: this },
-    function* (this: ImapFlowClient): Effect.fn.Return<void, ImapOperationFailure> {
-      yield* Effect.tryPromise({
-        try: () => this.raw.connect(),
-        catch: (cause) =>
-          new ImapOperationFailure({ stage: "Failed to connect to Gmail IMAP", cause }),
-      })
-    },
-  )
+  readonly connect = Effect.tryPromise({
+    try: () => this.raw.connect(),
+    catch: (cause) => new ImapOperationFailure({ stage: "Failed to connect to Gmail IMAP", cause }),
+  }).pipe(Effect.withSpan("Email2FA.ImapFlowClient.connect"))
 
   readonly getMailboxLock = Effect.fn("Email2FA.ImapFlowClient.getMailboxLock")(
     { self: this },
@@ -160,19 +154,14 @@ export class ImapFlowClient implements ImapClient {
     },
   )
 
-  readonly logout = Effect.fn("Email2FA.ImapFlowClient.logout")(
-    { self: this },
-    function* (this: ImapFlowClient): Effect.fn.Return<void, ImapOperationFailure> {
-      yield* Effect.tryPromise({
-        try: () => this.raw.logout(),
-        catch: (cause) =>
-          new ImapOperationFailure({
-            stage: "Failed to close IMAP connection cleanly",
-            cause,
-          }),
-      })
-    },
-  )
+  readonly logout = Effect.tryPromise({
+    try: () => this.raw.logout(),
+    catch: (cause) =>
+      new ImapOperationFailure({
+        stage: "Failed to close IMAP connection cleanly",
+        cause,
+      }),
+  }).pipe(Effect.withSpan("Email2FA.ImapFlowClient.logout"))
 }
 
 function createImapClient(config: Email2FAConfig): ImapClient {

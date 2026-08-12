@@ -18,7 +18,7 @@ export class ActualHealthCheckFailure extends Schema.TaggedError<ActualHealthChe
   "ActualHealthCheckFailure",
   {
     url: Schema.String,
-    status: Schema.optional(Schema.Number),
+    status: Schema.optional(Schema.Finite),
     cause: Schema.Defect(),
     retryable: Schema.Boolean,
   },

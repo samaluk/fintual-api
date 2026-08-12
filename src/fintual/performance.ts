@@ -15,7 +15,7 @@ import { FintualProvider } from "./provider.ts"
 export class FintualPerformance extends Context.Service<
   FintualPerformance,
   {
-    fetchPerformanceSnapshot: () => Effect.Effect<PerformanceSnapshot, FintualError>
+    fetchPerformanceSnapshot: Effect.Effect<PerformanceSnapshot, FintualError>
   }
 >()("FintualPerformance") {
   static readonly layer = Layer.effect(
@@ -26,31 +26,29 @@ export class FintualPerformance extends Context.Service<
       const snapshotWriter = yield* SnapshotWriter
       const email2FAService = yield* acquireEmail2FAService(config.email2FA)
 
-      const fetchPerformanceSnapshot = Effect.fn("FintualPerformance.fetchPerformanceSnapshot")(
-        function* () {
-          yield* provider.signIn(requestEmail2FACode(email2FAService))
+      const fetchPerformanceSnapshot = Effect.gen(function* () {
+        yield* provider.signIn(requestEmail2FACode(email2FAService))
 
-          const reference = yield* provider.fetchReferenceGoalPerformanceData()
-          const recent = yield* provider.fetchRecentGoalPerformanceData()
+        const reference = yield* provider.fetchReferenceGoalPerformanceData
+        const recent = yield* provider.fetchRecentGoalPerformanceData
 
-          const snapshot = yield* Effect.try({
-            try: () => foldGoalPerformanceData(reference, recent),
-            catch: (cause) =>
-              new MalformedPerformanceSnapshot({
-                issues: `Failed to fold Fintual performance data: ${getErrorMessage(cause)}`,
-                cause,
-              }),
-          })
+        const snapshot = yield* Effect.try({
+          try: () => foldGoalPerformanceData(reference, recent),
+          catch: (cause) =>
+            new MalformedPerformanceSnapshot({
+              issues: `Failed to fold Fintual performance data: ${getErrorMessage(cause)}`,
+              cause,
+            }),
+        })
 
-          const validatedSnapshot = yield* Effect.mapError(
-            validatePerformanceSnapshot(snapshot),
-            (cause) => new MalformedPerformanceSnapshot({ issues: cause.issues, cause }),
-          )
-          yield* snapshotWriter.write(validatedSnapshot)
+        const validatedSnapshot = yield* Effect.mapError(
+          validatePerformanceSnapshot(snapshot),
+          (cause) => new MalformedPerformanceSnapshot({ issues: cause.issues, cause }),
+        )
+        yield* snapshotWriter.write(validatedSnapshot)
 
-          return validatedSnapshot
-        },
-      )
+        return validatedSnapshot
+      }).pipe(Effect.withSpan("FintualPerformance.fetchPerformanceSnapshot"))
 
       return FintualPerformance.of({ fetchPerformanceSnapshot })
     }),
