@@ -2,15 +2,12 @@ import { it as effectIt } from "@effect/vitest"
 import { Cause, Console, Effect, Logger, Redacted, Schema } from "effect"
 import { describe, expect, it } from "vitest"
 import type { RuntimeConfig } from "./env.ts"
-import {
-  configureSensitiveValues,
-  getErrorMessage,
-  redactSensitiveText,
-  revealSecret,
-} from "./log.ts"
-import { redactingLogger, reportUnhandledFailure } from "./once.ts"
+import { getErrorMessage, RedactionPolicy } from "./log.ts"
+import { makeRedactingLogger, reportUnhandledFailure } from "./once.ts"
 
 const secret = "hunter2-super-secret"
+const fintualSecret = "fintual-pass"
+const email2FASecret = "app-password"
 
 const runtimeConfig: RuntimeConfig = {
   actual: {
@@ -23,9 +20,16 @@ const runtimeConfig: RuntimeConfig = {
   },
   fintual: {
     email: "user@example.com",
-    password: Redacted.make("fintual-pass"),
+    password: Redacted.make(fintualSecret),
     goalId: "goal-42",
-    email2FA: null,
+    email2FA: {
+      userEmail: "2fa@example.com",
+      appPassword: Redacted.make(email2FASecret),
+      host: "imap.gmail.com",
+      port: 993,
+      debug: false,
+      sender: "notificaciones@fintual.com",
+    },
   },
 }
 
@@ -42,9 +46,8 @@ class UnexpectedFailure extends Schema.TaggedError<UnexpectedFailure>()("Unexpec
   }
 }
 
-function configureLoggingSecrets(): void {
-  configureSensitiveValues(runtimeConfig)
-  revealSecret(runtimeConfig.actual.password)
+function redactingLoggerFor(config: RuntimeConfig = runtimeConfig): Logger.Logger<unknown, void> {
+  return makeRedactingLogger(RedactionPolicy.fromConfig(config))
 }
 
 function captureConsole(lines: Array<string>): Console.Console {
@@ -71,19 +74,73 @@ function captureConsole(lines: Array<string>): Console.Console {
   }
 }
 
-it("registers redacted credentials when an adapter reveals them", () => {
-  configureSensitiveValues(runtimeConfig)
-  expect(redactSensitiveText(secret)).toBe(secret)
+describe("RedactionPolicy", () => {
+  it("redacts every sensitive configured value from the start, including Redacted passwords", () => {
+    const policy = RedactionPolicy.fromConfig(runtimeConfig)
 
-  revealSecret(runtimeConfig.actual.password)
+    expect(policy.redact(`actual ${secret} fintual ${fintualSecret} gmail ${email2FASecret}`)).toBe(
+      "actual [redacted] fintual [redacted] gmail [redacted]",
+    )
+  })
 
-  expect(redactSensitiveText(secret)).toBe("[redacted]")
+  it("redacts configured identifiers and email addresses", () => {
+    const policy = RedactionPolicy.fromConfig(runtimeConfig)
+
+    expect(
+      policy.redact(
+        "sync sync-1 account fintual-account goal goal-42 mail user@example.com 2fa 2fa@example.com other@example.com",
+      ),
+    ).toBe(
+      "sync [redacted] account [redacted] goal [redacted] mail [redacted] 2fa [redacted] [redacted email]",
+    )
+  })
+
+  it("keeps redaction state isolated between policies", () => {
+    const configured = RedactionPolicy.fromConfig(runtimeConfig)
+    const empty = RedactionPolicy.empty
+
+    expect(configured.redact(secret)).toBe("[redacted]")
+    expect(empty.redact(secret)).toBe(secret)
+  })
+
+  it("captures the sensitive snapshot once when the policy is built", () => {
+    const config: RuntimeConfig = {
+      actual: {
+        serverUrl: "http://localhost:5006",
+        password: Redacted.make(secret),
+        syncId: "sync-before-build",
+        fintualAccount: "fintual-account",
+        startingDate: "2024-03-01",
+        payee: "Fintual",
+      },
+      fintual: {
+        email: "user@example.com",
+        password: Redacted.make("fintual-pass"),
+        goalId: "goal-42",
+        email2FA: null,
+      },
+    }
+    const policy = RedactionPolicy.fromConfig(config)
+
+    config.actual.syncId = "sync-added-after-build"
+
+    expect(policy.redact("sync-before-build sync-added-after-build")).toBe(
+      "[redacted] sync-added-after-build",
+    )
+  })
+
+  effectIt.effect("provides an immutable policy layer from the validated runtime config", () =>
+    Effect.gen(function* () {
+      const policy = yield* RedactionPolicy
+
+      expect(policy.redact(`secret ${secret} and goal-42`)).toBe("secret [redacted] and [redacted]")
+    }).pipe(Effect.provide(RedactionPolicy.layer(runtimeConfig))),
+  )
 })
 
 describe("redactingLogger", () => {
   effectIt.effect("renders timestamped, level-prefixed lines with sensitive values redacted", () =>
     Effect.gen(function* () {
-      configureLoggingSecrets()
       const lines: Array<string> = []
       const program = Effect.gen(function* () {
         yield* Effect.logInfo(`Connecting with password ${secret}`)
@@ -91,7 +148,7 @@ describe("redactingLogger", () => {
       })
 
       yield* program.pipe(
-        Effect.provide(Logger.layer([redactingLogger])),
+        Effect.provide(Logger.layer([redactingLoggerFor()])),
         Effect.provideService(Console.Console, captureConsole(lines)),
       )
 
@@ -108,14 +165,13 @@ describe("redactingLogger", () => {
 
   effectIt.effect("redacts annotation values", () =>
     Effect.gen(function* () {
-      configureLoggingSecrets()
       const lines: Array<string> = []
       const program = Effect.gen(function* () {
         yield* Effect.logInfo("creating goal").pipe(Effect.annotateLogs({ goalId: "goal-42" }))
       })
 
       yield* program.pipe(
-        Effect.provide(Logger.layer([redactingLogger])),
+        Effect.provide(Logger.layer([redactingLoggerFor()])),
         Effect.provideService(Console.Console, captureConsole(lines)),
       )
 
@@ -128,14 +184,13 @@ describe("redactingLogger", () => {
 
   effectIt.effect("redacts secrets split across message parts", () =>
     Effect.gen(function* () {
-      configureLoggingSecrets()
       const lines: Array<string> = []
       const program = Effect.gen(function* () {
         yield* Effect.logInfo("password is", secret, "on", "goal-42")
       })
 
       yield* program.pipe(
-        Effect.provide(Logger.layer([redactingLogger])),
+        Effect.provide(Logger.layer([redactingLoggerFor()])),
         Effect.provideService(Console.Console, captureConsole(lines)),
       )
 
@@ -148,9 +203,29 @@ describe("redactingLogger", () => {
 })
 
 describe("reportUnhandledFailure", () => {
+  effectIt.effect("logs defects from a cause, not just typed failures", () =>
+    Effect.gen(function* () {
+      const lines: Array<string> = []
+      const program = Effect.die(new Error(`config exploded with ${secret}`)).pipe(
+        Effect.tapCause(reportUnhandledFailure),
+        Effect.catchCause(() => Effect.void),
+      )
+
+      yield* program.pipe(
+        Effect.provide(Logger.layer([redactingLoggerFor()])),
+        Effect.provideService(Console.Console, captureConsole(lines)),
+      )
+
+      expect(lines).toHaveLength(1)
+      expect(lines[0]).toMatch(
+        /^\[\d{2}:\d{2}:\d{2}\.\d{3}\] ERROR: Error: config exploded with \[redacted\]/,
+      )
+      expect(lines[0]).not.toContain(secret)
+    }),
+  )
+
   effectIt.effect("reports non-interrupt failures through the redacting logger", () =>
     Effect.gen(function* () {
-      configureLoggingSecrets()
       const lines: Array<string> = []
       const program = Effect.fail(
         new UnexpectedFailure({ cause: new Error(`unexpected ${secret}`) }),
@@ -160,7 +235,7 @@ describe("reportUnhandledFailure", () => {
       )
 
       yield* program.pipe(
-        Effect.provide(Logger.layer([redactingLogger])),
+        Effect.provide(Logger.layer([redactingLoggerFor()])),
         Effect.provideService(Console.Console, captureConsole(lines)),
       )
 
@@ -174,7 +249,6 @@ describe("reportUnhandledFailure", () => {
 
   effectIt.effect("stays silent for interrupt-only causes", () =>
     Effect.gen(function* () {
-      configureLoggingSecrets()
       const lines: Array<string> = []
       const program = Effect.interrupt.pipe(
         Effect.tapCause(reportUnhandledFailure),
@@ -182,7 +256,7 @@ describe("reportUnhandledFailure", () => {
       )
 
       yield* program.pipe(
-        Effect.provide(Logger.layer([redactingLogger])),
+        Effect.provide(Logger.layer([redactingLoggerFor()])),
         Effect.provideService(Console.Console, captureConsole(lines)),
       )
 

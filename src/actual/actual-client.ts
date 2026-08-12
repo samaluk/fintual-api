@@ -1,7 +1,6 @@
 import * as api from "@actual-app/api"
-import { Context, Effect, Layer, Predicate } from "effect"
+import { Context, Effect, Layer, Predicate, Redacted } from "effect"
 import type { ActualConfig } from "../env.ts"
-import { revealSecret } from "../log.ts"
 import type {
   ExistingVariationTransaction,
   VariationTransactionInput,
@@ -65,7 +64,7 @@ export class ActualClientFactory extends Context.Service<
             api.init({
               dataDir: ACTUAL_DATA_DIR,
               serverURL: config.serverUrl,
-              password: revealSecret(config.password),
+              password: Redacted.value(config.password),
               verbose: false,
             } satisfies ActualInitConfig),
           catch: (cause) =>

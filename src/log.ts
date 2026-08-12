@@ -1,64 +1,81 @@
 import { inspect } from "node:util"
-import { Predicate, Redacted } from "effect"
+import { Context, Layer, Predicate, Redacted } from "effect"
 import type { RuntimeConfig } from "./env.ts"
 
-let configuredRedactionSecrets = new Set<string>()
+const EMAIL_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi
 
-export function configureSensitiveValues(config: RuntimeConfig): void {
-  configuredRedactionSecrets = new Set(
+export class RedactionPolicy extends Context.Service<
+  RedactionPolicy,
+  {
+    readonly redact: (value: string) => string
+  }
+>()("fintual-api/RedactionPolicy") {
+  static readonly layer = (config: RuntimeConfig): Layer.Layer<RedactionPolicy, never, never> =>
+    Layer.succeed(RedactionPolicy, RedactionPolicy.fromConfig(config))
+
+  static readonly fromConfig = (config: RuntimeConfig): RedactionPolicy["Service"] => {
+    const sensitiveValues = collectSensitiveValues(config)
+    return RedactionPolicy.of({
+      redact: (value) => redactSensitiveText(value, sensitiveValues),
+    })
+  }
+
+  static readonly empty: RedactionPolicy["Service"] = (() => {
+    const sensitiveValues = new Set<string>()
+    return RedactionPolicy.of({
+      redact: (value) => redactSensitiveText(value, sensitiveValues),
+    })
+  })()
+}
+
+function collectSensitiveValues(config: RuntimeConfig): ReadonlySet<string> {
+  const email2FA = config.fintual.email2FA
+  return new Set(
     [
       config.actual.serverUrl,
+      Redacted.value(config.actual.password),
       config.actual.syncId,
       config.actual.fintualAccount,
       config.fintual.email,
+      Redacted.value(config.fintual.password),
       config.fintual.goalId,
-      config.fintual.email2FA?.userEmail,
+      email2FA?.userEmail,
+      email2FA ? Redacted.value(email2FA.appPassword) : undefined,
     ].filter((value): value is string => Boolean(value)),
   )
 }
 
-export function revealSecret(secret: Redacted.Redacted<string>): string {
-  const value = Redacted.value(secret)
-  if (value) {
-    configuredRedactionSecrets.add(value)
-  }
-  return value
-}
-
+// Error rendering keeps the original cause evidence; redaction is applied once
+// by the logging render edge so no construction path becomes a second boundary.
 export function getErrorMessage(error: unknown): string {
   if (error instanceof Error && error.message) {
-    return redactSensitiveText(error.message)
+    return error.message
   }
 
   if (Predicate.isObject(error)) {
     const structuredMessage = getStructuredErrorMessage(error)
     if (structuredMessage) {
-      return redactSensitiveText(structuredMessage)
+      return structuredMessage
     }
 
-    return redactSensitiveText(inspect(error, { depth: 3, breakLength: Number.POSITIVE_INFINITY }))
+    return inspect(error, { depth: 3, breakLength: Number.POSITIVE_INFINITY })
   }
 
   if (typeof error === "string" && error.trim()) {
-    return redactSensitiveText(error)
+    return error
   }
 
   return "Unknown error"
 }
 
-export function redactSensitiveText(value: string): string {
+function redactSensitiveText(value: string, sensitiveValues: ReadonlySet<string>): string {
   let redactedValue = value
 
-  for (const sensitiveValue of configuredRedactionSecrets) {
+  for (const sensitiveValue of sensitiveValues) {
     redactedValue = redactedValue.split(sensitiveValue).join("[redacted]")
   }
 
-  redactedValue = redactedValue.replaceAll(
-    /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi,
-    "[redacted email]",
-  )
-
-  return redactedValue
+  return redactedValue.replaceAll(EMAIL_PATTERN, "[redacted email]")
 }
 
 function getStructuredErrorMessage(error: Record<string, unknown>): string {
