@@ -1,6 +1,7 @@
 import { it } from "@effect/vitest"
 import { Effect, Redacted, Result } from "effect"
 import { expect } from "vitest"
+
 import { resolveRuntimeConfig, RuntimeConfigError, type Environment } from "./env.ts"
 
 function requiredEnvironment(): Environment {

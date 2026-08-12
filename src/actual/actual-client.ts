@@ -1,10 +1,7 @@
 import * as api from "@actual-app/api"
 import { Context, Effect, Layer, Predicate, Redacted } from "effect"
+
 import type { ActualConfig } from "../env.ts"
-import type {
-  ExistingVariationTransaction,
-  VariationTransactionInput,
-} from "./reconciliation-policy.ts"
 import {
   ActualBudgetDownloadFailure,
   ActualDuplicateDeletionFailure,
@@ -16,6 +13,10 @@ import {
   ActualTransactionUpdateFailure,
   ActualTransactionsReadFailure,
 } from "./actual-error.ts"
+import type {
+  ExistingVariationTransaction,
+  VariationTransactionInput,
+} from "./reconciliation-policy.ts"
 
 const ACTUAL_DATA_DIR = "./tmp/actual-data"
 

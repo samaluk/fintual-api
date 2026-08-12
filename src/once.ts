@@ -1,9 +1,11 @@
 import { pathToFileURL } from "node:url"
+
 import { NodeRuntime } from "@effect/platform-node"
 import { config as loadDotEnv } from "dotenv"
 import { Array as EffectArray, Cause, Effect, Formatter, Logger, References } from "effect"
-import { resolveRuntimeConfig, type RuntimeConfig, type RuntimeConfigError } from "./env.ts"
+
 import type { ActualError } from "./actual.ts"
+import { resolveRuntimeConfig, type RuntimeConfig, type RuntimeConfigError } from "./env.ts"
 import type { FintualError } from "./fintual/fintual-error.ts"
 import { runJob } from "./job.ts"
 import { RedactionPolicy } from "./log.ts"

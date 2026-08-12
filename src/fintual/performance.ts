@@ -1,4 +1,5 @@
 import { Context, Effect, Layer, Option } from "effect"
+
 import { FintualConfigService, type Email2FAConfig } from "../env.ts"
 import { getErrorMessage } from "../log.ts"
 import {

@@ -1,6 +1,7 @@
 import { it as effectIt } from "@effect/vitest"
 import { Cause, Console, Effect, Logger, Redacted, Schema } from "effect"
 import { describe, expect, it } from "vitest"
+
 import type { RuntimeConfig } from "./env.ts"
 import { getErrorMessage, RedactionPolicy } from "./log.ts"
 import { makeRedactingLogger, reportUnhandledFailure } from "./once.ts"

@@ -1,4 +1,5 @@
 import { Schema } from "effect"
+
 import { getErrorMessage } from "../log.ts"
 
 export class UnexpectedHttpStatus extends Schema.TaggedError<UnexpectedHttpStatus>()(

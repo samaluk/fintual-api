@@ -1,7 +1,9 @@
 import * as fs from "node:fs"
+
 import { Context, Effect, Layer, Schema } from "effect"
-import { getErrorMessage } from "./log.ts"
+
 import { SnapshotWriteFailure } from "./fintual/fintual-error.ts"
+import { getErrorMessage } from "./log.ts"
 
 const SNAPSHOT_DATA_DIR = "./tmp/fintual-data"
 export const PERFORMANCE_SNAPSHOT_PATH = `${SNAPSHOT_DATA_DIR}/balance-2.json`

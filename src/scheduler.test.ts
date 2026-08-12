@@ -13,6 +13,7 @@ import {
 } from "effect"
 import { TestClock } from "effect/testing"
 import { describe, expect } from "vitest"
+
 import { InvalidScheduleError, runScheduler, type SchedulerOptions } from "./scheduler.ts"
 
 function schedulerOptions(overrides: Partial<SchedulerOptions> = {}): SchedulerOptions {

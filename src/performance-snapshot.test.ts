@@ -1,8 +1,10 @@
 import * as fs from "node:fs"
 import * as path from "node:path"
+
 import { it } from "@effect/vitest"
 import { Effect } from "effect"
 import { expect } from "vitest"
+
 import { getErrorMessage } from "./log.ts"
 import {
   PERFORMANCE_SNAPSHOT_PATH,
