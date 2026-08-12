@@ -19,11 +19,17 @@ function schedulerOptions(overrides: Partial<SchedulerOptions> = {}): SchedulerO
   return { cron: "* * * * *", timezone: "UTC", noOverlap: false, ...overrides }
 }
 
-function capturingLogger(lines: Array<string>): Logger.Logger<unknown, void> {
-  return Logger.make(({ message }) => {
-    for (const part of EffectArray.ensure(message)) {
-      lines.push(typeof part === "string" ? part : Formatter.format(part))
-    }
+interface CapturedLog {
+  readonly level: string
+  readonly message: string
+}
+
+function capturingLogger(lines: Array<CapturedLog>): Logger.Logger<unknown, void> {
+  return Logger.make(({ logLevel, message }) => {
+    const parts = EffectArray.ensure(message).map((part) =>
+      typeof part === "string" ? part : Formatter.format(part),
+    )
+    lines.push({ level: logLevel, message: parts.join(" ") })
   })
 }
 
@@ -87,7 +93,7 @@ describe("runScheduler", () => {
 
   it.effect("logs a failed tick and continues to the next occurrence", () =>
     Effect.gen(function* () {
-      const lines: Array<string> = []
+      const lines: Array<CapturedLog> = []
       const attempts = yield* Ref.make(0)
       const job = Effect.gen(function* () {
         const attempt = yield* Ref.updateAndGet(attempts, (n) => n + 1)
@@ -104,7 +110,7 @@ describe("runScheduler", () => {
 
       yield* TestClock.adjust("1 minute")
       expect(yield* Ref.get(attempts)).toBe(2)
-      expect(lines.join("\n")).toContain("Scheduled run failed")
+      expect(lines.map((line) => line.level)).toContain("Error")
 
       yield* Fiber.interrupt(fiber)
     }),
@@ -132,24 +138,33 @@ describe("runScheduler", () => {
 
   it.effect("prevents a concurrent run when no-overlap is enabled", () =>
     Effect.gen(function* () {
+      const lines: Array<CapturedLog> = []
       const attempts = yield* Ref.make(0)
+      const started = yield* Deferred.make<void>()
       const release = yield* Deferred.make<void>()
+      const done = yield* Deferred.make<void>()
       const job = Effect.gen(function* () {
         yield* Ref.update(attempts, (n) => n + 1)
+        yield* Deferred.succeed(started, undefined)
         yield* Deferred.await(release)
+        yield* Deferred.succeed(done, undefined)
       })
       const fiber = yield* Effect.forkChild(
-        runScheduler(job, schedulerOptions({ noOverlap: true })),
+        runScheduler(job, schedulerOptions({ noOverlap: true })).pipe(
+          Effect.provide(Logger.layer([capturingLogger(lines)])),
+        ),
       )
 
       yield* TestClock.adjust("1 minute")
+      yield* Deferred.await(started)
       expect(yield* Ref.get(attempts)).toBe(1)
 
       yield* TestClock.adjust("1 minute")
       expect(yield* Ref.get(attempts)).toBe(1)
+      expect(lines.map((line) => line.level)).toContain("Warn")
 
       yield* Deferred.succeed(release, undefined)
-      yield* Effect.yieldNow
+      yield* Deferred.await(done)
 
       yield* TestClock.adjust("1 minute")
       expect(yield* Ref.get(attempts)).toBe(2)
