@@ -59,10 +59,22 @@ export const runApplication = Effect.fn("Main.runApplication")(function* (
   yield* job.run(runtimeConfig)
 })
 
-const main = Effect.fn("Main.main")(function* (): Effect.fn.Return<
-  void,
-  RuntimeConfigError | RunApplicationError
-> {
+export const runOnce = Effect.fn("Once.runOnce")(function* (
+  runtimeConfig: RuntimeConfig,
+): Effect.fn.Return<void, ActualError | FintualError, RunJobService> {
+  yield* Effect.logInfo("Running task once...")
+  const job = yield* RunJobService
+  yield* job.run(runtimeConfig)
+  yield* Effect.logInfo("Task completed.")
+})
+
+type ApplicationProgram = (
+  runtimeConfig: RuntimeConfig,
+) => Effect.Effect<void, RunApplicationError, RunJobService | SchedulerService>
+
+const runProcess = Effect.fn("Main.runProcess")(function* (
+  buildProgram: ApplicationProgram,
+): Effect.fn.Return<void, RuntimeConfigError | RunApplicationError> {
   const runtimeConfig = yield* resolveRuntimeConfig(process.env).pipe(
     Effect.tapCause((cause) =>
       reportUnhandledFailure(cause).pipe(
@@ -70,7 +82,7 @@ const main = Effect.fn("Main.main")(function* (): Effect.fn.Return<
       ),
     ),
   )
-  yield* runApplication(runtimeConfig).pipe(
+  yield* buildProgram(runtimeConfig).pipe(
     Effect.tapCause(reportUnhandledFailure),
     Effect.provide(
       RunJobService.live.pipe(
@@ -79,6 +91,14 @@ const main = Effect.fn("Main.main")(function* (): Effect.fn.Return<
       ),
     ),
   )
+})
+
+export const main = Effect.fn("Main.main")(function* () {
+  return yield* runProcess(runApplication)
+})
+
+export const mainOnce = Effect.fn("Once.main")(function* () {
+  return yield* runProcess(runOnce)
 })
 
 function isMainModule(): boolean {

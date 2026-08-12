@@ -15,17 +15,30 @@ export class InvalidScheduleError extends Schema.TaggedError<InvalidScheduleErro
   },
 ) {}
 
+export const parseSchedule = (
+  cron: string,
+  timezone: string,
+): Result.Result<Cron.Cron, InvalidScheduleError> => {
+  const parsed = Cron.parse(cron, timezone)
+  if (Result.isFailure(parsed)) {
+    return Result.fail(
+      new InvalidScheduleError({
+        message: parsed.failure.message,
+        input: parsed.failure.input ?? cron,
+        cause: parsed.failure,
+      }),
+    )
+  }
+  return Result.succeed(parsed.success)
+}
+
 export const runScheduler = Effect.fn("Scheduler.run")(function* (
   job: Effect.Effect<unknown, unknown>,
   options: SchedulerOptions,
 ): Effect.fn.Return<never, InvalidScheduleError> {
-  const parsed = Cron.parse(options.cron, options.timezone)
+  const parsed = parseSchedule(options.cron, options.timezone)
   if (Result.isFailure(parsed)) {
-    return yield* new InvalidScheduleError({
-      message: parsed.failure.message,
-      input: parsed.failure.input ?? options.cron,
-      cause: parsed.failure,
-    })
+    return yield* parsed.failure
   }
 
   const cron = parsed.success

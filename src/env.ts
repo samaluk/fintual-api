@@ -1,14 +1,6 @@
-import {
-  Config,
-  ConfigProvider,
-  Context,
-  Cron,
-  Effect,
-  Option,
-  Redacted,
-  Result,
-  Schema,
-} from "effect"
+import { Config, ConfigProvider, Context, Effect, Option, Redacted, Result, Schema } from "effect"
+
+import { parseSchedule, type SchedulerOptions } from "./scheduler.ts"
 
 export class RuntimeConfigError extends Schema.TaggedError<RuntimeConfigError>()(
   "RuntimeConfigError",
@@ -45,11 +37,8 @@ export interface FintualConfig {
 
 export type RunMode = "once" | "schedule"
 
-export interface ScheduleConfig {
+export interface ScheduleConfig extends SchedulerOptions {
   mode: RunMode
-  cron: string
-  timezone: string
-  noOverlap: boolean
 }
 
 export class FintualConfigService extends Context.Service<FintualConfigService, FintualConfig>()(
@@ -139,7 +128,7 @@ const resolveScheduleConfig = Effect.fn("RuntimeConfig.resolveScheduleConfig")(f
   readonly syncTimezone: string
   readonly syncNoOverlap: boolean
 }): Effect.fn.Return<ScheduleConfig, RuntimeConfigError> {
-  const parsed = Cron.parse(values.syncCron, values.syncTimezone)
+  const parsed = parseSchedule(values.syncCron, values.syncTimezone)
   if (Result.isFailure(parsed)) {
     return yield* new RuntimeConfigError({
       message: parsed.failure.message,

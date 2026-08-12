@@ -3,13 +3,13 @@ import { Deferred, Effect, Fiber, Layer, Ref } from "effect"
 import { expect } from "vitest"
 
 import type { ActualError } from "./actual.ts"
-import type { RuntimeConfig } from "./env.ts"
+import type { RunMode, RuntimeConfig } from "./env.ts"
 import type { FintualError } from "./fintual/fintual-error.ts"
 import { runtimeConfig } from "./log-test-fixtures.ts"
-import { RunJobService, runApplication, SchedulerService } from "./main.ts"
+import { RunJobService, runApplication, runOnce, SchedulerService } from "./main.ts"
 import type { SchedulerOptions } from "./scheduler.ts"
 
-function runtimeConfigFor(mode: "once" | "schedule"): RuntimeConfig {
+function runtimeConfigFor(mode: RunMode): RuntimeConfig {
   return {
     ...runtimeConfig,
     schedule: {
@@ -33,6 +33,19 @@ it.effect("runs exactly one synchronization attempt in once mode", () =>
     yield* runApplication(runtimeConfigFor("once")).pipe(
       Effect.provide(job.pipe(Layer.merge(scheduler))),
     )
+
+    expect(yield* Ref.get(attempts)).toBe(1)
+  }),
+)
+
+it.effect("runs exactly one synchronization attempt through the one-shot program", () =>
+  Effect.gen(function* () {
+    const attempts = yield* Ref.make(0)
+    const job = Layer.succeed(RunJobService, {
+      run: () => Ref.update(attempts, (n) => n + 1),
+    })
+
+    yield* runOnce(runtimeConfigFor("once")).pipe(Effect.provide(job))
 
     expect(yield* Ref.get(attempts)).toBe(1)
   }),
