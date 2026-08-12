@@ -104,10 +104,29 @@ describe("RedactionPolicy", () => {
   })
 
   it("captures the sensitive snapshot once when the policy is built", () => {
-    const policy = RedactionPolicy.fromConfig(runtimeConfig)
-    const value = "value that must not be added later"
+    const config: RuntimeConfig = {
+      actual: {
+        serverUrl: "http://localhost:5006",
+        password: Redacted.make(secret),
+        syncId: "sync-before-build",
+        fintualAccount: "fintual-account",
+        startingDate: "2024-03-01",
+        payee: "Fintual",
+      },
+      fintual: {
+        email: "user@example.com",
+        password: Redacted.make("fintual-pass"),
+        goalId: "goal-42",
+        email2FA: null,
+      },
+    }
+    const policy = RedactionPolicy.fromConfig(config)
 
-    expect(policy.redact(value)).toBe(value)
+    config.actual.syncId = "sync-added-after-build"
+
+    expect(policy.redact("sync-before-build sync-added-after-build")).toBe(
+      "[redacted] sync-added-after-build",
+    )
   })
 
   effectIt.effect("provides an immutable policy layer from the validated runtime config", () =>
