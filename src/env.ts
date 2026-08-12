@@ -19,6 +19,10 @@ export interface ActualConfig {
   payee: string
 }
 
+export class ActualConfigService extends Context.Service<ActualConfigService, ActualConfig>()(
+  "ActualConfig",
+) {}
+
 export interface Email2FAConfig {
   userEmail: string
   appPassword: Redacted.Redacted<string>

@@ -7,7 +7,7 @@ import { ActualFileSystem } from "./actual/actual-file-system.ts"
 import { ActualHealthCheck } from "./actual/actual-health-check.ts"
 import { planReconciliation } from "./actual/reconciliation-policy.ts"
 import { ActualRetryPolicy } from "./actual/retry-policy.ts"
-import type { ActualConfig } from "./env.ts"
+import { ActualConfigService, type ActualConfig } from "./env.ts"
 import { getErrorMessage } from "./log.ts"
 import type { PerformanceSnapshot } from "./performance-snapshot.ts"
 
@@ -18,10 +18,6 @@ interface SyncCounts {
   readonly updated: number
   readonly deletedDuplicates: number
 }
-
-export class ActualConfigService extends Context.Service<ActualConfigService, ActualConfig>()(
-  "ActualConfig",
-) {}
 
 export class ActualSynchronization extends Context.Service<
   ActualSynchronization,

@@ -16,7 +16,7 @@ const actualApiMock = vi.hoisted(() => ({
 }))
 
 vi.mock("@actual-app/api", () => actualApiMock)
-import { ActualConfigService, ActualSynchronization } from "./actual.ts"
+import { ActualSynchronization } from "./actual.ts"
 import { ActualClientFactory, type ActualClient } from "./actual/actual-client.ts"
 import {
   ActualBudgetDownloadFailure,
@@ -27,7 +27,7 @@ import type { ActualError } from "./actual/actual-error.ts"
 import { ActualFileSystem } from "./actual/actual-file-system.ts"
 import { ActualHealthCheck } from "./actual/actual-health-check.ts"
 import { ActualRetryPolicy } from "./actual/retry-policy.ts"
-import type { ActualConfig } from "./env.ts"
+import { ActualConfigService, type ActualConfig } from "./env.ts"
 import type { PerformanceSnapshot } from "./performance-snapshot.ts"
 
 afterEach(() => {
