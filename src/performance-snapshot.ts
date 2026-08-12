@@ -14,7 +14,7 @@ export class SnapshotWriter extends Context.Service<
     write: (snapshot: PerformanceSnapshot) => Effect.Effect<void, SnapshotWriteFailure>
   }
 >()("SnapshotWriter") {
-  static readonly layer = Layer.sync(SnapshotWriter, () =>
+  static readonly live = Layer.sync(SnapshotWriter, () =>
     SnapshotWriter.of({
       write: Effect.fn("SnapshotWriter.write")(function* (snapshot) {
         return yield* writePerformanceSnapshot(snapshot)
