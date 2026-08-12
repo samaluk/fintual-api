@@ -1,12 +1,11 @@
 import { expect, test } from "vitest"
 
+import { planReconciliation, type BalanceEntry } from "./reconciliation-policy.ts"
 import {
   VARIATION_IMPORTED_ID_PREFIX,
   VARIATION_NOTES,
-  planReconciliation,
-  type BalanceEntry,
   type ExistingVariationTransaction,
-} from "./reconciliation-policy.ts"
+} from "./variation-transaction.ts"
 
 function balanceEntry(date: string, realDifference: number, timestampOffsetMs = 0): BalanceEntry {
   return {
@@ -174,30 +173,4 @@ test("keeps the latest timestamp when the balance file has duplicate dates", () 
     "Fintual balance data contains 2 entries for 2026-01-05. Keeping latest timestamp " +
       `${Date.parse("2026-01-05T00:00:00Z") + 3600_000}.`,
   ])
-})
-
-test("groups a legacy numeric imported id under its date even when the date field is stale", () => {
-  const plan = planReconciliation({
-    balanceEntries: [balanceEntry("2026-01-05", 2.49)],
-    existingTransactions: [
-      existingTransaction("legacy-1", "2020-01-01", {
-        importedId: String(Date.parse("2026-01-05T00:00:00Z")),
-      }),
-    ],
-  })
-
-  expect(plan.actions).toEqual([update("legacy-1", variationTransaction("2026-01-05", 200))])
-})
-
-test("skips managed-looking transactions whose date cannot be derived", () => {
-  const plan = planReconciliation({
-    balanceEntries: [balanceEntry("2026-01-05", 2.49)],
-    existingTransactions: [
-      existingTransaction("undated-1", "not-a-date", {
-        importedId: "not-a-date",
-      }),
-    ],
-  })
-
-  expect(plan.actions).toEqual([create(variationTransaction("2026-01-05", 200))])
 })

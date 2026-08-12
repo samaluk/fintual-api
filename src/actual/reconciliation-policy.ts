@@ -1,26 +1,13 @@
-export const VARIATION_NOTES = "Variation"
-export const VARIATION_IMPORTED_ID_PREFIX = "fintual-variation:"
+import {
+  VARIATION_IMPORTED_ID_PREFIX,
+  VARIATION_NOTES,
+  type ExistingVariationTransaction,
+  type VariationTransactionInput,
+} from "./variation-transaction.ts"
 
 export interface BalanceEntry {
   date: number
   real_difference: number
-}
-
-export interface ExistingVariationTransaction {
-  id: string
-  date?: string
-  notes?: string
-  payee?: string | null
-  imported_id?: string
-}
-
-export interface VariationTransactionInput {
-  date: string
-  amount: number
-  payee?: string
-  notes: string
-  imported_id: string
-  cleared: boolean
 }
 
 export type ReconciliationAction =
@@ -138,14 +125,9 @@ function groupVariationTransactionsByDate(
       continue
     }
 
-    const date = getVariationTransactionDate(transaction)
-    if (!date) {
-      continue
-    }
-
-    const dateTransactions = transactionsByDate.get(date) ?? []
+    const dateTransactions = transactionsByDate.get(transaction.date) ?? []
     dateTransactions.push(transaction)
-    transactionsByDate.set(date, dateTransactions)
+    transactionsByDate.set(transaction.date, dateTransactions)
   }
 
   return transactionsByDate
@@ -156,25 +138,6 @@ function isManagedVariationTransaction(
   payeeId: string | undefined,
 ): boolean {
   return transaction.notes === VARIATION_NOTES && (!payeeId || transaction.payee === payeeId)
-}
-
-function getVariationTransactionDate(transaction: ExistingVariationTransaction): string | null {
-  if (transaction.imported_id?.startsWith(VARIATION_IMPORTED_ID_PREFIX)) {
-    const date = transaction.imported_id.slice(VARIATION_IMPORTED_ID_PREFIX.length)
-    if (isIsoDate(date)) {
-      return date
-    }
-  }
-
-  if (transaction.imported_id && isNumericTimestamp(transaction.imported_id)) {
-    return toIsoDate(Number(transaction.imported_id))
-  }
-
-  if (transaction.date && isIsoDate(transaction.date)) {
-    return transaction.date
-  }
-
-  return null
 }
 
 function getCanonicalVariationTransaction(
@@ -198,12 +161,4 @@ function getDeleteActions(
 
 function toIsoDate(timestamp: number): string {
   return new Date(timestamp).toISOString().split("T")[0]
-}
-
-function isIsoDate(value: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value)
-}
-
-function isNumericTimestamp(value: string): boolean {
-  return /^\d+$/.test(value)
 }

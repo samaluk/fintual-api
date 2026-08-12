@@ -29,6 +29,7 @@ import type { ActualError } from "./actual/actual-error.ts"
 import { ActualFileSystem } from "./actual/actual-file-system.ts"
 import { ActualHealthCheck } from "./actual/actual-health-check.ts"
 import { ActualRetryPolicy } from "./actual/retry-policy.ts"
+import type { ExistingVariationTransaction } from "./actual/variation-transaction.ts"
 import { ActualConfigService, type ActualConfig } from "./env.ts"
 import type { PerformanceSnapshot } from "./performance-snapshot.ts"
 
@@ -335,13 +336,7 @@ function synchronizationProgram(
 function scriptedClient(
   calls: string[],
   options: {
-    transactions?: ReadonlyArray<{
-      id: string
-      date?: string
-      notes?: string
-      payee?: string | null
-      imported_id?: string
-    }>
+    transactions?: ReadonlyArray<ExistingVariationTransaction>
     create?: ActualClient["createTransaction"]
     download?: ActualClient["downloadBudget"]
     onTransactions?: (startDate: string, endDate: string) => void
