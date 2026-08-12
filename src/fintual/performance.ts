@@ -61,7 +61,7 @@ export class FintualPerformance extends Context.Service<
       return FintualPerformance.layer.pipe(
         Layer.provide(FintualProvider.layer),
         Layer.provide(config.email2FA ? Email2FAService.live : Layer.empty),
-        Layer.provide(SnapshotWriter.layer),
+        Layer.provide(SnapshotWriter.live),
       )
     }),
   )

@@ -184,8 +184,8 @@ export class ImapClientFactory extends Context.Service<
   {
     readonly create: (config: Email2FAConfig) => ImapClient
   }
->()("Email2FA/ImapClientFactory") {}
-
-export const ImapClientFactoryLive = Layer.succeed(ImapClientFactory, {
-  create: createImapClient,
-})
+>()("Email2FA/ImapClientFactory") {
+  static readonly live = Layer.succeed(ImapClientFactory, {
+    create: createImapClient,
+  })
+}

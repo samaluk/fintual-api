@@ -4,7 +4,6 @@ import { FintualConfigService, type Email2FAConfig } from "../env.ts"
 import { getErrorMessage } from "../log.ts"
 import {
   ImapClientFactory,
-  ImapClientFactoryLive,
   ImapMailboxLockFailure,
   ImapOperationFailure,
   MissingServerExtension,
@@ -78,7 +77,7 @@ export class Email2FAService extends Context.Service<
     }),
   )
 
-  static readonly live = Email2FAService.layer.pipe(Layer.provide(ImapClientFactoryLive))
+  static readonly live = Email2FAService.layer.pipe(Layer.provide(ImapClientFactory.live))
 }
 
 const retrieveEmail2FACode = Effect.fn("Email2FA.retrieveEmail2FACode")(function* (
