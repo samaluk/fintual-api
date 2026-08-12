@@ -173,8 +173,8 @@ export class FintualProvider extends Context.Service<
   FintualProvider,
   {
     signIn: (requestCode: RequestCode) => Effect.Effect<void, FintualError>
-    fetchReferenceGoalPerformanceData: () => Effect.Effect<GoalPerformanceData, FintualError>
-    fetchRecentGoalPerformanceData: () => Effect.Effect<GoalPerformanceData, FintualError>
+    fetchReferenceGoalPerformanceData: Effect.Effect<GoalPerformanceData, FintualError>
+    fetchRecentGoalPerformanceData: Effect.Effect<GoalPerformanceData, FintualError>
   }
 >()("FintualProvider") {
   static readonly layer = Layer.effect(
@@ -198,26 +198,18 @@ export class FintualProvider extends Context.Service<
         signIn: Effect.fn("FintualProvider.signIn")(function* (requestCode: RequestCode) {
           yield* authenticate(session, config, requestCode)
         }),
-        fetchReferenceGoalPerformanceData: Effect.fn(
-          "FintualProvider.fetchReferenceGoalPerformanceData",
-        )(function* () {
-          return yield* fetchGoalPerformanceData(
-            session,
-            config.goalId,
-            TimeIntervalCode.LastSixMonths,
-            "reference",
-          )
-        }),
-        fetchRecentGoalPerformanceData: Effect.fn("FintualProvider.fetchRecentGoalPerformanceData")(
-          function* () {
-            return yield* fetchGoalPerformanceData(
-              session,
-              config.goalId,
-              TimeIntervalCode.LastMonth,
-              "recent",
-            )
-          },
-        ),
+        fetchReferenceGoalPerformanceData: fetchGoalPerformanceData(
+          session,
+          config.goalId,
+          TimeIntervalCode.LastSixMonths,
+          "reference",
+        ).pipe(Effect.withSpan("FintualProvider.fetchReferenceGoalPerformanceData")),
+        fetchRecentGoalPerformanceData: fetchGoalPerformanceData(
+          session,
+          config.goalId,
+          TimeIntervalCode.LastMonth,
+          "recent",
+        ).pipe(Effect.withSpan("FintualProvider.fetchRecentGoalPerformanceData")),
       })
     }),
   ).pipe(

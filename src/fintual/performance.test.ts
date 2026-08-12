@@ -41,7 +41,7 @@ interface TestOverrides {
 function performanceProgram(overrides: TestOverrides = {}) {
   const program = Effect.gen(function* () {
     const service = yield* FintualPerformance
-    return yield* service.fetchPerformanceSnapshot()
+    return yield* service.fetchPerformanceSnapshot
   })
 
   return program.pipe(
@@ -51,12 +51,10 @@ function performanceProgram(overrides: TestOverrides = {}) {
       signIn: overrides.signIn ?? (() => Effect.void),
       fetchReferenceGoalPerformanceData:
         overrides.fetchReference ??
-        (() =>
-          Effect.succeed(goalPerformanceData("2026-01-01", { costBasis: 80, valuation: 100 }))),
+        Effect.succeed(goalPerformanceData("2026-01-01", { costBasis: 80, valuation: 100 })),
       fetchRecentGoalPerformanceData:
         overrides.fetchRecent ??
-        (() =>
-          Effect.succeed(goalPerformanceData("2026-07-01", { costBasis: 90, valuation: 115 }))),
+        Effect.succeed(goalPerformanceData("2026-07-01", { costBasis: 90, valuation: 115 })),
     }),
     Effect.provideService(Email2FAService, {
       get2FACode: overrides.get2FACode ?? (() => Effect.succeed(Email2FACode.make("123456"))),
@@ -115,7 +113,7 @@ it.effect("builds the live layer without Email 2FA configuration", () =>
   Effect.gen(function* () {
     const service = yield* FintualPerformance
 
-    expect(service.fetchPerformanceSnapshot).toBeTypeOf("function")
+    expect(Effect.isEffect(service.fetchPerformanceSnapshot)).toBe(true)
   }).pipe(
     Effect.provide(FintualPerformance.live),
     Effect.provideService(FintualConfigService, { ...CONFIG, email2FA: null }),
@@ -299,13 +297,12 @@ describe("fails when Goal Performance Data is unavailable", () => {
     Effect.gen(function* () {
       const error = yield* Effect.flip(
         performanceProgram({
-          fetchReference: () =>
-            Effect.fail(
-              new MalformedGoalPerformanceData({
-                purpose: "reference",
-                cause: new Error("malformed response"),
-              }),
-            ),
+          fetchReference: Effect.fail(
+            new MalformedGoalPerformanceData({
+              purpose: "reference",
+              cause: new Error("malformed response"),
+            }),
+          ),
         }),
       )
 
@@ -323,13 +320,12 @@ describe("fails when Goal Performance Data is unavailable", () => {
     Effect.gen(function* () {
       const error = yield* Effect.flip(
         performanceProgram({
-          fetchRecent: () =>
-            Effect.fail(
-              new UnexpectedHttpStatus({
-                stage: "Fintual recent Goal Performance Data",
-                status: 503,
-              }),
-            ),
+          fetchRecent: Effect.fail(
+            new UnexpectedHttpStatus({
+              stage: "Fintual recent Goal Performance Data",
+              status: 503,
+            }),
+          ),
         }),
       )
 
@@ -345,13 +341,12 @@ describe("fails when Goal Performance Data is unavailable", () => {
     Effect.gen(function* () {
       const error = yield* Effect.flip(
         performanceProgram({
-          fetchReference: () =>
-            Effect.fail(
-              new HttpTransportFailure({
-                stage: "Fintual reference Goal Performance Data",
-                cause: new Error("connection reset"),
-              }),
-            ),
+          fetchReference: Effect.fail(
+            new HttpTransportFailure({
+              stage: "Fintual reference Goal Performance Data",
+              cause: new Error("connection reset"),
+            }),
+          ),
         }),
       )
 
@@ -367,7 +362,7 @@ it.effect("fails with MalformedPerformanceSnapshot when the fold output is inval
   Effect.gen(function* () {
     const error = yield* Effect.flip(
       performanceProgram({
-        fetchRecent: () => Effect.succeed({ balanceGraphDataPoints: [] }),
+        fetchRecent: Effect.succeed({ balanceGraphDataPoints: [] }),
       }),
     )
 
