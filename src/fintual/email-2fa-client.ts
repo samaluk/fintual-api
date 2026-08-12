@@ -1,7 +1,7 @@
-import { Context, Effect, Layer, Predicate, Schema } from "effect"
+import { Context, Effect, Layer, Predicate, Redacted, Schema } from "effect"
 import { ImapFlow, type SearchObject } from "imapflow"
 import type { Email2FAConfig } from "../env.ts"
-import { getErrorMessage, revealSecret } from "../log.ts"
+import { getErrorMessage } from "../log.ts"
 
 export interface ImapMailboxLock {
   release(): void
@@ -182,7 +182,7 @@ function createImapClient(config: Email2FAConfig): ImapClient {
       secure: true,
       auth: {
         user: config.userEmail,
-        pass: revealSecret(config.appPassword),
+        pass: Redacted.value(config.appPassword),
       },
       logger: false,
     }),

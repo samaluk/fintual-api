@@ -1,6 +1,6 @@
-import { Context, DateTime, Effect, Layer, Predicate, Schema } from "effect"
+import { Context, DateTime, Effect, Layer, Predicate, Redacted, Schema } from "effect"
 import { FintualConfigService, type FintualConfig } from "../env.ts"
-import { getErrorMessage, revealSecret } from "../log.ts"
+import { getErrorMessage } from "../log.ts"
 import type { Email2FACode, Operational, TimedOut } from "./email-2fa.ts"
 import {
   Email2FAFailure,
@@ -217,7 +217,7 @@ const authenticate = Effect.fn("FintualProvider.authenticate")(function* (
         "Content-Type": "application/json",
         Referer: `${FINTUAL_ORIGIN}/f/sign-in/`,
       },
-      body: JSON.stringify({ email: config.email, password: revealSecret(config.password) }),
+      body: JSON.stringify({ email: config.email, password: Redacted.value(config.password) }),
     },
     "Fintual login",
   )
@@ -261,7 +261,7 @@ const authenticate = Effect.fn("FintualProvider.authenticate")(function* (
       },
       body: JSON.stringify({
         email: config.email,
-        password: revealSecret(config.password),
+        password: Redacted.value(config.password),
         code,
       }),
     },
