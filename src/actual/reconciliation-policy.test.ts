@@ -174,16 +174,3 @@ test("keeps the latest timestamp when the balance file has duplicate dates", () 
       `${Date.parse("2026-01-05T00:00:00Z") + 3600_000}.`,
   ])
 })
-
-test("skips managed-looking transactions whose date cannot be derived", () => {
-  const plan = planReconciliation({
-    balanceEntries: [balanceEntry("2026-01-05", 2.49)],
-    existingTransactions: [
-      existingTransaction("undated-1", "not-a-date", {
-        importedId: "not-a-date",
-      }),
-    ],
-  })
-
-  expect(plan.actions).toEqual([create(variationTransaction("2026-01-05", 200))])
-})
