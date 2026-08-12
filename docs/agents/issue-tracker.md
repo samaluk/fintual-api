@@ -45,17 +45,21 @@ Run `gh issue view <number> --comments`.
 ## Spec lifecycle
 
 `/to-spec` publishes a plan; `/to-tickets` publishes the child tickets that
-implement it. A spec is done when every child ticket it produced is closed
-through its merged PR.
+implement it. A spec is resolved when every child ticket it produced is
+closed. Only a merged PR counts as landing; a child closed as `not_planned`
+or `duplicate` does not ship work.
 
 - Keep the spec open while any child ticket is open.
 - Each child closes through its PR with `Fixes #<child>` / `Closes #<child>`.
-- A child closed without landing (for example `not_planned` or `duplicate`)
-  does not complete the spec.
-- When the last child lands through a merged PR, close the parent spec. Prefer
-  putting `Closes #<spec>` in the final child's PR body so merge closes both.
-  If that was not done, close it explicitly:
+- When the last child lands through a merged PR, close the parent as complete.
+  Prefer putting `Closes #<spec>` in the final child's PR body so merge closes
+  both. If that was not done, close it explicitly:
   `gh issue close <spec> --comment "All tickets closed: #a (#pr-a), #b (#pr-b), #c (#pr-c)"`.
+- If every child is closed without landing, close the parent as `not_planned`
+  (or `duplicate` when it duplicates another spec) with a comment instead of
+  leaving a stale plan open.
+- If some children landed and the rest were closed without landing, close the
+  parent with a comment noting which work shipped and which was cancelled.
 - The `to-tickets` instruction "Do NOT close or modify any parent issue"
   applies while tickets are being created; it does not prevent the completion
   step above after all children land.

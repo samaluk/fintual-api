@@ -5,8 +5,9 @@ severity: 'minor'
 
 ## Expected Behavior
 
-The parent spec issue closes once every child ticket it produced is closed
-through its merged PR.
+The parent spec issue closes once every child ticket it produced is closed:
+through its merged PR when the work ships, or explicitly when all children
+are closed without landing.
 
 ## Current Behavior
 

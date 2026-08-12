@@ -61,6 +61,11 @@ child ticket is published, the parent spec becomes complete:
 - If the spec has no child tickets, its own PR closes it normally.
 - If the parent remains open after all children are closed through merged PRs,
   close it with a comment listing the child issues and PRs.
+- If every child is closed without a merged PR, close the parent as
+  `not_planned` (or `duplicate` when it duplicates another spec) with a comment
+  rather than leaving a stale plan open.
+- If some children landed and the rest were closed without landing, close the
+  parent with a comment noting which work shipped and which was cancelled.
 
 ## Publish before resolving
 
