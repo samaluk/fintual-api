@@ -139,7 +139,7 @@ const connectImapClient = Effect.fn("Email2FA.connectImapClient")(function* (
   config: Email2FAConfig,
 ): Effect.fn.Return<ImapClient, ImapOperationFailure> {
   const imapClient = clientFactory.create(config)
-  yield* imapClient.connect()
+  yield* imapClient.connect
   return imapClient
 })
 
@@ -150,7 +150,7 @@ const closeImapClient = Effect.fn("Email2FA.closeImapClient")(function* (
     return
   }
 
-  yield* Effect.catch(imapClient.logout(), (cause) =>
+  yield* Effect.catch(imapClient.logout, (cause) =>
     Effect.logWarning(`Failed to close IMAP connection cleanly: ${getErrorMessage(cause)}`),
   )
 })

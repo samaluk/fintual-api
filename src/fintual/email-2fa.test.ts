@@ -61,7 +61,7 @@ function createFakeClient(options: FakeClientOptions = {}): FakeClient {
     get usable() {
       return usable
     },
-    connect: () => {
+    connect: Effect.suspend(() => {
       ops.push("connect")
       if (options.connectError) {
         return Effect.fail(options.connectError)
@@ -69,7 +69,7 @@ function createFakeClient(options: FakeClientOptions = {}): FakeClient {
       return Effect.sync(() => {
         usable = true
       })
-    },
+    }),
     getMailboxLock: (
       path: string,
     ): Effect.Effect<ImapMailboxLock, ImapMailboxLockFailure | MissingMailbox> => {
@@ -105,10 +105,9 @@ function createFakeClient(options: FakeClientOptions = {}): FakeClient {
       }
       return Effect.succeed(result)
     },
-    logout: () => {
+    logout: Effect.sync(() => {
       ops.push("logout")
-      return Effect.void
-    },
+    }),
   }
 
   return {
