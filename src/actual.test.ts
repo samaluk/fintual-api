@@ -210,6 +210,30 @@ it.effect("health checks normalize the server URL and classify HTTP failures", (
   }),
 )
 
+it.effect("health checks map transport failures to a retryable failure", () =>
+  Effect.gen(function* () {
+    const fetchRequest: typeof globalThis.fetch = async () => {
+      throw new TypeError("network down")
+    }
+    const program = Effect.gen(function* () {
+      const healthCheck = yield* ActualHealthCheck
+      yield* healthCheck.check
+    }).pipe(
+      Effect.provide(ActualHealthCheck.layer),
+      Effect.provideService(ActualConfigService, CONFIG),
+      Effect.provideService(FetchHttpClient.Fetch, fetchRequest),
+    )
+
+    const error = yield* Effect.flip(program)
+
+    expect(error).toMatchObject({
+      _tag: "ActualHealthCheckFailure",
+      url: "https://actual.example.test/health",
+      retryable: true,
+    })
+  }),
+)
+
 it.effect("health-check timeout is controlled by the Effect Clock", () =>
   Effect.gen(function* () {
     const fetchRequest: typeof globalThis.fetch = async () => new Promise<Response>(() => {})
