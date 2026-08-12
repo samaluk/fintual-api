@@ -59,8 +59,8 @@ child ticket is published, the parent spec becomes complete:
 - If this PR is the last open child, include `Closes #<spec>` alongside
   `Fixes #<child>` so merge closes both.
 - If the spec has no child tickets, its own PR closes it normally.
-- If the parent remains open after all children are closed, close it with a
-  comment listing the child issues and PRs.
+- If the parent remains open after all children are closed through merged PRs,
+  close it with a comment listing the child issues and PRs.
 
 ## Publish before resolving
 
