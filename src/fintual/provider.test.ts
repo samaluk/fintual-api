@@ -1,5 +1,7 @@
 import { it } from "@effect/vitest"
-import { Effect, Fiber, Redacted } from "effect"
+import { Duration, Effect, Fiber, Redacted } from "effect"
+import { FetchHttpClient } from "effect/unstable/http"
+import { TestClock } from "effect/testing"
 import { expect } from "vitest"
 import { FintualConfigService, type FintualConfig } from "../env.ts"
 import { Email2FACode, Operational, TimedOut } from "./email-2fa.ts"
@@ -12,13 +14,11 @@ const CONFIG: FintualConfig = {
   email2FA: null,
 }
 
-function withProvider(
-  fetch: typeof globalThis.fetch,
-  options: { readonly requestTimeoutMs?: number } = {},
-) {
+function withProvider(fetch: typeof globalThis.fetch) {
   return <A, E>(effect: Effect.Effect<A, E, FintualProvider>): Effect.Effect<A, E> =>
     effect.pipe(
-      Effect.provide(FintualProvider.layer(fetch, options)),
+      Effect.provide(FintualProvider.layer),
+      Effect.provideService(FetchHttpClient.Fetch, fetch),
       Effect.provideService(FintualConfigService, CONFIG),
     )
 }
@@ -486,7 +486,7 @@ it.effect("fails with HttpTransportFailure when a request throws", () =>
 it.effect("fails with HttpTransportFailure when a response body cannot be read", () =>
   Effect.gen(function* () {
     const brokenBody = response("")
-    brokenBody.text = () => Promise.reject(new Error("stream broken"))
+    brokenBody.arrayBuffer = () => Promise.reject(new Error("stream broken"))
     const script = createFetchScript([brokenBody])
 
     const error = yield* Effect.flip(
@@ -555,7 +555,7 @@ it.effect("fails with HttpTransportFailure when the request deadline aborts fetc
       })
     }
 
-    const request = withProvider(fetch, { requestTimeoutMs: 0 })(
+    const request = withProvider(fetch)(
       Effect.gen(function* () {
         const provider = yield* FintualProvider
         yield* provider.signIn(() => Effect.succeed(Email2FACode.make("123456")))
@@ -564,6 +564,7 @@ it.effect("fails with HttpTransportFailure when the request deadline aborts fetc
 
     const fiber = yield* Effect.forkChild(request)
     yield* Effect.promise(() => requestStarted)
+    yield* TestClock.adjust(Duration.seconds(31))
 
     const error = yield* Effect.flip(Fiber.join(fiber))
 
@@ -573,6 +574,33 @@ it.effect("fails with HttpTransportFailure when the request deadline aborts fetc
     })
     expect(observedSignal?.aborted).toBe(true)
   }),
+)
+
+it.effect(
+  "fails with HttpTransportFailure when the deadline interrupts a stalled response body",
+  () =>
+    Effect.gen(function* () {
+      const stalledBody = new Response(new ReadableStream({ start() {} }))
+      const script = createFetchScript([stalledBody])
+
+      const request = withProvider(script.fetch)(
+        Effect.gen(function* () {
+          const provider = yield* FintualProvider
+          yield* provider.signIn(() => Effect.succeed(Email2FACode.make("123456")))
+        }),
+      )
+
+      const fiber = yield* Effect.forkChild(request)
+      yield* Effect.promise(() => Promise.resolve())
+      yield* TestClock.adjust(Duration.seconds(31))
+
+      const error = yield* Effect.flip(Fiber.join(fiber))
+
+      expect(error).toMatchObject({
+        _tag: "HttpTransportFailure",
+        stage: "Fintual sign-in page",
+      })
+    }),
 )
 
 interface RecordedRequest {

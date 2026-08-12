@@ -1,4 +1,22 @@
-import { Context, DateTime, Effect, Layer, Predicate, Redacted, Schema } from "effect"
+import {
+  Context,
+  DateTime,
+  Duration,
+  Effect,
+  Layer,
+  Predicate,
+  Redacted,
+  Ref,
+  Schema,
+} from "effect"
+import {
+  Cookies,
+  FetchHttpClient,
+  HttpBody,
+  HttpClient,
+  HttpClientRequest,
+  HttpClientResponse,
+} from "effect/unstable/http"
 import { FintualConfigService, type FintualConfig } from "../env.ts"
 import { getErrorMessage } from "../log.ts"
 import type { Email2FACode, Operational, TimedOut } from "./email-2fa.ts"
@@ -159,46 +177,53 @@ export class FintualProvider extends Context.Service<
     fetchRecentGoalPerformanceData: () => Effect.Effect<GoalPerformanceData, FintualError>
   }
 >()("FintualProvider") {
-  static readonly layer = (
-    fetch: typeof globalThis.fetch,
-    options: { readonly requestTimeoutMs?: number } = {},
-  ) =>
-    Layer.effect(
-      FintualProvider,
-      Effect.gen(function* () {
-        const config = yield* FintualConfigService
-        const session = new FintualHttpSession(
-          fetch,
-          options.requestTimeoutMs ?? HTTP_REQUEST_TIMEOUT_MS,
-        )
+  static readonly layer = Layer.effect(
+    FintualProvider,
+    Effect.gen(function* () {
+      const config = yield* FintualConfigService
+      const cookies = yield* Ref.make(Cookies.empty)
+      const transport = (yield* HttpClient.HttpClient).pipe(
+        HttpClient.mapRequest((request) =>
+          request.pipe(
+            HttpClientRequest.prependUrl(FINTUAL_ORIGIN),
+            HttpClientRequest.setHeader("User-Agent", BROWSER_USER_AGENT),
+            HttpClientRequest.setHeader("Origin", FINTUAL_ORIGIN),
+          ),
+        ),
+        HttpClient.withCookiesRef(cookies),
+      )
+      const session = new FintualHttpSession(transport, Duration.millis(HTTP_REQUEST_TIMEOUT_MS))
 
-        return FintualProvider.of({
-          signIn: Effect.fn("FintualProvider.signIn")(function* (requestCode: RequestCode) {
-            yield* authenticate(session, config, requestCode)
-          }),
-          fetchReferenceGoalPerformanceData: Effect.fn(
-            "FintualProvider.fetchReferenceGoalPerformanceData",
-          )(function* () {
-            return yield* fetchGoalPerformanceData(
-              session,
-              config.goalId,
-              TimeIntervalCode.LastSixMonths,
-              "reference",
-            )
-          }),
-          fetchRecentGoalPerformanceData: Effect.fn(
-            "FintualProvider.fetchRecentGoalPerformanceData",
-          )(function* () {
+      return FintualProvider.of({
+        signIn: Effect.fn("FintualProvider.signIn")(function* (requestCode: RequestCode) {
+          yield* authenticate(session, config, requestCode)
+        }),
+        fetchReferenceGoalPerformanceData: Effect.fn(
+          "FintualProvider.fetchReferenceGoalPerformanceData",
+        )(function* () {
+          return yield* fetchGoalPerformanceData(
+            session,
+            config.goalId,
+            TimeIntervalCode.LastSixMonths,
+            "reference",
+          )
+        }),
+        fetchRecentGoalPerformanceData: Effect.fn("FintualProvider.fetchRecentGoalPerformanceData")(
+          function* () {
             return yield* fetchGoalPerformanceData(
               session,
               config.goalId,
               TimeIntervalCode.LastMonth,
               "recent",
             )
-          }),
-        })
-      }),
-    )
+          },
+        ),
+      })
+    }),
+  ).pipe(
+    Layer.provide(FetchHttpClient.layer),
+    Layer.provide(Layer.succeed(FetchHttpClient.RequestInit, { redirect: "follow" })),
+  )
 }
 
 const authenticate = Effect.fn("FintualProvider.authenticate")(function* (
@@ -208,7 +233,7 @@ const authenticate = Effect.fn("FintualProvider.authenticate")(function* (
 ): Effect.fn.Return<void, FintualError> {
   yield* loadSignInPage(session)
 
-  const loginResponse = yield* session.request(
+  const { response: loginResponse } = yield* session.request(
     "/auth/sessions/initiate_login",
     {
       method: "POST",
@@ -221,7 +246,6 @@ const authenticate = Effect.fn("FintualProvider.authenticate")(function* (
     },
     "Fintual login",
   )
-  yield* readResponseBody(loginResponse, "Fintual login")
 
   if (loginResponse.status === 200) {
     return
@@ -250,7 +274,7 @@ const authenticate = Effect.fn("FintualProvider.authenticate")(function* (
     }),
   )
 
-  const finalizeResponse = yield* session.request(
+  const { response: finalizeResponse } = yield* session.request(
     "/auth/sessions/finalize_login_web",
     {
       method: "POST",
@@ -267,28 +291,29 @@ const authenticate = Effect.fn("FintualProvider.authenticate")(function* (
     },
     EMAIL_2FA_STAGE,
   )
-  yield* readResponseBody(finalizeResponse, EMAIL_2FA_STAGE)
 
-  if (!finalizeResponse.ok) {
-    return yield* failUnexpectedStatus(EMAIL_2FA_STAGE, finalizeResponse.status)
-  }
+  yield* Effect.mapError(
+    HttpClientResponse.filterStatusOk(finalizeResponse),
+    (cause) =>
+      new UnexpectedHttpStatus({
+        stage: EMAIL_2FA_STAGE,
+        status: cause.response?.status ?? finalizeResponse.status,
+      }),
+  )
 })
 
 const loadSignInPage = Effect.fn("FintualProvider.loadSignInPage")(function* (
   session: FintualHttpSession,
 ): Effect.fn.Return<void, FintualError> {
-  const response = yield* session.request(
+  yield* session.request(
     "/f/sign-in/",
     {
-      redirect: "follow",
       headers: {
         Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       },
     },
     "Fintual sign-in page",
   )
-
-  yield* readResponseBody(response, "Fintual sign-in page")
 })
 
 const fetchGoalPerformanceData = Effect.fn("FintualProvider.fetchGoalPerformanceData")(function* (
@@ -299,7 +324,7 @@ const fetchGoalPerformanceData = Effect.fn("FintualProvider.fetchGoalPerformance
 ): Effect.fn.Return<GoalPerformanceData, FintualError> {
   const stage = `Fintual ${purpose} Goal Performance Data`
 
-  const response = yield* session.request(
+  const { response, body } = yield* session.request(
     "/gql/",
     {
       method: "POST",
@@ -312,11 +337,12 @@ const fetchGoalPerformanceData = Effect.fn("FintualProvider.fetchGoalPerformance
     },
     stage,
   )
-  const body = yield* readResponseBody(response, stage)
 
-  if (!response.ok) {
-    return yield* failUnexpectedStatus(stage, response.status)
-  }
+  yield* Effect.mapError(
+    HttpClientResponse.filterStatusOk(response),
+    (cause) =>
+      new UnexpectedHttpStatus({ stage, status: cause.response?.status ?? response.status }),
+  )
 
   return yield* Effect.mapError(
     parseGoalPerformanceResponseBody(body),
@@ -324,34 +350,42 @@ const fetchGoalPerformanceData = Effect.fn("FintualProvider.fetchGoalPerformance
   )
 })
 
-const readResponseBody = Effect.fn("FintualProvider.readResponseBody")(function* (
-  response: Response,
-  stage: string,
-): Effect.fn.Return<string, FintualError> {
-  return yield* Effect.tryPromise({
-    try: () => response.text(),
-    catch: (cause) =>
-      new HttpTransportFailure({
-        stage,
-        cause: new Error(`${stage}: failed to read response body: ${getErrorMessage(cause)}`, {
-          cause,
-        }),
-      }),
-  })
-})
-
 function failUnexpectedStatus(stage: string, status: number): Effect.Effect<never, FintualError> {
   return Effect.fail(new UnexpectedHttpStatus({ stage, status }))
 }
 
-class FintualHttpSession {
-  private readonly cookies = new Map<string, string>()
-  private readonly fetchRequest: typeof globalThis.fetch
-  private readonly requestTimeoutMs: number
+interface SessionRequestOptions {
+  readonly method?: "GET" | "POST"
+  readonly headers?: Record<string, string>
+  readonly body?: string
+}
 
-  constructor(fetchRequest: typeof globalThis.fetch, requestTimeoutMs: number) {
-    this.fetchRequest = fetchRequest
-    this.requestTimeoutMs = requestTimeoutMs
+interface SessionResponse {
+  readonly response: HttpClientResponse.HttpClientResponse
+  readonly body: string
+}
+
+function createSessionRequest(
+  path: string,
+  init: SessionRequestOptions,
+): HttpClientRequest.HttpClientRequest {
+  const request = HttpClientRequest.make(init.method ?? "GET")(path, { headers: init.headers })
+
+  return init.body === undefined
+    ? request
+    : HttpClientRequest.setBody(
+        request,
+        HttpBody.raw(init.body, { contentType: "application/json" }),
+      )
+}
+
+class FintualHttpSession {
+  private readonly client: HttpClient.HttpClient
+  private readonly requestTimeout: Duration.Duration
+
+  constructor(client: HttpClient.HttpClient, requestTimeout: Duration.Duration) {
+    this.client = client
+    this.requestTimeout = requestTimeout
   }
 
   readonly request = Effect.fn("FintualHttpSession.request")(
@@ -359,57 +393,49 @@ class FintualHttpSession {
     function* (
       this: FintualHttpSession,
       path: string,
-      init: RequestInit,
+      init: SessionRequestOptions,
       stage: string,
-    ): Effect.fn.Return<Response, FintualError> {
-      const headers = new Headers(init.headers)
-      headers.set("User-Agent", BROWSER_USER_AGENT)
-      headers.set("Origin", FINTUAL_ORIGIN)
+    ): Effect.fn.Return<SessionResponse, FintualError> {
+      const client = this.client
+      const requestWithBody = Effect.gen(function* () {
+        const response = yield* client.execute(createSessionRequest(path, init)).pipe(
+          Effect.mapError(
+            (cause) =>
+              new HttpTransportFailure({
+                stage,
+                cause: new Error(`${stage}: request failed: ${getErrorMessage(cause)}`, { cause }),
+              }),
+          ),
+        )
+        const body = yield* Effect.mapError(
+          response.text,
+          (cause) =>
+            new HttpTransportFailure({
+              stage,
+              cause: new Error(
+                `${stage}: failed to read response body: ${getErrorMessage(cause)}`,
+                {
+                  cause,
+                },
+              ),
+            }),
+        )
 
-      const cookieHeader = [...this.cookies.values()].join("; ")
-      if (cookieHeader) {
-        headers.set("Cookie", cookieHeader)
-      }
-
-      const response = yield* Effect.tryPromise({
-        try: (signal) =>
-          this.fetchRequest(`${FINTUAL_ORIGIN}${path}`, {
-            ...init,
-            headers,
-            signal: AbortSignal.any([signal, AbortSignal.timeout(this.requestTimeoutMs)]),
-          }),
-        catch: (cause) =>
-          new HttpTransportFailure({
-            stage,
-            cause: new Error(`${stage}: request failed: ${getErrorMessage(cause)}`, { cause }),
-          }),
+        return { response, body }
       })
 
-      yield* Effect.try({
-        try: () => mergeSetCookieHeaders(response.headers, this.cookies),
-        catch: (cause) =>
-          new HttpTransportFailure({
-            stage,
-            cause: new Error(
-              `${stage}: failed to update session cookies: ${getErrorMessage(cause)}`,
-              { cause },
+      return yield* requestWithBody.pipe(
+        Effect.timeoutOrElse({
+          duration: this.requestTimeout,
+          orElse: () =>
+            Effect.fail(
+              new HttpTransportFailure({
+                stage,
+                cause: new Error(`${stage}: request timed out`),
+              }),
             ),
-          }),
-      })
-
-      return response
+        }),
+      )
     },
   )
-}
-
-function mergeSetCookieHeaders(headers: Headers, jar: Map<string, string>): void {
-  for (const line of headers.getSetCookie?.() ?? []) {
-    const namePart = line.split(";", 1)[0]?.trim()
-    if (!namePart?.includes("=")) {
-      continue
-    }
-
-    const separatorIndex = namePart.indexOf("=")
-    jar.set(namePart.slice(0, separatorIndex), namePart)
-  }
 }
