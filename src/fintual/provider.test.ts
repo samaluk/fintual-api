@@ -432,7 +432,7 @@ it.effect(
     }),
 )
 
-it.effect("preserves non-finite wire amounts for snapshot validation", () =>
+it.effect("rejects non-finite wire amounts during provider validation", () =>
   Effect.gen(function* () {
     const body = JSON.stringify(goalPerformanceBody("2026-01-01")).replace(
       '"unrealizedCostBasisAmount":100',
@@ -440,17 +440,20 @@ it.effect("preserves non-finite wire amounts for snapshot validation", () =>
     )
     const script = createFetchScript([response(""), response("{}"), response(body)])
 
-    const result = yield* withProvider(script.fetch)(
-      Effect.gen(function* () {
-        const provider = yield* FintualProvider
-        yield* provider.signIn(() => Effect.succeed(Email2FACode.make("123456")))
-        return yield* provider.fetchReferenceGoalPerformanceData
-      }),
+    const error = yield* Effect.flip(
+      withProvider(script.fetch)(
+        Effect.gen(function* () {
+          const provider = yield* FintualProvider
+          yield* provider.signIn(() => Effect.succeed(Email2FACode.make("123456")))
+          yield* provider.fetchReferenceGoalPerformanceData
+        }),
+      ),
     )
 
-    expect(result.balanceGraphDataPoints[0]?.unrealizedCostBasisAmount).toBe(
-      Number.POSITIVE_INFINITY,
-    )
+    expect(error).toMatchObject({
+      _tag: "MalformedGoalPerformanceData",
+      purpose: "reference",
+    })
   }),
 )
 
