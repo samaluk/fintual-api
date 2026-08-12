@@ -103,6 +103,13 @@ describe("RedactionPolicy", () => {
     expect(empty.redact(secret)).toBe(secret)
   })
 
+  it("captures the sensitive snapshot once when the policy is built", () => {
+    const policy = RedactionPolicy.fromConfig(runtimeConfig)
+    const value = "value that must not be added later"
+
+    expect(policy.redact(value)).toBe(value)
+  })
+
   effectIt.effect("provides an immutable policy layer from the validated runtime config", () =>
     Effect.gen(function* () {
       const policy = yield* RedactionPolicy
@@ -177,6 +184,27 @@ describe("redactingLogger", () => {
 })
 
 describe("reportUnhandledFailure", () => {
+  effectIt.effect("logs defects from a cause, not just typed failures", () =>
+    Effect.gen(function* () {
+      const lines: Array<string> = []
+      const program = Effect.die(new Error(`config exploded with ${secret}`)).pipe(
+        Effect.tapCause(reportUnhandledFailure),
+        Effect.catchCause(() => Effect.void),
+      )
+
+      yield* program.pipe(
+        Effect.provide(Logger.layer([redactingLoggerFor()])),
+        Effect.provideService(Console.Console, captureConsole(lines)),
+      )
+
+      expect(lines).toHaveLength(1)
+      expect(lines[0]).toMatch(
+        /^\[\d{2}:\d{2}:\d{2}\.\d{3}\] ERROR: Error: config exploded with \[redacted\]/,
+      )
+      expect(lines[0]).not.toContain(secret)
+    }),
+  )
+
   effectIt.effect("reports non-interrupt failures through the redacting logger", () =>
     Effect.gen(function* () {
       const lines: Array<string> = []

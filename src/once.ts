@@ -23,8 +23,8 @@ const main = Effect.fn("Once.main")(function* (): Effect.fn.Return<
   RuntimeConfigError | ActualError | FintualError
 > {
   const runtimeConfig = yield* resolveRuntimeConfig(process.env).pipe(
-    Effect.tapError((error) =>
-      reportUnhandledFailure(Cause.fail(error)).pipe(
+    Effect.tapCause((cause) =>
+      reportUnhandledFailure(cause).pipe(
         Effect.provide(Logger.layer([makeRedactingLogger(RedactionPolicy.empty)])),
       ),
     ),

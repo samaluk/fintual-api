@@ -13,14 +13,19 @@ export class RedactionPolicy extends Context.Service<
   static readonly layer = (config: RuntimeConfig): Layer.Layer<RedactionPolicy, never, never> =>
     Layer.succeed(RedactionPolicy, RedactionPolicy.fromConfig(config))
 
-  static readonly fromConfig = (config: RuntimeConfig): RedactionPolicy["Service"] =>
-    RedactionPolicy.of({
-      redact: (value) => redactSensitiveText(value, collectSensitiveValues(config)),
+  static readonly fromConfig = (config: RuntimeConfig): RedactionPolicy["Service"] => {
+    const sensitiveValues = collectSensitiveValues(config)
+    return RedactionPolicy.of({
+      redact: (value) => redactSensitiveText(value, sensitiveValues),
     })
+  }
 
-  static readonly empty: RedactionPolicy["Service"] = RedactionPolicy.of({
-    redact: (value) => redactSensitiveText(value, new Set()),
-  })
+  static readonly empty: RedactionPolicy["Service"] = (() => {
+    const sensitiveValues = new Set<string>()
+    return RedactionPolicy.of({
+      redact: (value) => redactSensitiveText(value, sensitiveValues),
+    })
+  })()
 }
 
 function collectSensitiveValues(config: RuntimeConfig): ReadonlySet<string> {
