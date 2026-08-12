@@ -211,7 +211,7 @@ const searchMailbox = Effect.fn("Email2FA.searchMailbox")(function* (
     () =>
       config.debug
         ? Effect.as(Effect.log(`Gmail IMAP: skip missing mailbox ${mailboxPath}`), undefined)
-        : Effect.succeed(undefined),
+        : Effect.void,
   )
   if (!lock) {
     return Option.none()
@@ -286,7 +286,7 @@ const extractCodeFromMailboxUids = Effect.fn("Email2FA.extractCodeFromMailboxUid
       continue
     }
 
-    const message = yield* Effect.catch(imapClient.fetchOne(uid), () => Effect.succeed(null))
+    const message = yield* Effect.orElseSucceed(imapClient.fetchOne(uid), () => null)
     if (!message || !message.source) {
       continue
     }

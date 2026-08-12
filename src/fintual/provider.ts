@@ -244,7 +244,7 @@ const authenticate = Effect.fn("FintualProvider.authenticate")(function* (
   }
 
   if (loginResponse.status === 401) {
-    return yield* Effect.fail(new LoginFailed({ status: loginResponse.status }))
+    return yield* new LoginFailed({ status: loginResponse.status })
   }
 
   if (loginResponse.status !== 201) {
