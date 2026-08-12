@@ -294,11 +294,7 @@ const authenticate = Effect.fn("FintualProvider.authenticate")(function* (
 
   yield* Effect.mapError(
     HttpClientResponse.filterStatusOk(finalizeResponse),
-    (cause) =>
-      new UnexpectedHttpStatus({
-        stage: EMAIL_2FA_STAGE,
-        status: cause.response?.status ?? finalizeResponse.status,
-      }),
+    () => new UnexpectedHttpStatus({ stage: EMAIL_2FA_STAGE, status: finalizeResponse.status }),
   )
 })
 
@@ -340,8 +336,7 @@ const fetchGoalPerformanceData = Effect.fn("FintualProvider.fetchGoalPerformance
 
   yield* Effect.mapError(
     HttpClientResponse.filterStatusOk(response),
-    (cause) =>
-      new UnexpectedHttpStatus({ stage, status: cause.response?.status ?? response.status }),
+    () => new UnexpectedHttpStatus({ stage, status: response.status }),
   )
 
   return yield* Effect.mapError(
