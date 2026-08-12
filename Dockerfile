@@ -13,6 +13,7 @@ FROM node:24.19.0-slim AS runtime
 WORKDIR /app
 
 ENV NODE_ENV=production
+ENV RUN_MODE=schedule
 
 COPY --from=deps /app/node_modules ./node_modules
 
