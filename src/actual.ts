@@ -57,7 +57,7 @@ export class ActualSynchronization extends Context.Service<
   static readonly live = this.layer.pipe(
     Layer.provide(ActualClientFactory.live),
     Layer.provide(ActualFileSystem.live),
-    Layer.provide(ActualHealthCheck.layer((input, init) => globalThis.fetch(input, init))),
+    Layer.provide(ActualHealthCheck.live),
     Layer.provide(ActualRetryPolicy.live),
   )
 }
@@ -94,7 +94,7 @@ const runActualSyncAttempt = Effect.fn("ActualSynchronization.attempt")(function
   return yield* Effect.scoped(
     Effect.gen(function* () {
       yield* fileSystem.reset
-      yield* healthCheck.check(config.serverUrl)
+      yield* healthCheck.check
 
       const client = yield* Effect.acquireRelease(clientFactory.acquire(config), closeActualClient)
 

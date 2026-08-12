@@ -1,62 +1,64 @@
-import { Context, Effect, Layer } from "effect"
+import { Context, Duration, Effect, Layer } from "effect"
+import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/unstable/http"
 
+import { ActualConfigService } from "../env.ts"
 import { ActualHealthCheckFailure } from "./actual-error.ts"
 
-const HEALTH_CHECK_TIMEOUT_MS = 10_000
+const HEALTH_CHECK_TIMEOUT = Duration.millis(10_000)
 
 export class ActualHealthCheck extends Context.Service<
   ActualHealthCheck,
   {
-    readonly check: (serverUrl: string) => Effect.Effect<void, ActualHealthCheckFailure>
+    readonly check: Effect.Effect<void, ActualHealthCheckFailure>
   }
 >()("ActualHealthCheck") {
-  static readonly layer = (fetchRequest: typeof globalThis.fetch) =>
-    Layer.succeed(
-      ActualHealthCheck,
-      ActualHealthCheck.of({
-        check: Effect.fn("ActualHealthCheck.check")(function* (serverUrl: string) {
-          const healthUrl = getHealthUrl(serverUrl)
-          const response = yield* Effect.tryPromise({
-            try: (signal) =>
-              fetchRequest(healthUrl, {
-                method: "GET",
-                signal,
-              }),
-            catch: (cause) =>
+  static readonly live = Layer.effect(
+    ActualHealthCheck,
+    Effect.gen(function* () {
+      const config = yield* ActualConfigService
+      const client = yield* HttpClient.HttpClient
+
+      const check = Effect.fn("ActualHealthCheck.check")(function* () {
+        const healthUrl = getHealthUrl(config.serverUrl)
+        const response = yield* client.execute(HttpClientRequest.get(healthUrl)).pipe(
+          Effect.mapError(
+            (cause) =>
               new ActualHealthCheckFailure({
                 url: healthUrl,
                 cause,
                 retryable: true,
               }),
-          }).pipe(
-            Effect.timeoutOrElse({
-              duration: HEALTH_CHECK_TIMEOUT_MS,
-              orElse: () =>
-                Effect.fail(
-                  new ActualHealthCheckFailure({
-                    url: healthUrl,
-                    cause: new Error(
-                      `health endpoint timed out after ${HEALTH_CHECK_TIMEOUT_MS}ms`,
-                    ),
-                    retryable: true,
-                  }),
-                ),
-            }),
-          )
+          ),
+          Effect.timeoutOrElse({
+            duration: HEALTH_CHECK_TIMEOUT,
+            orElse: () =>
+              Effect.fail(
+                new ActualHealthCheckFailure({
+                  url: healthUrl,
+                  cause: new Error(
+                    `health endpoint timed out after ${Duration.toMillis(HEALTH_CHECK_TIMEOUT)}ms`,
+                  ),
+                  retryable: true,
+                }),
+              ),
+          }),
+        )
 
-          if (response.ok) {
-            return
-          }
+        if (response.status >= 200 && response.status < 300) {
+          return
+        }
 
-          return yield* new ActualHealthCheckFailure({
-            url: healthUrl,
-            status: response.status,
-            cause: new Error(`health endpoint returned HTTP ${response.status}`),
-            retryable: isRetryableStatus(response.status),
-          })
-        }),
-      }),
-    )
+        return yield* new ActualHealthCheckFailure({
+          url: healthUrl,
+          status: response.status,
+          cause: new Error(`health endpoint returned HTTP ${response.status}`),
+          retryable: isRetryableStatus(response.status),
+        })
+      })
+
+      return ActualHealthCheck.of({ check: check() })
+    }),
+  ).pipe(Layer.provide(FetchHttpClient.layer))
 }
 
 function getHealthUrl(serverUrl: string): string {

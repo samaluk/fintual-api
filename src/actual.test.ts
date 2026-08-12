@@ -16,6 +16,8 @@ const actualApiMock = vi.hoisted(() => ({
 }))
 
 vi.mock("@actual-app/api", () => actualApiMock)
+import { FetchHttpClient } from "effect/unstable/http"
+
 import { ActualSynchronization } from "./actual.ts"
 import { ActualClientFactory, type ActualClient } from "./actual/actual-client.ts"
 import {
@@ -189,8 +191,12 @@ it.effect("health checks normalize the server URL and classify HTTP failures", (
     }
     const program = Effect.gen(function* () {
       const healthCheck = yield* ActualHealthCheck
-      yield* healthCheck.check("https://actual.example.test/")
-    }).pipe(Effect.provide(ActualHealthCheck.layer(fetchRequest)))
+      yield* healthCheck.check
+    }).pipe(
+      Effect.provide(ActualHealthCheck.live),
+      Effect.provideService(ActualConfigService, CONFIG),
+      Effect.provideService(FetchHttpClient.Fetch, fetchRequest),
+    )
 
     const error = yield* Effect.flip(program)
 
@@ -209,8 +215,12 @@ it.effect("health-check timeout is controlled by the Effect Clock", () =>
     const fetchRequest: typeof globalThis.fetch = async () => new Promise<Response>(() => {})
     const healthCheck = Effect.gen(function* () {
       const service = yield* ActualHealthCheck
-      yield* service.check("https://actual.example.test")
-    }).pipe(Effect.provide(ActualHealthCheck.layer(fetchRequest)))
+      yield* service.check
+    }).pipe(
+      Effect.provide(ActualHealthCheck.live),
+      Effect.provideService(ActualConfigService, CONFIG),
+      Effect.provideService(FetchHttpClient.Fetch, fetchRequest),
+    )
     const fiber = yield* Effect.forkChild(healthCheck)
     yield* TestClock.adjust(10_000)
     const result = yield* Effect.result(Fiber.join(fiber))
@@ -292,7 +302,7 @@ function synchronizationProgram(
       reset: Effect.sync(() => calls.push("reset")),
     }),
     Effect.provideService(ActualHealthCheck, {
-      check: () => Effect.sync(() => calls.push("health")),
+      check: Effect.sync(() => calls.push("health")),
     }),
     Effect.provideService(ActualRetryPolicy, { schedule }),
   )
