@@ -193,7 +193,7 @@ it.effect("health checks normalize the server URL and classify HTTP failures", (
       const healthCheck = yield* ActualHealthCheck
       yield* healthCheck.check
     }).pipe(
-      Effect.provide(ActualHealthCheck.live),
+      Effect.provide(ActualHealthCheck.layer),
       Effect.provideService(ActualConfigService, CONFIG),
       Effect.provideService(FetchHttpClient.Fetch, fetchRequest),
     )
@@ -217,7 +217,7 @@ it.effect("health-check timeout is controlled by the Effect Clock", () =>
       const service = yield* ActualHealthCheck
       yield* service.check
     }).pipe(
-      Effect.provide(ActualHealthCheck.live),
+      Effect.provide(ActualHealthCheck.layer),
       Effect.provideService(ActualConfigService, CONFIG),
       Effect.provideService(FetchHttpClient.Fetch, fetchRequest),
     )

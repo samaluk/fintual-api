@@ -57,7 +57,7 @@ export class ActualSynchronization extends Context.Service<
   static readonly live = this.layer.pipe(
     Layer.provide(ActualClientFactory.live),
     Layer.provide(ActualFileSystem.live),
-    Layer.provide(ActualHealthCheck.live),
+    Layer.provide(ActualHealthCheck.layer),
     Layer.provide(ActualRetryPolicy.live),
   )
 }

@@ -12,7 +12,7 @@ export class ActualHealthCheck extends Context.Service<
     readonly check: Effect.Effect<void, ActualHealthCheckFailure>
   }
 >()("ActualHealthCheck") {
-  static readonly live = Layer.effect(
+  static readonly layer = Layer.effect(
     ActualHealthCheck,
     Effect.gen(function* () {
       const config = yield* ActualConfigService
