@@ -175,19 +175,6 @@ test("keeps the latest timestamp when the balance file has duplicate dates", () 
   ])
 })
 
-test("groups a legacy numeric imported id under its date even when the date field is stale", () => {
-  const plan = planReconciliation({
-    balanceEntries: [balanceEntry("2026-01-05", 2.49)],
-    existingTransactions: [
-      existingTransaction("legacy-1", "2020-01-01", {
-        importedId: String(Date.parse("2026-01-05T00:00:00Z")),
-      }),
-    ],
-  })
-
-  expect(plan.actions).toEqual([update("legacy-1", variationTransaction("2026-01-05", 200))])
-})
-
 test("skips managed-looking transactions whose date cannot be derived", () => {
   const plan = planReconciliation({
     balanceEntries: [balanceEntry("2026-01-05", 2.49)],

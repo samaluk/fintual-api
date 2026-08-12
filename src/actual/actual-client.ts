@@ -1,5 +1,5 @@
 import * as api from "@actual-app/api"
-import { Context, Effect, Layer, Predicate, Redacted } from "effect"
+import { Context, Effect, Layer, Predicate, Redacted, Schema } from "effect"
 
 import type { ActualConfig } from "../env.ts"
 import {
@@ -13,9 +13,10 @@ import {
   ActualTransactionUpdateFailure,
   ActualTransactionsReadFailure,
 } from "./actual-error.ts"
-import type {
-  ExistingVariationTransaction,
-  VariationTransactionInput,
+import {
+  VARIATION_IMPORTED_ID_PREFIX,
+  type ExistingVariationTransaction,
+  type VariationTransactionInput,
 } from "./variation-transaction.ts"
 
 const ACTUAL_DATA_DIR = "./tmp/actual-data"
@@ -98,7 +99,7 @@ const ActualClientLive: ActualClient = {
     startDate: string,
     endDate: string,
   ) {
-    return yield* Effect.tryPromise({
+    const rows = yield* Effect.tryPromise({
       try: () => api.getTransactions(accountId, startDate, endDate),
       catch: (cause) =>
         new ActualTransactionsReadFailure({
@@ -106,6 +107,8 @@ const ActualClientLive: ActualClient = {
           retryable: isRetryableActualCause(cause),
         }),
     })
+
+    return yield* decodeTransactions(rows)
   }),
 
   getPayees: Effect.tryPromise({
@@ -115,7 +118,10 @@ const ActualClientLive: ActualClient = {
         cause,
         retryable: isRetryableActualCause(cause),
       }),
-  }).pipe(Effect.withSpan("ActualClient.getPayees")),
+  }).pipe(
+    Effect.andThen((payees) => decodePayees(payees)),
+    Effect.withSpan("ActualClient.getPayees"),
+  ),
 
   createTransaction: Effect.fn("ActualClient.createTransaction")(function* (
     accountId: string,
@@ -177,4 +183,91 @@ function isRetryableActualCause(cause: unknown): boolean {
   }
 
   return cause.code === "network-failure" || cause.reason === "network-failure"
+}
+
+const sdkTransactionRowSchema = Schema.Struct({
+  id: Schema.String,
+  date: Schema.optional(Schema.NullOr(Schema.String)),
+  notes: Schema.optional(Schema.NullOr(Schema.String)),
+  payee: Schema.optional(Schema.NullOr(Schema.String)),
+  imported_id: Schema.optional(Schema.NullOr(Schema.String)),
+})
+
+const sdkPayeeSchema = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+})
+
+const decodeTransactions = Effect.fn("ActualClient.decodeTransactions")(function* (
+  rows: unknown,
+): Effect.fn.Return<ReadonlyArray<ExistingVariationTransaction>, ActualTransactionsReadFailure> {
+  return yield* Schema.decodeUnknownEffect(Schema.Array(sdkTransactionRowSchema))(rows).pipe(
+    Effect.map((rows) =>
+      rows.flatMap((row) => {
+        const transaction = toExistingVariationTransaction(row)
+        return transaction ? [transaction] : []
+      }),
+    ),
+    Effect.mapError((cause) => new ActualTransactionsReadFailure({ cause, retryable: false })),
+  )
+})
+
+type SdkPayeeRow = Awaited<ReturnType<typeof api.getPayees>>[number]
+
+const decodePayees = Effect.fn("ActualClient.decodePayees")(function* (
+  payees: ReadonlyArray<SdkPayeeRow>,
+): Effect.fn.Return<ReadonlyArray<ActualPayee>, ActualPayeesReadFailure> {
+  return yield* Schema.decodeEffect(Schema.Array(sdkPayeeSchema))(payees).pipe(
+    Effect.mapError((cause) => new ActualPayeesReadFailure({ cause, retryable: false })),
+  )
+})
+
+function toExistingVariationTransaction(
+  row: Schema.Schema.Type<typeof sdkTransactionRowSchema>,
+): ExistingVariationTransaction | null {
+  const date = getVariationTransactionDate(row)
+  if (!date) {
+    return null
+  }
+
+  return {
+    id: row.id,
+    date,
+    notes: row.notes ?? undefined,
+    payee: row.payee,
+    imported_id: row.imported_id ?? undefined,
+  }
+}
+
+function getVariationTransactionDate(
+  row: Schema.Schema.Type<typeof sdkTransactionRowSchema>,
+): string | null {
+  if (row.imported_id?.startsWith(VARIATION_IMPORTED_ID_PREFIX)) {
+    const date = row.imported_id.slice(VARIATION_IMPORTED_ID_PREFIX.length)
+    if (isIsoDate(date)) {
+      return date
+    }
+  }
+
+  if (row.imported_id && isNumericTimestamp(row.imported_id)) {
+    return toIsoDate(Number(row.imported_id))
+  }
+
+  if (row.date && isIsoDate(row.date)) {
+    return row.date
+  }
+
+  return null
+}
+
+function toIsoDate(timestamp: number): string {
+  return new Date(timestamp).toISOString().split("T")[0]
+}
+
+function isIsoDate(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value)
+}
+
+function isNumericTimestamp(value: string): boolean {
+  return /^\d+$/.test(value)
 }

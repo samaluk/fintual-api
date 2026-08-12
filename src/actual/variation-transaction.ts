@@ -3,7 +3,7 @@ export const VARIATION_IMPORTED_ID_PREFIX = "fintual-variation:"
 
 export interface ExistingVariationTransaction {
   id: string
-  date?: string
+  date: string
   notes?: string
   payee?: string | null
   imported_id?: string
