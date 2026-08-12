@@ -1,4 +1,6 @@
-import { Config, ConfigProvider, Context, Effect, Option, Redacted, Schema } from "effect"
+import { Config, ConfigProvider, Context, Effect, Option, Redacted, Result, Schema } from "effect"
+
+import { parseSchedule, type SchedulerOptions } from "./scheduler.ts"
 
 export class RuntimeConfigError extends Schema.TaggedError<RuntimeConfigError>()(
   "RuntimeConfigError",
@@ -33,6 +35,12 @@ export interface FintualConfig {
   email2FA: Email2FAConfig | null
 }
 
+export type RunMode = "once" | "schedule"
+
+export interface ScheduleConfig extends SchedulerOptions {
+  mode: RunMode
+}
+
 export class FintualConfigService extends Context.Service<FintualConfigService, FintualConfig>()(
   "FintualConfig",
 ) {}
@@ -40,6 +48,7 @@ export class FintualConfigService extends Context.Service<FintualConfigService, 
 export interface RuntimeConfig {
   actual: ActualConfig
   fintual: FintualConfig
+  schedule: ScheduleConfig
 }
 
 export type Environment = Readonly<Record<string, string | undefined>>
@@ -88,6 +97,7 @@ export const resolveRuntimeConfig = Effect.fn("RuntimeConfig.resolveRuntimeConfi
       goalId: values.fintualGoalId,
       email2FA,
     },
+    schedule: yield* resolveScheduleConfig(values),
   }
 })
 
@@ -106,6 +116,32 @@ const runtimeValueConfig = Config.all({
   fintualGoalId: Config.string("FINTUAL_GOAL_ID"),
   gmailUserEmail: Config.option(Config.string("GMAIL_USER_EMAIL")),
   gmailAppPassword: Config.option(Config.redacted("GMAIL_APP_PASSWORD")),
+  runMode: Config.literals(["once", "schedule"], "RUN_MODE").pipe(Config.withDefault("once")),
+  syncCron: Config.string("SYNC_CRON").pipe(Config.withDefault("0 0 22 * * 1-5")),
+  syncTimezone: Config.string("SYNC_TIMEZONE").pipe(Config.withDefault("America/Santiago")),
+  syncNoOverlap: Config.boolean("SYNC_NO_OVERLAP").pipe(Config.withDefault(false)),
+})
+
+const resolveScheduleConfig = Effect.fn("RuntimeConfig.resolveScheduleConfig")(function* (values: {
+  readonly runMode: RunMode
+  readonly syncCron: string
+  readonly syncTimezone: string
+  readonly syncNoOverlap: boolean
+}): Effect.fn.Return<ScheduleConfig, RuntimeConfigError> {
+  const parsed = parseSchedule(values.syncCron, values.syncTimezone)
+  if (Result.isFailure(parsed)) {
+    return yield* new RuntimeConfigError({
+      message: parsed.failure.message,
+      cause: parsed.failure,
+    })
+  }
+
+  return {
+    mode: values.runMode,
+    cron: values.syncCron,
+    timezone: values.syncTimezone,
+    noOverlap: values.syncNoOverlap,
+  }
 })
 
 const email2FAValueConfig = Config.all({

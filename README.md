@@ -137,11 +137,24 @@ hk check --all
 
 ## Docker Image
 
-The published container image is designed as a one-shot worker. Its default command runs the sync once:
+The published container image runs the in-process cron scheduler by default. The
+worker runs the synchronization at the configured schedule:
 
 ```bash
 docker run --rm --env-file .env docker.io/samaluk/fintual-api:latest
 ```
+
+Set `RUN_MODE=once` for a one-shot diagnostic run:
+
+```bash
+docker run --rm --env-file .env -e RUN_MODE=once docker.io/samaluk/fintual-api:latest
+```
+
+The schedule comes from environment configuration:
+
+- `SYNC_CRON` defaults to `0 0 22 * * 1-5`
+- `SYNC_TIMEZONE` defaults to `America/Santiago`
+- `SYNC_NO_OVERLAP=true` skips a tick while a previous run is still in progress
 
 Mount `./tmp` if you want to inspect the generated files locally:
 
@@ -203,15 +216,20 @@ The intended production model is:
 
 - GitHub Actions publishes the worker image to Docker Hub
 - the homelab compose stack pulls the image
-- a long-lived idle worker keeps secrets in its runtime environment
-- Ofelia schedules `job-exec` runs inside that worker
+- a long-lived worker runs the in-process scheduler and keeps secrets in its
+  runtime environment
 - Komodo deploys compose changes from the homelab repo
 
-Recommended Ofelia schedule for Santiago, Chile weekdays at 21:00:
+The scheduler mode is the container default. Configure the sync time with
+`SYNC_CRON` and `SYNC_TIMEZONE` (for example, `0 0 22 * * 1-5` in
+`America/Santiago`), and keep `RUN_MODE=once` available for manual
+`docker exec` diagnostics. The compose migration away from Ofelia is a separate
+deployment change; the image remains backward compatible with one-shot
+invocations.
 
-- cron: `0 21 * * 1-5`
-- timezone: `America/Santiago`
-
-Use an idle `fintual-api` worker plus an `ofelia` service that executes `./bin/run-sync.sh` on schedule.
+The scheduler stops cleanly when the process is interrupted, including SIGTERM,
+and each in-flight run's scoped resources are closed. Configure the container
+restart policy (for example, `restart: unless-stopped`) so the worker comes back
+after a host restart.
 
 For homelab deployments, store `GMAIL_APP_PASSWORD` in your secret manager (for example, GCP Secret Manager) and inject it into the worker environment at runtime.

@@ -13,11 +13,12 @@ FROM node:24.19.0-slim AS runtime
 WORKDIR /app
 
 ENV NODE_ENV=production
+ENV RUN_MODE=schedule
 
 COPY --from=deps /app/node_modules ./node_modules
 
 COPY . .
 
-RUN chmod +x ./bin/run-sync.sh
+RUN chmod +x ./bin/run-sync.sh ./bin/run-schedule.sh
 
-CMD ["./bin/run-sync.sh"]
+CMD ["./bin/run-schedule.sh"]
