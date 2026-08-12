@@ -1,12 +1,11 @@
 import { expect, test } from "vitest"
 
+import { planReconciliation, type BalanceEntry } from "./reconciliation-policy.ts"
 import {
   VARIATION_IMPORTED_ID_PREFIX,
   VARIATION_NOTES,
-  planReconciliation,
-  type BalanceEntry,
   type ExistingVariationTransaction,
-} from "./reconciliation-policy.ts"
+} from "./variation-transaction.ts"
 
 function balanceEntry(date: string, realDifference: number, timestampOffsetMs = 0): BalanceEntry {
   return {

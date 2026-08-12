@@ -16,7 +16,7 @@ import {
 import type {
   ExistingVariationTransaction,
   VariationTransactionInput,
-} from "./reconciliation-policy.ts"
+} from "./variation-transaction.ts"
 
 const ACTUAL_DATA_DIR = "./tmp/actual-data"
 
