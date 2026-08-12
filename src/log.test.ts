@@ -51,6 +51,12 @@ describe("RedactionPolicy", () => {
         goalId: "goal-42",
         email2FA: null,
       },
+      schedule: {
+        mode: "once",
+        cron: "0 0 22 * * 1-5",
+        timezone: "America/Santiago",
+        noOverlap: false,
+      },
     }
     const policy = RedactionPolicy.fromConfig(config)
 

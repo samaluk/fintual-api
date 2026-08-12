@@ -32,6 +32,12 @@ it.effect("normalizes runtime values and applies defaults once for every domain"
       goalId: "goal-id",
       email2FA: null,
     })
+    expect(configuration.schedule).toMatchObject({
+      mode: "once",
+      cron: "0 0 22 * * 1-5",
+      timezone: "America/Santiago",
+      noOverlap: false,
+    })
     // Redacted intentionally exposes a safe placeholder through String().
     // oxlint-disable-next-line typescript/no-base-to-string
     expect(String(configuration.actual.password)).toBe("<redacted>")
@@ -39,6 +45,76 @@ it.effect("normalizes runtime values and applies defaults once for every domain"
     // oxlint-disable-next-line typescript/no-base-to-string
     expect(String(configuration.fintual.password)).toBe("<redacted>")
     expect(Redacted.value(configuration.fintual.password)).toBe("fintual password")
+  }),
+)
+
+it.effect("selects scheduled mode and decodes the schedule policy", () =>
+  Effect.gen(function* () {
+    const configuration = yield* resolveRuntimeConfig({
+      ...requiredEnvironment(),
+      RUN_MODE: "schedule",
+      SYNC_CRON: "0 0 6 * * 1",
+      SYNC_TIMEZONE: "UTC",
+      SYNC_NO_OVERLAP: "true",
+    })
+
+    expect(configuration.schedule).toEqual({
+      mode: "schedule",
+      cron: "0 0 6 * * 1",
+      timezone: "UTC",
+      noOverlap: true,
+    })
+  }),
+)
+
+it.effect("rejects an invalid cron expression with a typed configuration error", () =>
+  Effect.gen(function* () {
+    const result = yield* Effect.result(
+      resolveRuntimeConfig({
+        ...requiredEnvironment(),
+        SYNC_CRON: "not a cron",
+      }),
+    )
+
+    expect(result._tag).toBe("Failure")
+    if (Result.isFailure(result)) {
+      expect(result.failure).toBeInstanceOf(RuntimeConfigError)
+      expect(result.failure.message).toContain("cron expression")
+    }
+  }),
+)
+
+it.effect("rejects an invalid schedule timezone with a typed configuration error", () =>
+  Effect.gen(function* () {
+    const result = yield* Effect.result(
+      resolveRuntimeConfig({
+        ...requiredEnvironment(),
+        SYNC_TIMEZONE: "Not/AZone",
+      }),
+    )
+
+    expect(result._tag).toBe("Failure")
+    if (Result.isFailure(result)) {
+      expect(result.failure).toBeInstanceOf(RuntimeConfigError)
+      expect(result.failure.message).toContain("time zone")
+    }
+  }),
+)
+
+it.effect("rejects an unknown run mode", () =>
+  Effect.gen(function* () {
+    const result = yield* Effect.result(
+      resolveRuntimeConfig({
+        ...requiredEnvironment(),
+        RUN_MODE: "forever",
+      }),
+    )
+
+    expect(result._tag).toBe("Failure")
+    if (Result.isFailure(result)) {
+      expect(result.failure).toBeInstanceOf(RuntimeConfigError)
+      expect(result.failure.message).toContain("RUN_MODE")
+    }
   }),
 )
 

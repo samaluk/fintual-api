@@ -28,4 +28,10 @@ export const runtimeConfig: RuntimeConfig = {
       sender: "notificaciones@fintual.com",
     },
   },
+  schedule: {
+    mode: "once",
+    cron: "0 0 22 * * 1-5",
+    timezone: "America/Santiago",
+    noOverlap: false,
+  },
 }
