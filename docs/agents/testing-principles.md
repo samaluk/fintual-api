@@ -24,8 +24,8 @@ For example:
 src/fintual/
 ├── performance.ts
 ├── performance.test.ts
-├── new-performance.ts
-└── new-performance.test.ts
+├── provider.ts
+└── provider.test.ts
 ```
 
 Cross-system end-to-end tests may use a dedicated directory when no single implementation module is their natural owner.

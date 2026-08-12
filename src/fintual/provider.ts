@@ -11,13 +11,13 @@ import {
   type FintualError,
 } from "./fintual-error.ts"
 
-export const FINTUAL_ORIGIN = "https://fintual.cl"
+const FINTUAL_ORIGIN = "https://fintual.cl"
 const HTTP_REQUEST_TIMEOUT_MS = 30_000
 const BROWSER_USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 const EMAIL_2FA_STAGE = "Fintual email 2FA"
 
-export const TimeIntervalCode = {
+const TimeIntervalCode = {
   LastMonth: "last_month",
   LastSixMonths: "last_six_months",
   LastYear: "last_year",
@@ -25,7 +25,7 @@ export const TimeIntervalCode = {
   AllTime: "all_time",
 } as const
 
-export type TimeIntervalCode = (typeof TimeIntervalCode)[keyof typeof TimeIntervalCode]
+type TimeIntervalCode = (typeof TimeIntervalCode)[keyof typeof TimeIntervalCode]
 
 const GOAL_PERFORMANCE_QUERY =
   "query GoalInvestedBalanceGraphDataPoints($goalId: ID!, $timeIntervalCode: String!) {\n  balanceGraphDataPoints: clGoalBalanceGraphDataPoints(\n    goalId: $goalId\n    timeIntervalCode: $timeIntervalCode\n  ) {\n    date\n    unrealizedCostBasisAmount\n    unrealizedGainOrLossAmount\n    realizedCostBasisAmount\n    realizedGainOrLossAmount\n    sharesCostBasisAmount\n    sharesValuationAmount\n    pendingFulfillmentReinvestmentDepositsCostBasisAmount\n    pendingFulfillmentReinvestmentDepositsAmount\n    withdrawnAmount\n    __typename\n  }\n}"
@@ -92,7 +92,7 @@ class InvalidGoalPerformanceResponse extends Schema.TaggedError<InvalidGoalPerfo
   }
 }
 
-export const parseGoalPerformanceResponseBody = Effect.fn(
+const parseGoalPerformanceResponseBody = Effect.fn(
   "FintualProvider.parseGoalPerformanceResponseBody",
 )(function* (body: string): Effect.fn.Return<GoalPerformanceData, InvalidGoalPerformanceResponse> {
   const parsedJson = yield* Effect.try({
@@ -137,7 +137,7 @@ function getValidationFailure(parsedJson: unknown): string {
   return "response does not match the Goal Performance Data schema"
 }
 
-export function createGoalPerformanceRequest(
+function createGoalPerformanceRequest(
   goalId: string,
   timeIntervalCode: TimeIntervalCode,
 ): Record<string, unknown> {
@@ -199,31 +199,6 @@ export class FintualProvider extends Context.Service<
         })
       }),
     )
-}
-
-export class FetchService extends Context.Service<
-  FetchService,
-  {
-    request: (
-      path: string,
-      init: RequestInit,
-      stage: string,
-    ) => Effect.Effect<Response, FintualError>
-  }
->()("FetchService") {
-  static readonly layer = (
-    fetch: typeof globalThis.fetch,
-    options: { readonly requestTimeoutMs?: number } = {},
-  ) =>
-    Layer.sync(FetchService, () => {
-      const session = new FintualHttpSession(
-        fetch,
-        options.requestTimeoutMs ?? HTTP_REQUEST_TIMEOUT_MS,
-      )
-      return FetchService.of({
-        request: (path, init, stage) => session.request(path, init, stage),
-      })
-    })
 }
 
 const authenticate = Effect.fn("FintualProvider.authenticate")(function* (
