@@ -42,6 +42,21 @@ Create a GitHub issue.
 
 Run `gh issue view <number> --comments`.
 
+## Spec lifecycle
+
+`/to-spec` publishes a plan; `/to-tickets` publishes the child tickets that
+implement it. A spec is done when every child ticket it produced is closed.
+
+- Keep the spec open while any child ticket is open.
+- Each child closes through its PR with `Fixes #<child>` / `Closes #<child>`.
+- When the last open child is closed, close the parent spec. Prefer putting
+  `Closes #<spec>` in the final child's PR body so merge closes both. If that
+  was not done, close it explicitly:
+  `gh issue close <spec> --comment "All tickets closed: #a, #b, #c"`.
+- The `to-tickets` instruction "Do NOT close or modify any parent issue"
+  applies while tickets are being created; it does not prevent the completion
+  step above after all children land.
+
 ## Wayfinding operations
 
 Used by `/wayfinder`. The **map** is a single issue with **child** issues as tickets.

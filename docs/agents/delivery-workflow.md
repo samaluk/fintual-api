@@ -51,6 +51,17 @@ Use the repository's scoped formatting scripts. For files outside their scope,
 make a minimal edit and preserve the existing layout; do not run a broad
 formatter over unrelated configuration.
 
+## Close the parent spec
+
+A spec issue is a plan, not a backlog item. When the PR that closes the last
+child ticket is published, the parent spec becomes complete:
+
+- If this PR is the last open child, include `Closes #<spec>` alongside
+  `Fixes #<child>` so merge closes both.
+- If the spec has no child tickets, its own PR closes it normally.
+- If the parent remains open after all children are closed, close it with a
+  comment listing the child issues and PRs.
+
 ## Publish before resolving
 
 An implementation issue is not complete when its change exists only in a local
