@@ -1,6 +1,7 @@
 ---
 title: 'Matt Pocock spec flow never closes the parent spec after its tickets land'
 severity: 'minor'
+issue: 'samaluk/fintual-api#370'
 ---
 
 ## Expected Behavior
