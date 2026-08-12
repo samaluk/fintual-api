@@ -60,7 +60,7 @@ export class FintualPerformance extends Context.Service<
       const config = yield* FintualConfigService
 
       return FintualPerformance.layer.pipe(
-        Layer.provide(FintualProvider.layer((input, init) => globalThis.fetch(input, init))),
+        Layer.provide(FintualProvider.layer),
         Layer.provide(config.email2FA ? Email2FAService.live : Layer.empty),
         Layer.provide(SnapshotWriter.layer),
       )
