@@ -1,9 +1,10 @@
 # fintual-api
 
-`fintual-api` is a one-shot worker that logs into Fintual, fetches investment performance data, and imports the resulting variation transactions into Actual Budget.
+`fintual-api` is a worker that logs into Fintual, fetches investment performance data, and imports the resulting variation transactions into Actual Budget. In its default mode it runs the sync on a cron schedule from inside the container process; a one-shot mode remains for manual diagnostics.
 
-The repo intentionally supports only two flows:
+The repo intentionally supports only these flows:
 
+- `pnpm schedule` runs the sync on the configured cron schedule when `RUN_MODE=schedule` is set (the container default)
 - `pnpm once` runs the full sync once
 - unattended 2FA retrieval via Gmail IMAP + app password
 
@@ -137,6 +138,11 @@ hk check --all
 
 ## Docker Image
 
+> **Breaking change in the v3 major:** the image default command changed from
+> a one-shot sync (exit after running once) to a long-lived scheduler process
+> (run until interrupted). The previous invocation contract is not preserved
+> and there is no retro-compatibility shim. See [Release guidance](#release-guidance).
+
 The published container image runs the in-process cron scheduler by default. The
 worker runs the synchronization at the configured schedule:
 
@@ -223,9 +229,7 @@ The intended production model is:
 The scheduler mode is the container default. Configure the sync time with
 `SYNC_CRON` and `SYNC_TIMEZONE` (for example, `0 0 22 * * 1-5` in
 `America/Santiago`), and keep `RUN_MODE=once` available for manual
-`docker exec` diagnostics. The compose migration away from Ofelia is a separate
-deployment change; the image remains backward compatible with one-shot
-invocations.
+`docker exec` diagnostics.
 
 The scheduler stops cleanly when the process is interrupted, including SIGTERM,
 and each in-flight run's scoped resources are closed. Configure the container
@@ -233,3 +237,22 @@ restart policy (for example, `restart: unless-stopped`) so the worker comes back
 after a host restart.
 
 For homelab deployments, store `GMAIL_APP_PASSWORD` in your secret manager (for example, GCP Secret Manager) and inject it into the worker environment at runtime.
+
+## Release guidance
+
+Starting with the v3 major, the image default command runs the in-process
+scheduler instead of a one-shot sync. This is a breaking change to the
+container process contract:
+
+- The default command (`bin/run-schedule.sh`) no longer exits after one sync.
+  It runs the synchronization on the configured `SYNC_CRON` schedule until the
+  process is interrupted (for example, SIGTERM).
+- The previous invocation contract is not preserved: there is no
+  retro-compatibility shim, and images published under the v3 major and later
+  do not accept the old invocation.
+- One-shot invocations remain available explicitly via `RUN_MODE=once` or
+  `bin/run-sync.sh`, for manual `docker exec` diagnostics and CI-style runs.
+
+Publish the breaking change under a new major version tag (for example, `v3.0.0`);
+do not publish it under an existing v2 tag, because `latest` follows GitHub
+Releases and old tags must keep the previous behavior.

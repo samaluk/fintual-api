@@ -56,7 +56,7 @@ jobs:
             type=raw,value=sha-${{ steps.source.outputs.short_sha }}
           labels: |
             org.opencontainers.image.title=fintual-api
-            org.opencontainers.image.description=One-shot worker that syncs Fintual investment data into Actual Budget
+            org.opencontainers.image.description=Scheduler worker that syncs Fintual investment data into Actual Budget
             org.opencontainers.image.revision=${{ steps.source.outputs.sha }}
 
       - name: Build and publish image
