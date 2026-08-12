@@ -1,16 +1,4 @@
-import {
-  Cause,
-  Clock,
-  Cron,
-  Duration,
-  Effect,
-  Exit,
-  Fiber,
-  Ref,
-  Result,
-  Schema,
-  Scope,
-} from "effect"
+import { Cause, Clock, Cron, Duration, Effect, Exit, Ref, Result, Schema, Scope } from "effect"
 
 export interface SchedulerOptions {
   readonly cron: string
@@ -27,7 +15,7 @@ export class InvalidScheduleError extends Schema.TaggedError<InvalidScheduleErro
   },
 ) {}
 
-export const runScheduler = Effect.fn("runScheduler")(function* (
+export const runScheduler = Effect.fn("Scheduler.run")(function* (
   job: Effect.Effect<unknown, unknown>,
   options: SchedulerOptions,
 ): Effect.fn.Return<never, InvalidScheduleError> {
@@ -47,8 +35,7 @@ export const runScheduler = Effect.fn("runScheduler")(function* (
   const tick = Effect.gen(function* () {
     const now = yield* Clock.currentTimeMillis
     const next = Cron.next(cron, now)
-    const timer = yield* Effect.forkIn(Effect.sleep(Duration.millis(next.getTime() - now)), scope)
-    yield* Fiber.join(timer)
+    yield* Effect.sleep(Duration.millis(next.getTime() - now))
 
     if (options.noOverlap && (yield* Ref.getAndSet(running, true))) {
       yield* Effect.logWarning("Skipping scheduled run; a previous run is still in progress")
