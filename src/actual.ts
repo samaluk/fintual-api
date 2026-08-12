@@ -7,7 +7,7 @@ import { ActualFileSystem } from "./actual/actual-file-system.ts"
 import { ActualHealthCheck } from "./actual/actual-health-check.ts"
 import { planReconciliation } from "./actual/reconciliation-policy.ts"
 import { ActualRetryPolicy } from "./actual/retry-policy.ts"
-import type { ActualConfig } from "./env.ts"
+import { ActualConfigService, type ActualConfig } from "./env.ts"
 import { getErrorMessage } from "./log.ts"
 import type { PerformanceSnapshot } from "./performance-snapshot.ts"
 
@@ -18,10 +18,6 @@ interface SyncCounts {
   readonly updated: number
   readonly deletedDuplicates: number
 }
-
-export class ActualConfigService extends Context.Service<ActualConfigService, ActualConfig>()(
-  "ActualConfig",
-) {}
 
 export class ActualSynchronization extends Context.Service<
   ActualSynchronization,
@@ -61,7 +57,7 @@ export class ActualSynchronization extends Context.Service<
   static readonly live = this.layer.pipe(
     Layer.provide(ActualClientFactory.live),
     Layer.provide(ActualFileSystem.live),
-    Layer.provide(ActualHealthCheck.layer((input, init) => globalThis.fetch(input, init))),
+    Layer.provide(ActualHealthCheck.layer),
     Layer.provide(ActualRetryPolicy.live),
   )
 }
@@ -98,7 +94,7 @@ const runActualSyncAttempt = Effect.fn("ActualSynchronization.attempt")(function
   return yield* Effect.scoped(
     Effect.gen(function* () {
       yield* fileSystem.reset
-      yield* healthCheck.check(config.serverUrl)
+      yield* healthCheck.check
 
       const client = yield* Effect.acquireRelease(clientFactory.acquire(config), closeActualClient)
 
