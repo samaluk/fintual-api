@@ -4,7 +4,7 @@
 
 The repo intentionally supports only these flows:
 
-- `pnpm schedule` runs the sync on the configured cron schedule (the container default)
+- `pnpm schedule` runs the sync on the configured cron schedule when `RUN_MODE=schedule` is set (the container default)
 - `pnpm once` runs the full sync once
 - unattended 2FA retrieval via Gmail IMAP + app password
 
