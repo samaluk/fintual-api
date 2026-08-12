@@ -1,4 +1,5 @@
 import { Context, Effect, Layer } from "effect"
+
 import { ActualHealthCheckFailure } from "./actual-error.ts"
 
 const HEALTH_CHECK_TIMEOUT_MS = 10_000

@@ -1,6 +1,7 @@
 import { it } from "@effect/vitest"
 import { Effect, Redacted } from "effect"
 import { describe, expect } from "vitest"
+
 import { FintualConfigService, type FintualConfig } from "../env.ts"
 import { SnapshotWriter, type PerformanceSnapshot } from "../performance-snapshot.ts"
 import { Email2FACode, Email2FAService, Operational, TimedOut } from "./email-2fa.ts"

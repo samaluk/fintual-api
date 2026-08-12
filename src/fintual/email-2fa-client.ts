@@ -1,5 +1,6 @@
 import { Context, Effect, Layer, Predicate, Redacted, Schema } from "effect"
 import { ImapFlow, type SearchObject } from "imapflow"
+
 import type { Email2FAConfig } from "../env.ts"
 import { getErrorMessage } from "../log.ts"
 

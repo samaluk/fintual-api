@@ -1,4 +1,5 @@
 import { Context, Duration, Layer, Schedule } from "effect"
+
 import type { ActualError } from "./actual-error.ts"
 
 const MAX_SYNC_ATTEMPTS = 5

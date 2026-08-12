@@ -1,8 +1,9 @@
 import { it } from "@effect/vitest"
 import { Duration, Effect, Fiber, Redacted } from "effect"
-import { FetchHttpClient } from "effect/unstable/http"
 import { TestClock } from "effect/testing"
+import { FetchHttpClient } from "effect/unstable/http"
 import { expect } from "vitest"
+
 import { FintualConfigService, type FintualConfig } from "../env.ts"
 import { Email2FACode, Operational, TimedOut } from "./email-2fa.ts"
 import { FintualProvider } from "./provider.ts"

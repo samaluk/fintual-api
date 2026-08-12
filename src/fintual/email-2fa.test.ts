@@ -1,8 +1,9 @@
 import { it } from "@effect/vitest"
 import { Cause, Effect, Exit, Fiber, Option, Redacted } from "effect"
 import { TestClock } from "effect/testing"
-import { describe, expect } from "vitest"
 import type { SearchObject } from "imapflow"
+import { describe, expect } from "vitest"
+
 import { FintualConfigService, type Email2FAConfig, type FintualConfig } from "../env.ts"
 import {
   ImapClientFactory,

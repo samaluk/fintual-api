@@ -1,7 +1,9 @@
 import { readFile } from "node:fs/promises"
+
 import { it } from "@effect/vitest"
 import { Effect } from "effect"
 import { expect, test } from "vitest"
+
 import {
   buildEmail2FASearchQueries,
   selectEmail2FACode,

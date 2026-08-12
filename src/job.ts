@@ -1,4 +1,5 @@
 import { Effect } from "effect"
+
 import { main as mainActual } from "./actual.ts"
 import type { ActualError } from "./actual.ts"
 import { FintualConfigService, type RuntimeConfig } from "./env.ts"

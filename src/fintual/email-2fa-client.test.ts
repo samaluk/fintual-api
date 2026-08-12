@@ -2,6 +2,7 @@ import { it } from "@effect/vitest"
 import { Effect } from "effect"
 import { ImapFlow } from "imapflow"
 import { expect } from "vitest"
+
 import { ImapFlowClient, MissingServerExtension } from "./email-2fa-client.ts"
 
 it.effect("surfaces a MissingServerExtension search rejection as a typed error", () =>

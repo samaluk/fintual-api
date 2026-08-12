@@ -1,6 +1,7 @@
 import { Effect, Schema } from "effect"
 import type { SearchObject } from "imapflow"
 import { simpleParser } from "mailparser"
+
 import { getErrorMessage } from "../../log.ts"
 
 export interface Email2FASearchPolicy {

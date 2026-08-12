@@ -17,6 +17,7 @@ import {
   HttpClientRequest,
   HttpClientResponse,
 } from "effect/unstable/http"
+
 import { FintualConfigService, type FintualConfig } from "../env.ts"
 import { getErrorMessage } from "../log.ts"
 import type { Email2FACode, Operational, TimedOut } from "./email-2fa.ts"

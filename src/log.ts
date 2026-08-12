@@ -1,5 +1,7 @@
 import { inspect } from "node:util"
+
 import { Context, Layer, Predicate, Redacted } from "effect"
+
 import type { RuntimeConfig } from "./env.ts"
 
 const EMAIL_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi
