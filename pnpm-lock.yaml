@@ -12,8 +12,8 @@ importers:
         specifier: 26.8.1
         version: 26.8.1
       '@effect/platform-node':
-        specifier: 4.0.0-beta.106
-        version: 4.0.0-beta.106(effect@4.0.0-beta.106)(ioredis@5.11.1)
+        specifier: 4.0.0-beta.107
+        version: 4.0.0-beta.107(effect@4.0.0-beta.106)(ioredis@5.11.1)
       dotenv:
         specifier: 17.4.2
         version: 17.4.2
@@ -79,11 +79,11 @@ packages:
     peerDependencies:
       effect: ^4.0.0-beta.107
 
-  '@effect/platform-node@4.0.0-beta.106':
-    resolution: {integrity: sha512-Me7uorWWroWp4OuWHbFg7EqyIex45QzZ3EPwh2p8y/t3VCWVy4KSFtL9AKOKpd7QK1krUWxRK/26J/hTsqvwZg==}
+  '@effect/platform-node@4.0.0-beta.107':
+    resolution: {integrity: sha512-k+6YNbV4Ck0L6YXtlgkvEnuP5tlxWD8EeWOrpn46PDqbGEwt4ONpRltTwm3tn2cyBXD0i+2P11cUH/6sdFagTA==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
-      effect: ^4.0.0-beta.106
+      effect: ^4.0.0-beta.107
       ioredis: '>=5.7.0 <6.0.0'
 
   '@effect/tsgo-darwin-arm64@0.36.3':
@@ -1571,7 +1571,7 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  '@effect/platform-node@4.0.0-beta.106(effect@4.0.0-beta.106)(ioredis@5.11.1)':
+  '@effect/platform-node@4.0.0-beta.107(effect@4.0.0-beta.106)(ioredis@5.11.1)':
     dependencies:
       '@effect/platform-node-shared': 4.0.0-beta.107(effect@4.0.0-beta.106)
       effect: 4.0.0-beta.106
