@@ -10,6 +10,14 @@
 	"packageRules": [
 		{
 			"matchPackageNames": [
+				"effect",
+				"@effect/platform-node",
+				"@effect/vitest"
+			],
+			"groupName": "Effect packages"
+		},
+		{
+			"matchPackageNames": [
 				"mcuadros/ofelia"
 			],
 			"allowedVersions": "!/^v3\\.0\\.8$/"
