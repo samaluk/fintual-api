@@ -3,7 +3,7 @@
 	"packageManager": "pnpm@11.21.0",
 	"type": "module",
 	"devDependencies": {
-		"@effect/tsgo": "0.36.3",
+		"@effect/tsgo": "0.36.4",
 		"@effect/vitest": "4.0.0-beta.106",
 		"@types/mailparser": "3.4.6",
 		"@types/node": "24.13.3",
