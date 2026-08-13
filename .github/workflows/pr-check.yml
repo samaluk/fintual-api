@@ -15,7 +15,8 @@ concurrency:
 jobs:
   check:
     name: Lint, format & test
-    runs-on: ubuntu-latest
+    # USE_SELF_HOSTED_RUNNERS repo variable (Settings → Actions → Variables)
+    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || (vars.USE_SELF_HOSTED_RUNNERS == 'true' && (vars.SELF_HOSTED_RUNNER_LABELS != '' && fromJSON(vars.SELF_HOSTED_RUNNER_LABELS) || fromJSON('["self-hosted"]')) || 'ubuntu-latest') }}
     timeout-minutes: 20
 
     steps:

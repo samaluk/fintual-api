@@ -19,7 +19,8 @@ jobs:
     if: >-
       (github.event_name != 'push' || github.ref_name == github.event.repository.default_branch) &&
       (github.event_name != 'issues' || github.event.issue.user.login == 'github-actions[bot]')
-    runs-on: ubuntu-latest
+    # USE_SELF_HOSTED_RUNNERS repo variable (Settings → Actions → Variables)
+    runs-on: ${{ vars.USE_SELF_HOSTED_RUNNERS == 'true' && (vars.SELF_HOSTED_RUNNER_LABELS != '' && fromJSON(vars.SELF_HOSTED_RUNNER_LABELS) || fromJSON('["self-hosted"]')) || 'ubuntu-latest' }}
     permissions:
       # Creates and updates the frog/sync cleanup branch.
       contents: write
