@@ -19,7 +19,7 @@
 		"@effect/platform-node": "4.0.0-rc.108",
 		"dotenv": "17.4.2",
 		"effect": "4.0.0-rc.108",
-		"imapflow": "1.6.6",
+		"imapflow": "1.7.0",
 		"mailparser": "3.9.15"
 	},
 	"scripts": {
