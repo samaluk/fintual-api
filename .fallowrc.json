@@ -34,21 +34,7 @@
     "maxCyclomatic": 13,
     "maxCognitive": 15,
     "maxCrap": 30,
-    "maxUnitSize": 60,
-    "thresholdOverrides": [
-      {
-        "files": [
-          "bin/fallow-ci.mjs"
-        ],
-        "functions": [
-          "auditVerdict",
-          "regressionVerdict",
-          "countVerdict"
-        ],
-        "maxCrap": 60,
-        "reason": "Repo-tooling orchestrator verdicts with no test coverage by design; complexity is well below the cyclomatic/cognitive ceilings"
-      }
-    ]
+    "maxUnitSize": 60
   },
   "boundaries": {
     "zones": [
