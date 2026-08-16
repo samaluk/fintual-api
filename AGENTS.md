@@ -49,8 +49,8 @@ appropriate when they directly support development or diagnosis.
 
 ### Fallow
 
-The version-matched Fallow agent skill is vendored at `.agents/skills/fallow`
-(regenerate with `pnpm fallow:skill:sync` after a fallow upgrade). The
+The version-matched Fallow agent skill at `.agents/skills/fallow` links directly
+to the exact version installed under `node_modules/fallow/skills/fallow`. The
 repository runs Fallow as a strict quality ratchet — full policy and command
 surface in `docs/fallow.md`. Use it when:
 
