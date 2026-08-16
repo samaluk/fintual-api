@@ -65,6 +65,8 @@ jobs:
       # freshness. Mirrors `pnpm fallow:ci` run locally.
       - name: Fallow CI gate
         run: pnpm fallow:ci
+        env:
+          FALLOW_AUDIT_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'origin/main' }}
 
   fallow:
     name: Fallow PR annotations & code scanning
@@ -115,9 +117,13 @@ jobs:
         with:
           version: 3.16.0
           command: audit
+          changed-since: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'origin/main' }}
           gate: new-only
-          type-aware: auto
+          type-aware: true
           coverage: coverage/coverage-final.json
+          coverage-root: ${{ github.workspace }}
+          dupes-mode: semantic
+          args: --dupes-near --dupes-ignore-imports
           dead-code-baseline: fallow-baselines/dead-code.json
           health-baseline: fallow-baselines/health.json
           dupes-baseline: fallow-baselines/dupes.json
