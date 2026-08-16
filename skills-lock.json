@@ -10,6 +10,12 @@
       "source": "brianlovin/claude-config",
       "sourceType": "github",
       "computedHash": "322a20071306ede626dc73ac05182b08c97b60781e23ec3fbf23f85a4d27d111"
+    },
+    "fallow": {
+      "source": "fallow",
+      "sourceType": "npm",
+      "version": "3.16.0",
+      "computedHash": "bd10ca06e833688bc1d03439553f15e1e210e503a44b1ca350ef6af72840b838"
     }
   }
 }
