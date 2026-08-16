@@ -20,6 +20,17 @@ local sourceChecks = new Mapping<String, Step> {
     }
 }
 
+// Fast changed/staged-code audit: rejects newly introduced Fallow findings in
+// the staged diff before the commit is created. Pre-commit only; the stronger
+// coverage-aware ratchet runs at pre-push via fallow:ci.
+local stagedAudit = new Mapping<String, Step> {
+    ["fallow-staged"] {
+        check = new Command {
+            argv = List("pnpm", "run", "fallow:audit:staged")
+        }
+    }
+}
+
 local projectChecks = new Mapping<String, Step> {
     ...sourceChecks
     ["typecheck"] {
@@ -29,13 +40,14 @@ local projectChecks = new Mapping<String, Step> {
     }
     ["test"] {
         check = new Command {
-            argv = List("pnpm", "test")
+            argv = List("pnpm", "run", "test:coverage")
         }
     }
     ["fallow"] {
         check = new Command {
-            argv = List("pnpm", "run", "fallow:audit")
+            argv = List("pnpm", "run", "fallow:ci")
         }
+        depends = List("test")
     }
 }
 
@@ -48,7 +60,10 @@ hooks {
     ["pre-commit"] {
         fix = true
         stash = "git"
-        steps = sourceChecks
+        steps = new Mapping<String, Step> {
+            ...sourceChecks
+            ...stagedAudit
+        }
     }
     ["pre-push"] {
         steps = projectChecks
