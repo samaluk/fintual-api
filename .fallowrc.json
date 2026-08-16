@@ -23,6 +23,7 @@
   },
   "duplicates": {
     "mode": "semantic",
+    "near": true,
     "minLines": 8,
     "minTokens": 60,
     "minOccurrences": 3,
