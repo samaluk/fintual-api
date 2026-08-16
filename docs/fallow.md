@@ -156,15 +156,18 @@ findings from earlier pushed commits. The staged audit intentionally uses
 - **`fallow` job** — the official `fallow-rs/fallow` Action pinned to the
   v3.16.0 release commit with `version: 3.16.0`, running `command: audit`
   against the event's actual PR target with `gate: new-only`, type-aware,
-  coverage, and native base-snapshot attribution. It
-  emits inline annotations, a sticky PR comment, and uploads SARIF to GitHub
-  Code Scanning. Its purpose is PR-visible feedback; the check job owns the
+  coverage, and native base-snapshot attribution. It emits inline annotations
+  and uploads SARIF to GitHub Code Scanning. Its purpose is PR-visible feedback;
+  the check job owns the
   exact project-wide baseline and regression gates. Baseline files are not
   passed to the Action because its isolated type-aware sidecar produces a
   different project identity than the lockfile-installed local companion.
   The workflow renders SARIF from the Action's saved JSON envelope and uploads
   its HEAD/base runs under distinct Code Scanning categories because GitHub no
   longer accepts multiple runs in one category.
+  Fallow 3.16's typed PR-comment renderer does not support type-aware analysis,
+  so `comment` remains disabled instead of weakening the audit. The workflow
+  summary, annotations, and Code Scanning results remain available.
 
 CI fails when: changed code introduces a forbidden finding (Gate A); an exact
 baseline is exceeded (Gate B); regression counts increase (Gate C); committed

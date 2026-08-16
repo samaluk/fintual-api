@@ -110,7 +110,7 @@ jobs:
       - name: Test with coverage
         run: pnpm test:coverage
 
-      - name: Fallow audit (annotations, sticky comment, SARIF)
+      - name: Fallow audit (annotations and SARIF)
         id: fallow
         # Pinned to the v3.16.0 release commit; the `version` input keeps the
         # CLI aligned with the pinned local fallow dependency.
@@ -127,7 +127,6 @@ jobs:
           dupes-mode: semantic
           args: --dupes-near --dupes-ignore-imports
           annotations: true
-          comment: true
           sarif: false
 
       # Fallow audit SARIF contains separate HEAD/base runs. GitHub no longer
