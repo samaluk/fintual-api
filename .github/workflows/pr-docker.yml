@@ -2,8 +2,6 @@ name: PR Docker
 
 on:
   pull_request:
-    branches:
-      - main
 
 concurrency:
   group: pr-docker-${{ github.workflow }}-${{ github.ref }}
