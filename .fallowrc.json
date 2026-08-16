@@ -42,7 +42,8 @@
         ],
         "functions": [
           "auditVerdict",
-          "regressionVerdict"
+          "regressionVerdict",
+          "countVerdict"
         ],
         "maxCrap": 60,
         "reason": "Repo-tooling orchestrator verdicts with no test coverage by design; complexity is well below the cyclomatic/cognitive ceilings"
@@ -51,8 +52,18 @@
   },
   "boundaries": {
     "zones": [
-      { "name": "adapter-actual", "patterns": ["src/actual/**"] },
-      { "name": "adapter-fintual", "patterns": ["src/fintual/**"] },
+      {
+        "name": "adapter-actual",
+        "patterns": [
+          "src/actual/**"
+        ]
+      },
+      {
+        "name": "adapter-fintual",
+        "patterns": [
+          "src/fintual/**"
+        ]
+      },
       {
         "name": "shared",
         "patterns": [
@@ -63,16 +74,41 @@
           "src/performance-snapshot.ts"
         ]
       },
-      { "name": "app", "patterns": ["src/*.ts"] }
+      {
+        "name": "app",
+        "patterns": [
+          "src/*.ts"
+        ]
+      }
     ],
     "rules": [
-      { "from": "adapter-actual", "allow": ["shared"] },
-      { "from": "adapter-fintual", "allow": ["shared"] },
-      { "from": "app", "allow": ["shared", "adapter-actual", "adapter-fintual"] }
+      {
+        "from": "adapter-actual",
+        "allow": [
+          "shared"
+        ]
+      },
+      {
+        "from": "adapter-fintual",
+        "allow": [
+          "shared"
+        ]
+      },
+      {
+        "from": "app",
+        "allow": [
+          "shared",
+          "adapter-actual",
+          "adapter-fintual"
+        ]
+      }
     ],
     "coverage": {
       "requireAllFiles": true,
-      "allowUnmatched": ["bin/**", "vitest.config.ts"]
+      "allowUnmatched": [
+        "bin/**",
+        "vitest.config.ts"
+      ]
     }
   },
   "audit": {
