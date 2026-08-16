@@ -124,9 +124,6 @@ jobs:
           coverage-root: ${{ github.workspace }}
           dupes-mode: semantic
           args: --dupes-near --dupes-ignore-imports
-          dead-code-baseline: fallow-baselines/dead-code.json
-          health-baseline: fallow-baselines/health.json
-          dupes-baseline: fallow-baselines/dupes.json
           annotations: true
           comment: true
           sarif: true
