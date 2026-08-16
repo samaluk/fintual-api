@@ -162,6 +162,9 @@ findings from earlier pushed commits. The staged audit intentionally uses
   exact project-wide baseline and regression gates. Baseline files are not
   passed to the Action because its isolated type-aware sidecar produces a
   different project identity than the lockfile-installed local companion.
+  The workflow renders SARIF from the Action's saved JSON envelope and uploads
+  its HEAD/base runs under distinct Code Scanning categories because GitHub no
+  longer accepts multiple runs in one category.
 
 CI fails when: changed code introduces a forbidden finding (Gate A); an exact
 baseline is exceeded (Gate B); regression counts increase (Gate C); committed
