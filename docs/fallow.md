@@ -108,9 +108,10 @@ All baselines live in `fallow-baselines/` (committed):
 - `dupes.json` — clone-group fingerprints.
 - `regression.json` — issue-count baseline for Gate C.
 
-The audit gate's per-analysis baselines are wired in `audit.*Baseline`.
-Regenerating all baselines coherently is `pnpm fallow:baseline:update`; it
-requires `coverage/coverage-final.json` (run `pnpm test:coverage` first).
+The audit gate uses native base-snapshot attribution; exact committed baselines
+belong to the separate full-repo Gate B commands. Regenerating all baselines
+coherently is `pnpm fallow:baseline:update`; it requires
+`coverage/coverage-final.json` (run `pnpm test:coverage` first).
 
 ## Local commands
 

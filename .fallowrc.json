@@ -99,9 +99,6 @@
   },
   "audit": {
     "gate": "new-only",
-    "typeAware": true,
-    "deadCodeBaseline": "fallow-baselines/dead-code.json",
-    "healthBaseline": "fallow-baselines/health.json",
-    "dupesBaseline": "fallow-baselines/dupes.json"
+    "typeAware": true
   }
 }
