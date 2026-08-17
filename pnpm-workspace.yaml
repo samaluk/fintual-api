@@ -6,3 +6,6 @@ minimumReleaseAgeStrict: true
 minimumReleaseAgeExclude:
   - '@actual-app/api'
   - '@actual-app/core'
+  - '@fallow-cli/*'
+  - 'fallow'
+  - 'fallow-type-aware'
