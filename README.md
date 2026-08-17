@@ -115,10 +115,10 @@ pnpm capture:har
 
 Details and observed endpoints are in [`docs/fintual-http-capture.md`](docs/fintual-http-capture.md). Output goes to `tmp/fintual-capture.har` (gitignored).
 
-## Quality ratchet
+## Quality gate
 
-Fallow 3.16 runs as a strict quality ratchet: changed-code audit, project-wide
-identity baselines, regression counts, and baseline freshness — all enforced
+Fallow 3.17 runs as a strict zero-debt gate: a changed-file audit plus
+standalone project-wide dead-code, duplication, and health checks, all enforced
 locally, in git hooks, and in CI. See [`docs/fallow.md`](docs/fallow.md).
 
 ## Git hooks
@@ -127,7 +127,7 @@ locally, in git hooks, and in CI. See [`docs/fallow.md`](docs/fallow.md).
 
 - `commit-msg` requires commit subjects to follow the [Conventional Commits](https://www.conventionalcommits.org/) format.
 - `pre-commit` checks staged TypeScript with Oxfmt and Oxlint in parallel plus a fast Fallow audit of the staged diff. Safe fixes are applied and re-staged while unstaged changes are temporarily stashed.
-- `pre-push` checks the files being pushed with Oxfmt and Oxlint while running the full TypeScript, coverage, test, and Fallow ratchet gates in parallel.
+- `pre-push` checks the files being pushed with Oxfmt and Oxlint while running the full TypeScript, coverage, test, and Fallow gates in parallel.
 
 Run the hooks explicitly when needed:
 

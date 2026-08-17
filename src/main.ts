@@ -93,7 +93,7 @@ const runProcess = Effect.fn("Main.runProcess")(function* (
   )
 })
 
-export const main = Effect.fn("Main.main")(function* () {
+const main = Effect.fn("Main.main")(function* () {
   return yield* runProcess(runApplication)
 })
 
