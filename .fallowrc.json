@@ -8,6 +8,7 @@
   "dynamicallyLoaded": [
     "bin/fintual-goal-performance.graphql"
   ],
+  "includeEntryExports": true,
   "ignoreDependencies": [
     "@effect/tsgo"
   ],
