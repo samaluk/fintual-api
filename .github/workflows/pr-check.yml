@@ -113,11 +113,11 @@ jobs:
 
       - name: Fallow audit (annotations and SARIF)
         id: fallow
-        # Pinned to the v3.16.0 release commit; the `version` input keeps the
+        # Pinned to the v3.17.0 release commit; the `version` input keeps the
         # CLI aligned with the pinned local fallow dependency.
-        uses: fallow-rs/fallow@45fd28766199acb1f939f6862274a37aad12770b # v3.16.0
+        uses: fallow-rs/fallow@ecf5a314fd3e10974acb4f5a7f867c433030522d # v3.17.0
         with:
-          version: 3.16.0
+          version: 3.17.0
           command: audit
           format: json
           changed-since: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'origin/main' }}

@@ -1,7 +1,7 @@
 {
   "analysis_identity": {
     "mode": "type-aware",
-    "semantic_schema_version": 2,
+    "semantic_schema_version": 3,
     "capabilities": [
       "symbol-use",
       "api-surface",

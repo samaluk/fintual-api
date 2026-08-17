@@ -117,7 +117,7 @@ Details and observed endpoints are in [`docs/fintual-http-capture.md`](docs/fint
 
 ## Quality ratchet
 
-Fallow 3.16 runs as a strict quality ratchet: changed-code audit, project-wide
+Fallow 3.17 runs as a strict quality ratchet: changed-code audit, project-wide
 identity baselines, regression counts, and baseline freshness — all enforced
 locally, in git hooks, and in CI. See [`docs/fallow.md`](docs/fallow.md).
 
