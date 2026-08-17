@@ -19,7 +19,8 @@
     ]
   },
   "rules": {
-    "private-type-leaks": "warn"
+    "private-type-leaks": "error",
+    "stale-suppressions": "error"
   },
   "duplicates": {
     "mode": "semantic",
@@ -31,14 +32,73 @@
   },
   "health": {
     "maxCyclomatic": 13,
-    "maxCognitive": 16,
-    "maxCrap": 157,
+    "maxCognitive": 15,
+    "maxCrap": 30,
     "maxUnitSize": 60
+  },
+  "boundaries": {
+    "zones": [
+      {
+        "name": "adapter-actual",
+        "patterns": [
+          "src/actual/**"
+        ]
+      },
+      {
+        "name": "adapter-fintual",
+        "patterns": [
+          "src/fintual/**"
+        ]
+      },
+      {
+        "name": "shared",
+        "patterns": [
+          "src/env.ts",
+          "src/log.ts",
+          "src/logging.ts",
+          "src/log-test-fixtures.ts",
+          "src/performance-snapshot.ts"
+        ]
+      },
+      {
+        "name": "app",
+        "patterns": [
+          "src/*.ts"
+        ]
+      }
+    ],
+    "rules": [
+      {
+        "from": "adapter-actual",
+        "allow": [
+          "shared"
+        ]
+      },
+      {
+        "from": "adapter-fintual",
+        "allow": [
+          "shared"
+        ]
+      },
+      {
+        "from": "app",
+        "allow": [
+          "shared",
+          "adapter-actual",
+          "adapter-fintual"
+        ]
+      }
+    ],
+    "coverage": {
+      "requireAllFiles": true,
+      "allowUnmatched": [
+        "bin/**",
+        "vitest.config.ts"
+      ]
+    }
   },
   "audit": {
     "gate": "new-only",
-    "deadCodeBaseline": "fallow-baselines/dead-code.json",
-    "healthBaseline": "fallow-baselines/health.json",
-    "dupesBaseline": "fallow-baselines/dupes.json"
+    "typeAware": true
   }
 }

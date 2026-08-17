@@ -14,6 +14,7 @@ concurrency:
 
 jobs:
   check:
+    # Keep this stable: the main-branch ruleset requires this exact check name.
     name: Lint, format & test
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -55,8 +56,97 @@ jobs:
       - name: Format check
         run: pnpm format:check
 
-      - name: Fallow audit
-        run: pnpm fallow:audit
+      # Generates coverage/coverage-final.json; fallow health/CRAP and the
+      # audit gate below consume it, so tests must run first.
+      - name: Test with coverage
+        run: pnpm test:coverage
 
-      - name: Test
-        run: pnpm test
+      # Authoritative Fallow ratchet: changed-code audit (new-only, type-aware),
+      # project-wide identity baselines, regression counts, and baseline
+      # freshness. Mirrors `pnpm fallow:ci` run locally.
+      - name: Fallow CI gate
+        run: pnpm fallow:ci
+        env:
+          FALLOW_AUDIT_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'origin/main' }}
+
+  fallow:
+    name: Fallow PR annotations & code scanning
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write
+      checks: write
+      security-events: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+
+      - name: Read pnpm version
+        id: pnpm
+        run: |
+          version="$(node -p "require('./package.json').packageManager.replace(/^pnpm@/, '')")"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Install pnpm
+        uses: pnpm/setup@84cb39b217b10273981911c288cd62326dc7c6d2 # v2.0.2
+        with:
+          version: ${{ steps.pnpm.outputs.version }}
+          cache: true
+          install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Same coverage evidence the check job uses, so audit CRAP scoring matches.
+      - name: Test with coverage
+        run: pnpm test:coverage
+
+      - name: Fallow audit (annotations and SARIF)
+        id: fallow
+        # Pinned to the v3.16.0 release commit; the `version` input keeps the
+        # CLI aligned with the pinned local fallow dependency.
+        uses: fallow-rs/fallow@45fd28766199acb1f939f6862274a37aad12770b # v3.16.0
+        with:
+          version: 3.16.0
+          command: audit
+          format: json
+          changed-since: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'origin/main' }}
+          gate: new-only
+          type-aware: true
+          coverage: coverage/coverage-final.json
+          coverage-root: ${{ github.workspace }}
+          dupes-mode: semantic
+          args: --dupes-near --dupes-ignore-imports
+          annotations: true
+          sarif: false
+
+      # Fallow audit SARIF contains separate HEAD/base runs. GitHub no longer
+      # accepts multiple runs under one upload category, so render from the
+      # saved JSON envelope (no second analysis) and upload each run distinctly.
+      - name: Split Fallow SARIF runs
+        run: |
+          pnpm exec fallow report --from "${{ steps.fallow.outputs.results }}" --format sarif --output-file fallow-results.sarif
+          jq '{version, "$schema": .["$schema"], runs: [.runs[0]]}' fallow-results.sarif > fallow-head.sarif
+          jq '{version, "$schema": .["$schema"], runs: [.runs[1]]}' fallow-results.sarif > fallow-base.sarif
+
+      - name: Upload Fallow HEAD SARIF
+        uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3 # v4
+        with:
+          sarif_file: fallow-head.sarif
+          category: fallow-audit-head
+
+      - name: Upload Fallow base SARIF
+        uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3 # v4
+        with:
+          sarif_file: fallow-base.sarif
+          category: fallow-audit-base

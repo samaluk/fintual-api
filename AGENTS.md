@@ -38,12 +38,38 @@ suite while working or before handing off a change. The Git hooks are the
 verification boundary:
 
 - `pre-commit` checks staged TypeScript with Oxfmt and Oxlint, applies safe
-  fixes, and re-stages the fixed files.
-- `pre-push` runs Oxfmt, Oxlint, TypeScript, tests, and Fallow.
+  fixes, and re-stages the fixed files; it also runs a fast Fallow audit of the
+  staged changes.
+- `pre-push` runs Oxfmt, Oxlint, TypeScript, tests with coverage, and the full
+  Fallow ratchet (`pnpm fallow:ci`).
 
 Only run an individual check outside the hooks when diagnosing a reported hook
 failure or when the user explicitly asks for it. Focused tests are still
 appropriate when they directly support development or diagnosis.
+
+### Fallow
+
+The version-matched Fallow agent skill at `.agents/skills/fallow` links directly
+to the exact version installed under `node_modules/fallow/skills/fallow`. The
+repository runs Fallow as a strict quality ratchet — full policy and command
+surface in `docs/fallow.md`. Use it when:
+
+- **About to delete an "unused" export, file, or dependency** — trace first:
+  `pnpm exec fallow dead-code --trace <file>:<export>` or
+  `pnpm exec fallow dead-code --trace-dependency <name>`, and confirm exact
+  consumers with `pnpm exec fallow dead-code --type-aware --symbol-impact <file>:<export>`.
+- **Before committing or opening a PR** — run `pnpm fallow:audit` (changed-code
+  gate) or `pnpm fallow:ci` (full ratchet) when the hooks did not cover your
+  change.
+- **Prioritizing refactors** — `pnpm exec fallow health --hotspots --targets`.
+- **Investigating a finding** — `pnpm exec fallow explain <issue-type>` and
+  `pnpm exec fallow inspect --file <path>`.
+- **Checking architecture rules before editing** — `pnpm exec fallow guard <files>`.
+
+Exit codes: 0 = clean, 1 = findings found (analysis succeeded), 2 = real
+analyzer/config error. Do not treat exit 1 as infrastructure failure. Baselines
+in `fallow-baselines/` are a one-way ratchet: fix code, then run
+`pnpm fallow:baseline:update`; never regenerate a worse baseline to silence CI.
 
 ### Friction logging
 
