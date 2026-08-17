@@ -20,9 +20,9 @@ local sourceChecks = new Mapping<String, Step> {
     }
 }
 
-// Fast changed/staged-code audit: rejects newly introduced Fallow findings in
-// the staged diff before the commit is created. Pre-commit only; the stronger
-// coverage-aware ratchet runs at pre-push via fallow:ci.
+// Fast changed/staged-code audit: rejects every Fallow finding in the staged
+// diff before the commit is created. Pre-commit only; the coverage-aware,
+// project-wide gate runs at pre-push via fallow:ci.
 local stagedAudit = new Mapping<String, Step> {
     ["fallow-staged"] {
         check = new Command {

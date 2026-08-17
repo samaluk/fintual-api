@@ -116,7 +116,7 @@ jobs:
       # (`review-comments`). No second analysis, no SARIF. Code Scanning is not
       # used: its two-run upload needed manual splitting, and the Check Run,
       # summary comment, and review comments already surface the same findings
-      # on the PR. The check job owns the exact project-wide baseline gates.
+      # on the PR. The check job owns the strict project-wide gates.
       - name: Fallow audit
         id: fallow
         # Pinned to the v3.17.0 release commit; the `version` input keeps the
