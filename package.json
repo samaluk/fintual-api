@@ -1,6 +1,13 @@
 {
 	"name": "fintual-api",
 	"packageManager": "pnpm@11.21.0",
+	"devEngines": {
+		"runtime": {
+			"name": "node",
+			"version": "24.19.0",
+			"onFail": "download"
+		}
+	},
 	"type": "module",
 	"devDependencies": {
 		"@effect/tsgo": "0.36.4",

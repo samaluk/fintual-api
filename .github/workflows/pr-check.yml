@@ -13,9 +13,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check:
-    # Keep this stable: the main-branch ruleset requires this exact check name.
-    name: Lint, format & test
+  # Static quality checks, tests, and the two Fallow passes run as parallel jobs
+  # so pull requests go green as fast as possible. Each is its own required
+  # status check (the main-branch ruleset lists these exact names), so every one
+  # must pass for a merge.
+  static:
+    name: Lint, typecheck & format
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -26,26 +29,11 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version-file: .node-version
-
-      - name: Read pnpm version
-        id: pnpm
-        run: |
-          version="$(node -p "require('./package.json').packageManager.replace(/^pnpm@/, '')")"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-
-      - name: Install pnpm
+      - name: Setup pnpm and Node.js
         uses: pnpm/setup@84cb39b217b10273981911c288cd62326dc7c6d2 # v2.0.2
         with:
-          version: ${{ steps.pnpm.outputs.version }}
+          runtime: node
           cache: true
-          install: false
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
 
       - name: Lint
         run: pnpm lint
@@ -56,21 +44,74 @@ jobs:
       - name: Format check
         run: pnpm format:check
 
-      # Generates coverage/coverage-final.json; fallow health/CRAP and the
-      # audit gate below consume it, so tests must run first.
+  test:
+    name: Test with coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup pnpm and Node.js
+        uses: pnpm/setup@84cb39b217b10273981911c288cd62326dc7c6d2 # v2.0.2
+        with:
+          runtime: node
+          cache: true
+
+      # Generates coverage/coverage-final.json; both Fallow jobs consume it, so
+      # tests must run before they start.
       - name: Test with coverage
         run: pnpm test:coverage
 
-      # Authoritative Fallow gate: strict changed-file audit plus strict
-      # project-wide dead-code, duplication, and health checks. Mirrors
-      # `pnpm fallow:ci` run locally.
+      # Shared with the two Fallow jobs below so they do not reinstall and
+      # re-run the suite just to score the same evidence.
+      - name: Upload coverage
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: coverage
+          path: coverage/coverage-final.json
+          if-no-files-found: error
+          retention-days: 1
+
+  gate:
+    name: Fallow gate
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup pnpm and Node.js
+        uses: pnpm/setup@84cb39b217b10273981911c288cd62326dc7c6d2 # v2.0.2
+        with:
+          runtime: node
+          cache: true
+
+      - name: Download coverage
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: coverage
+          path: coverage
+
+      # Authoritative strict Fallow gate: changed-file audit plus project-wide
+      # dead-code, duplication, and health checks. Mirrors `pnpm fallow:ci`.
       - name: Fallow CI gate
         run: pnpm fallow:ci
         env:
           FALLOW_AUDIT_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'origin/main' }}
 
-  fallow:
+  review:
     name: Fallow PR review
+    needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -85,30 +126,25 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version-file: .node-version
-
-      - name: Read pnpm version
-        id: pnpm
-        run: |
-          version="$(node -p "require('./package.json').packageManager.replace(/^pnpm@/, '')")"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-
-      - name: Install pnpm
+      - name: Setup pnpm and Node.js
         uses: pnpm/setup@84cb39b217b10273981911c288cd62326dc7c6d2 # v2.0.2
         with:
-          version: ${{ steps.pnpm.outputs.version }}
+          runtime: node
           cache: true
-          install: false
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      # Fallow installs its CLI globally with npm. The runtime managed by
+      # pnpm/setup can use a different npm prefix, so expose that bin directory.
+      - name: Expose npm global binaries
+        run: echo "$(npm config get prefix)/bin" >> "$GITHUB_PATH"
 
-      # Same coverage evidence the check job uses, so audit CRAP scoring matches.
-      - name: Test with coverage
-        run: pnpm test:coverage
+      # Same coverage evidence the test job produced, so audit CRAP scoring
+      # matches — downloaded rather than regenerated to avoid a second
+      # install + test run.
+      - name: Download coverage
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: coverage
+          path: coverage
 
       # One authoritative audit: the Action analyzes once, then renders native
       # type-aware PR feedback from the saved JSON envelope — a sticky summary
@@ -116,7 +152,9 @@ jobs:
       # (`review-comments`). No second analysis, no SARIF. Code Scanning is not
       # used: its two-run upload needed manual splitting, and the Check Run,
       # summary comment, and review comments already surface the same findings
-      # on the PR. The check job owns the strict project-wide gates.
+      # on the PR. This job is a required check (fail-on-issues is on), so
+      # Fallow findings block the merge. The gate job owns the strict
+      # project-wide gates.
       - name: Fallow audit
         id: fallow
         # Pinned to the v3.17.0 release commit; the `version` input keeps the
