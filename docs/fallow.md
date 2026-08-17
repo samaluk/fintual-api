@@ -85,19 +85,21 @@ coverage-aware commands.
 
 ## CI and PR feedback
 
-`.github/workflows/pr-check.yml` has two complementary jobs:
+`.github/workflows/pr-check.yml` has four complementary jobs:
 
-- `Lint, format & test` runs lint, typecheck, format, tests with coverage, and
-  the authoritative `pnpm fallow:ci` gate.
+- `Lint, typecheck & format` runs the static checks.
+- `Test with coverage` runs the suite once and uploads the shared coverage
+  evidence.
+- `Fallow gate` runs the authoritative `pnpm fallow:ci` gate using that evidence.
 - `Fallow PR review` runs one type-aware, coverage-aware audit through the
   pinned official Action. Fallow 3.17 renders the saved JSON envelope natively
   as a compact sticky summary, a Check Run, inline review comments, and review
   guidance. It does not perform a second analysis and does not use SARIF or
   GitHub Code Scanning.
 
-Both jobs analyze with `gate: all`, semantic/near duplication, and the same
-Istanbul coverage evidence. The Action receives the GitHub workspace as
-`coverage-root`; native audit forwards the evidence to base analysis so HEAD
+The two Fallow jobs analyze with `gate: all`, semantic/near duplication, and
+the same Istanbul coverage evidence. The Action receives the GitHub workspace
+as `coverage-root`; native audit forwards the evidence to base analysis so HEAD
 and base use the same coverage model.
 
 ## Git hooks
