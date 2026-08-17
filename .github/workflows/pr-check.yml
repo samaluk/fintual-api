@@ -70,14 +70,13 @@ jobs:
           FALLOW_AUDIT_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'origin/main' }}
 
   fallow:
-    name: Fallow PR annotations & code scanning
+    name: Fallow PR review
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
       pull-requests: write
       checks: write
-      security-events: write
 
     steps:
       - name: Checkout
@@ -111,7 +110,14 @@ jobs:
       - name: Test with coverage
         run: pnpm test:coverage
 
-      - name: Fallow audit (annotations and SARIF)
+      # One authoritative audit: the Action analyzes once, then renders native
+      # type-aware PR feedback from the saved JSON envelope — a sticky summary
+      # comment plus a Fallow Check Run (`comment`) and inline review comments
+      # (`review-comments`). No second analysis, no SARIF. Code Scanning is not
+      # used: its two-run upload needed manual splitting, and the Check Run,
+      # summary comment, and review comments already surface the same findings
+      # on the PR. The check job owns the exact project-wide baseline gates.
+      - name: Fallow audit
         id: fallow
         # Pinned to the v3.17.0 release commit; the `version` input keeps the
         # CLI aligned with the pinned local fallow dependency.
@@ -127,26 +133,9 @@ jobs:
           coverage-root: ${{ github.workspace }}
           dupes-mode: semantic
           args: --dupes-near --dupes-ignore-imports
-          annotations: true
+          comment: true
+          comment-layout: compact
+          review-comments: true
+          review-guidance: true
+          branded-token: false
           sarif: false
-
-      # Fallow audit SARIF contains separate HEAD/base runs. GitHub no longer
-      # accepts multiple runs under one upload category, so render from the
-      # saved JSON envelope (no second analysis) and upload each run distinctly.
-      - name: Split Fallow SARIF runs
-        run: |
-          pnpm exec fallow report --from "${{ steps.fallow.outputs.results }}" --format sarif --output-file fallow-results.sarif
-          jq '{version, "$schema": .["$schema"], runs: [.runs[0]]}' fallow-results.sarif > fallow-head.sarif
-          jq '{version, "$schema": .["$schema"], runs: [.runs[1]]}' fallow-results.sarif > fallow-base.sarif
-
-      - name: Upload Fallow HEAD SARIF
-        uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
-        with:
-          sarif_file: fallow-head.sarif
-          category: fallow-audit-head
-
-      - name: Upload Fallow base SARIF
-        uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
-        with:
-          sarif_file: fallow-base.sarif
-          category: fallow-audit-base
