@@ -61,9 +61,9 @@ jobs:
       - name: Test with coverage
         run: pnpm test:coverage
 
-      # Authoritative Fallow ratchet: changed-code audit (new-only, type-aware),
-      # project-wide identity baselines, regression counts, and baseline
-      # freshness. Mirrors `pnpm fallow:ci` run locally.
+      # Authoritative Fallow gate: strict changed-file audit plus strict
+      # project-wide dead-code, duplication, and health checks. Mirrors
+      # `pnpm fallow:ci` run locally.
       - name: Fallow CI gate
         run: pnpm fallow:ci
         env:
@@ -127,7 +127,7 @@ jobs:
           command: audit
           format: json
           changed-since: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'origin/main' }}
-          gate: new-only
+          gate: all
           type-aware: true
           coverage: coverage/coverage-final.json
           coverage-root: ${{ github.workspace }}

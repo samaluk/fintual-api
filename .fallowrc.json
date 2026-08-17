@@ -98,7 +98,7 @@
     }
   },
   "audit": {
-    "gate": "new-only",
+    "gate": "all",
     "typeAware": true
   }
 }
