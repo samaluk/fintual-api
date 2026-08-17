@@ -1,34 +1,11 @@
 #!/usr/bin/env node
 
 import { spawnSync } from "node:child_process"
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs"
-import { tmpdir } from "node:os"
-import { join, resolve } from "node:path"
+import { existsSync } from "node:fs"
+import { resolve } from "node:path"
 
 const ROOT = process.cwd()
 const COVERAGE = resolve(ROOT, "coverage/coverage-final.json")
-const BASELINES = "fallow-baselines"
-const BASELINE_COMMANDS = {
-  "dead-code.json": ["--coverage", COVERAGE, "--coverage-root", ROOT, "--save-baseline"],
-  "dupes.json": ["dupes", "--save-baseline"],
-  "health.json": [
-    "health",
-    "--coverage",
-    COVERAGE,
-    "--coverage-root",
-    ROOT,
-    "--baseline-mode",
-    "identity",
-    "--save-baseline",
-  ],
-  "regression.json": [
-    "--coverage",
-    COVERAGE,
-    "--coverage-root",
-    ROOT,
-    "--save-regression-baseline",
-  ],
-}
 
 function run(command, args) {
   const result = spawnSync(command, args, { encoding: "utf8", stdio: "inherit" })
@@ -101,49 +78,8 @@ function audit() {
   ])
 }
 
-function regenerate(targetDir) {
-  requireCoverage()
-  for (const [file, args] of Object.entries(BASELINE_COMMANDS)) {
-    const status = fallow([...args, join(targetDir, file)])
-    if (status === 2) return status
-  }
-  return 0
-}
-
-function normalized(path, file) {
-  const value = JSON.parse(readFileSync(path, "utf8"))
-  if (file === "regression.json") {
-    delete value.timestamp
-    delete value.git_sha
-  }
-  return JSON.stringify(value)
-}
-
-function baselineCheck() {
-  const directory = mkdtempSync(join(tmpdir(), "fallow-baseline-check-"))
-  try {
-    const status = regenerate(directory)
-    if (status !== 0) return status
-    const stale = Object.keys(BASELINE_COMMANDS).filter((file) => {
-      const committed = join(BASELINES, file)
-      const generated = join(directory, file)
-      return !existsSync(committed) || normalized(committed, file) !== normalized(generated, file)
-    })
-    if (stale.length === 0) {
-      console.log("Fallow baselines are fresh.")
-      return 0
-    }
-    console.error(`stale Fallow baselines: ${stale.join(", ")}; run \`pnpm fallow:baseline:update\``)
-    return 1
-  } finally {
-    rmSync(directory, { recursive: true, force: true })
-  }
-}
-
 const command = process.argv[2]
 if (command === "audit") process.exit(audit())
-if (command === "baseline:update") process.exit(regenerate(BASELINES))
-if (command === "baseline:check") process.exit(baselineCheck())
 
-console.error("usage: node bin/fallow.mjs audit|baseline:update|baseline:check")
+console.error("usage: node bin/fallow.mjs audit")
 process.exit(2)
