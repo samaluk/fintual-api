@@ -140,13 +140,13 @@ jobs:
           jq '{version, "$schema": .["$schema"], runs: [.runs[1]]}' fallow-results.sarif > fallow-base.sarif
 
       - name: Upload Fallow HEAD SARIF
-        uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3 # v4
+        uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
         with:
           sarif_file: fallow-head.sarif
           category: fallow-audit-head
 
       - name: Upload Fallow base SARIF
-        uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3 # v4
+        uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4.37.7
         with:
           sarif_file: fallow-base.sarif
           category: fallow-audit-base
