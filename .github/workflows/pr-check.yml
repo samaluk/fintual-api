@@ -14,7 +14,8 @@ concurrency:
 
 jobs:
   check:
-    name: Lint, format, test & Fallow ratchet
+    # Keep this stable: the main-branch ruleset requires this exact check name.
+    name: Lint, format & test
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
