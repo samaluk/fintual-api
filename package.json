@@ -35,7 +35,7 @@
 		"fallow:config": "fallow config",
 		"fallow:recommend": "fallow recommend",
 		"fallow:status": "fallow type-aware status",
-		"fallow:audit": "node bin/fallow.mjs audit",
+		"fallow:audit": "fallow audit --coverage coverage/coverage-final.json",
 		"fallow:audit:staged": "fallow audit --base HEAD",
 		"fallow:dead-code": "fallow dead-code --fail-on-issues",
 		"fallow:dupes": "fallow dupes --fail-on-issues",
