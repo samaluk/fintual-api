@@ -172,8 +172,8 @@ verdict.
 exceptions for `@actual-app/api` and `@actual-app/core` support their coordinated
 release workflow. The migration temporarily added the exact
 `fallow@3.17.0` version so the repository could adopt the just-published release;
-that exception should be removed as soon as the configured age window permits,
-without broadening it to all Fallow versions.
+it was removed again once the release was older than the configured age window.
+No Fallow release-age exception remains.
 
 ## Investigating findings
 

@@ -6,4 +6,3 @@ minimumReleaseAgeStrict: true
 minimumReleaseAgeExclude:
   - '@actual-app/api'
   - '@actual-app/core'
-  - fallow@3.17.0
