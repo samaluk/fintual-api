@@ -29,6 +29,13 @@
 			"minimumReleaseAge": "0 days",
 			"automerge": true,
 			"platformAutomerge": true
+		},
+		{
+			"description": "Keep Pullfrog on major-version tags",
+			"matchDepTypes": ["action"],
+			"matchPackageNames": ["pullfrog/pullfrog"],
+			"pinDigests": false,
+			"rangeStrategy": "replace"
 		}
 	]
 }
