@@ -10,7 +10,7 @@
 	},
 	"type": "module",
 	"devDependencies": {
-		"@effect/tsgo": "0.36.4",
+		"@effect/tsgo": "0.36.5",
 		"@effect/vitest": "4.0.0-rc.109",
 		"@types/mailparser": "3.4.6",
 		"@types/node": "24.13.3",
