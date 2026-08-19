@@ -13,10 +13,10 @@ Synchronizing a snapshot to Actual combines filesystem preparation, a health che
 `ActualSynchronization` is a `Context.Service` exposing one named operation:
 
 ```text
-synchronize(snapshot): Effect<void, ActualSynchronizationError>
+synchronize(snapshot): Effect<void, ActualError>
 ```
 
-Its live layer acquires validated Actual configuration and the `ActualClientFactory`, `ActualFileSystem`, `ActualHealthCheck`, and retry-policy services. The public method has no remaining environment requirements. The application entry point calls this service; no parallel plain-function API is retained.
+Its live layer acquires validated Actual configuration, `ActualClientFactory`, and the Effect `HttpClient`. Filesystem preparation, health check probe, and retry schedule are internal implementation details of the module. The public method has no remaining environment requirements. The application entry point calls this service; no parallel plain-function API is retained.
 
 Each synchronization attempt executes this complete unit:
 
@@ -29,7 +29,7 @@ The client is acquired with `Effect.acquireRelease` inside an attempt-local `Sco
 
 Reconciliation is pure domain policy over Schema-validated values. Its action algebra uses exhaustive tagged variants. Imported identifiers make recovery after an ambiguous mutation response idempotent on the next full attempt.
 
-Adapters map SDK, filesystem, and HTTP failures to operation-specific `Schema.TaggedError` values and attach structured retryability derived from stable codes and status classes. The orchestration layer never parses messages. The health adapter uses Effect `HttpClient`, including cancellation and timeout.
+Adapters map SDK, filesystem, and HTTP failures to operation-specific `Schema.TaggedError` values and attach structured retryability derived from stable codes and status classes. The orchestration layer never parses messages. The internal health probe uses Effect `HttpClient`, including cancellation and timeout.
 
 Retry wraps the entire scoped attempt. A bounded `Schedule` supplies capped exponential backoff, jitter, retry logging, and the attempt limit. Only failures classified as retryable enter the schedule, and only because the complete attempt is safe to repeat. Dates, timeout, backoff, and jitter use Effect `DateTime`, `Clock`, and `Random` services.
 

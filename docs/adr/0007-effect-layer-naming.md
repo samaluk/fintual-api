@@ -38,13 +38,13 @@ Apply the rule by answering one question: does the layer need anything from the
 environment?
 
 - **Yes** — a single layer requiring config, adapters, or the `HttpClient` is
-  `.layer`. `FintualProvider.layer`, `ActualHealthCheck.layer`. A layer that
-  takes configuration as an argument is also `.layer` (`RedactionPolicy`).
+  `.layer`. A layer that takes configuration as an argument is also `.layer`
+  (`RedactionPolicy`).
 - **No** — a fully self-contained layer with no environment requirements is
   `.live`, including `Layer.succeed` and `Layer.sync` layers.
-  `ActualRetryPolicy.live`, `ActualClientFactory.live`, `ActualFileSystem.live`.
+  `ActualClientFactory.live`, `ImapClientFactory.live`.
 - **Both** — `.layer` builds from dependencies; `.live` wires them:
-  `ActualSynchronization`, `Email2FAService`, `FintualPerformance`.
+  `ActualSynchronization`, `Email2FAService`, `FintualPerformance`, `Job`.
 
 Layer constants are statics on the service class. Top-level exported `...Live`
 constants are not used (`ImapClientFactory.live`, not `ImapClientFactoryLive`).

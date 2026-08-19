@@ -1,6 +1,7 @@
 import { it } from "@effect/vitest"
-import { Duration, Effect, Fiber, Redacted, Result, Schedule } from "effect"
+import { Effect, Fiber, Redacted, Result } from "effect"
 import { TestClock } from "effect/testing"
+import { FetchHttpClient } from "effect/unstable/http"
 import { afterEach, expect, vi } from "vitest"
 
 const actualApiMock = vi.hoisted(() => ({
@@ -16,7 +17,6 @@ const actualApiMock = vi.hoisted(() => ({
 }))
 
 vi.mock("@actual-app/api", () => actualApiMock)
-import { FetchHttpClient } from "effect/unstable/http"
 
 import { ActualSynchronization } from "./actual.ts"
 import { ActualClientFactory, type ActualClient } from "./actual/actual-client.ts"
@@ -25,11 +25,7 @@ import {
   ActualInitializationFailure,
   ActualTransactionCreationFailure,
 } from "./actual/actual-error.ts"
-import type { ActualError } from "./actual/actual-error.ts"
-import { ActualFileSystem } from "./actual/actual-file-system.ts"
-import { ActualHealthCheck } from "./actual/actual-health-check.ts"
-import { ActualRetryPolicy } from "./actual/retry-policy.ts"
-import type { ExistingVariationTransaction } from "./actual/variation-transaction.ts"
+import type { ExistingVariationTransaction } from "./actual/reconciliation-policy.ts"
 import { ActualConfigService, type ActualConfig } from "./env.ts"
 import type { PerformanceSnapshot } from "./performance-snapshot.ts"
 
@@ -72,7 +68,6 @@ it.effect("synchronizes through one service and shuts down the Actual session on
     yield* synchronizationProgram([client], calls)
 
     expect(calls).toEqual([
-      "reset",
       "health",
       "download",
       "transactions",
@@ -111,17 +106,19 @@ it.effect("retries a failed mutation as a fresh Synchronization Attempt", () =>
       transactions: secondAttemptTransactions,
     })
 
-    yield* synchronizationProgram([firstAttempt, secondAttempt], calls, { retries: 1 })
+    const fiber = yield* Effect.forkChild(
+      synchronizationProgram([firstAttempt, secondAttempt], calls),
+    )
+    yield* TestClock.adjust("10 seconds")
+    yield* Fiber.join(fiber)
 
     expect(calls).toEqual([
-      "reset",
       "health",
       "download",
       "transactions",
       "payees",
       "create:2026-01-05",
       "shutdown",
-      "reset",
       "health",
       "download",
       "transactions",
@@ -148,13 +145,13 @@ it.effect("does not retry a non-retryable Actual failure", () =>
         }),
     }
 
-    const error = yield* Effect.flip(synchronizationProgram([client], calls, { retries: 3 }))
+    const error = yield* Effect.flip(synchronizationProgram([client], calls))
 
     expect(error).toMatchObject({
       _tag: "ActualBudgetDownloadFailure",
       retryable: false,
     })
-    expect(calls).toEqual(["reset", "health", "download", "shutdown"])
+    expect(calls).toEqual(["health", "download", "shutdown"])
   }),
 )
 
@@ -191,15 +188,26 @@ it.effect("health checks normalize the server URL and classify HTTP failures", (
       return new Response("", { status: 503 })
     }
     const program = Effect.gen(function* () {
-      const healthCheck = yield* ActualHealthCheck
-      yield* healthCheck.check
+      const service = yield* ActualSynchronization
+      yield* service.synchronize(SNAPSHOT)
     }).pipe(
-      Effect.provide(ActualHealthCheck.layer),
+      Effect.provide(ActualSynchronization.layer),
       Effect.provideService(ActualConfigService, CONFIG),
+      Effect.provideService(ActualClientFactory, {
+        acquire: () =>
+          Effect.fail(
+            new ActualInitializationFailure({
+              cause: new Error("should not acquire client on health failure"),
+              retryable: false,
+            }),
+          ),
+      }),
       Effect.provideService(FetchHttpClient.Fetch, fetchRequest),
     )
 
-    const error = yield* Effect.flip(program)
+    const fiber = yield* Effect.forkChild(program)
+    yield* TestClock.adjust("5 minutes")
+    const error = yield* Effect.flip(Fiber.join(fiber))
 
     expect(error).toMatchObject({
       _tag: "ActualHealthCheckFailure",
@@ -207,7 +215,7 @@ it.effect("health checks normalize the server URL and classify HTTP failures", (
       retryable: true,
       url: "https://actual.example.test/health",
     })
-    expect(urls).toEqual(["https://actual.example.test/health"])
+    expect(urls[0]).toBe("https://actual.example.test/health")
   }),
 )
 
@@ -217,15 +225,26 @@ it.effect("health checks map transport failures to a retryable failure", () =>
       throw new TypeError("network down")
     }
     const program = Effect.gen(function* () {
-      const healthCheck = yield* ActualHealthCheck
-      yield* healthCheck.check
+      const service = yield* ActualSynchronization
+      yield* service.synchronize(SNAPSHOT)
     }).pipe(
-      Effect.provide(ActualHealthCheck.layer),
+      Effect.provide(ActualSynchronization.layer),
       Effect.provideService(ActualConfigService, CONFIG),
+      Effect.provideService(ActualClientFactory, {
+        acquire: () =>
+          Effect.fail(
+            new ActualInitializationFailure({
+              cause: new Error("should not acquire client on health failure"),
+              retryable: false,
+            }),
+          ),
+      }),
       Effect.provideService(FetchHttpClient.Fetch, fetchRequest),
     )
 
-    const error = yield* Effect.flip(program)
+    const fiber = yield* Effect.forkChild(program)
+    yield* TestClock.adjust("5 minutes")
+    const error = yield* Effect.flip(Fiber.join(fiber))
 
     expect(error).toMatchObject({
       _tag: "ActualHealthCheckFailure",
@@ -238,16 +257,25 @@ it.effect("health checks map transport failures to a retryable failure", () =>
 it.effect("health-check timeout is controlled by the Effect Clock", () =>
   Effect.gen(function* () {
     const fetchRequest: typeof globalThis.fetch = async () => new Promise<Response>(() => {})
-    const healthCheck = Effect.gen(function* () {
-      const service = yield* ActualHealthCheck
-      yield* service.check
+    const program = Effect.gen(function* () {
+      const service = yield* ActualSynchronization
+      yield* service.synchronize(SNAPSHOT)
     }).pipe(
-      Effect.provide(ActualHealthCheck.layer),
+      Effect.provide(ActualSynchronization.layer),
       Effect.provideService(ActualConfigService, CONFIG),
+      Effect.provideService(ActualClientFactory, {
+        acquire: () =>
+          Effect.fail(
+            new ActualInitializationFailure({
+              cause: new Error("should not acquire client on health failure"),
+              retryable: false,
+            }),
+          ),
+      }),
       Effect.provideService(FetchHttpClient.Fetch, fetchRequest),
     )
-    const fiber = yield* Effect.forkChild(healthCheck)
-    yield* TestClock.adjust(10_000)
+    const fiber = yield* Effect.forkChild(program)
+    yield* TestClock.adjust("5 minutes")
     const result = yield* Effect.result(Fiber.join(fiber))
 
     expect(Result.isFailure(result)).toBe(true)
@@ -278,31 +306,40 @@ it.effect("uses the Effect Clock for the transaction end date", () =>
 it.effect("shuts down the scoped Actual session when the workflow is interrupted", () =>
   Effect.gen(function* () {
     const calls: string[] = []
+    let resolveDownloadStarted!: () => void
+    const downloadStarted = new Promise<void>((resolve) => {
+      resolveDownloadStarted = resolve
+    })
     const client = scriptedClient(calls, {
       download: () =>
         Effect.gen(function* () {
           calls.push("download")
+          resolveDownloadStarted()
           return yield* Effect.never
         }),
     })
     const fiber = yield* Effect.forkChild(synchronizationProgram([client], calls))
-    yield* Effect.yieldNow
+    yield* Effect.promise(() => downloadStarted)
     yield* Fiber.interrupt(fiber)
 
-    expect(calls).toEqual(["reset", "health", "download", "shutdown"])
+    expect(calls).toEqual(["health", "download", "shutdown"])
   }),
 )
 
 function synchronizationProgram(
   clients: ReadonlyArray<ActualClient>,
   calls: string[],
-  options: { retries?: number } = {},
+  fetchRequest?: typeof globalThis.fetch,
 ) {
-  const schedule = Schedule.max([
-    Schedule.recurs(options.retries ?? 0).pipe(Schedule.map(() => Duration.zero)),
-    Schedule.spaced(Duration.zero),
-  ]).pipe(Schedule.setInputType<ActualError>())
   const clientQueue = [...clients]
+  const defaultFetch: typeof globalThis.fetch = async (input) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url
+    if (url.endsWith("/health")) {
+      calls.push("health")
+      return new Response("", { status: 200 })
+    }
+    return new Response("", { status: 200 })
+  }
 
   return Effect.gen(function* () {
     const service = yield* ActualSynchronization
@@ -323,13 +360,7 @@ function synchronizationProgram(
             )
       },
     }),
-    Effect.provideService(ActualFileSystem, {
-      reset: Effect.sync(() => calls.push("reset")),
-    }),
-    Effect.provideService(ActualHealthCheck, {
-      check: Effect.sync(() => calls.push("health")),
-    }),
-    Effect.provideService(ActualRetryPolicy, { schedule }),
+    Effect.provideService(FetchHttpClient.Fetch, fetchRequest ?? defaultFetch),
   )
 }
 
