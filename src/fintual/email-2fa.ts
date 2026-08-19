@@ -1,6 +1,6 @@
 import { Clock, Context, Effect, Layer, Option, Schedule, Schema } from "effect"
 
-import { FintualConfigService, type Email2FAConfig } from "../env.ts"
+import { Email2FAConfigService, type Email2FAConfig } from "../env.ts"
 import { getErrorMessage } from "../log.ts"
 import {
   ImapClientFactory,
@@ -60,10 +60,10 @@ export class Email2FAService extends Context.Service<
   static readonly layer = Layer.effect(
     Email2FAService,
     Effect.gen(function* () {
-      const config = yield* FintualConfigService
+      const config = yield* Email2FAConfigService
       const clientFactory = yield* ImapClientFactory
       const email2FAConfig = Option.getOrThrowWith(
-        Option.fromNullishOr(config.email2FA),
+        config,
         () => new Error("Email2FAService requires Email 2FA configuration"),
       )
 

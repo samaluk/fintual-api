@@ -1,22 +1,39 @@
-import { Effect } from "effect"
+/** @effect-diagnostics lazyEffect:off */
+import { Context, Effect, Layer } from "effect"
 
-import { main as mainActual } from "./actual.ts"
-import type { ActualError } from "./actual.ts"
-import { FintualConfigService, type RuntimeConfig } from "./env.ts"
+import { ActualSynchronization, type ActualError } from "./actual.ts"
 import type { FintualError } from "./fintual/fintual-error.ts"
 import { FintualPerformance } from "./fintual/performance.ts"
 
-export const runJob = Effect.fn("Job.runJob")(function* (
-  config: RuntimeConfig,
-): Effect.fn.Return<void, ActualError | FintualError> {
-  yield* Effect.logInfo("Running job...")
-  const snapshot = yield* Effect.gen(function* () {
-    const service = yield* FintualPerformance
-    return yield* service.fetchPerformanceSnapshot
-  }).pipe(
-    Effect.provide(FintualPerformance.live),
-    Effect.provideService(FintualConfigService, config.fintual),
+export type JobError = ActualError | FintualError
+
+interface JobContract {
+  synchronize(): Effect.Effect<void, JobError>
+}
+
+export class Job extends Context.Service<Job, JobContract>()("Job") {
+  static readonly layer = Layer.effect(
+    Job,
+    Effect.gen(function* () {
+      const fintual = yield* FintualPerformance
+      const actual = yield* ActualSynchronization
+
+      const synchronize = Effect.fn("Job.synchronize")(function* (): Effect.fn.Return<
+        void,
+        JobError
+      > {
+        yield* Effect.logInfo("Running job...")
+        const snapshot = yield* fintual.fetchPerformanceSnapshot
+        yield* actual.synchronize(snapshot)
+        yield* Effect.logInfo("Job finished.")
+      })
+
+      return Job.of({ synchronize })
+    }),
   )
-  yield* mainActual(config.actual, snapshot)
-  yield* Effect.logInfo("Job finished.")
-})
+
+  static readonly live = this.layer.pipe(
+    Layer.provide(FintualPerformance.live),
+    Layer.provide(ActualSynchronization.live),
+  )
+}

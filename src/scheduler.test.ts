@@ -2,6 +2,7 @@ import { it } from "@effect/vitest"
 import {
   Array as EffectArray,
   Cause,
+  Cron,
   Deferred,
   Effect,
   Exit,
@@ -9,15 +10,25 @@ import {
   Formatter,
   Logger,
   Ref,
-  Schema,
+  Result,
 } from "effect"
 import { TestClock } from "effect/testing"
 import { describe, expect } from "vitest"
 
-import { InvalidScheduleError, runScheduler, type SchedulerOptions } from "./scheduler.ts"
+import { LoginFailed } from "./fintual/fintual-error.ts"
+import { runScheduler, type SchedulerOptions } from "./scheduler.ts"
 
 function schedulerOptions(overrides: Partial<SchedulerOptions> = {}): SchedulerOptions {
-  return { cron: "* * * * *", timezone: "UTC", noOverlap: false, ...overrides }
+  return {
+    cron: Result.getOrThrow(Cron.parse("* * * * *", "UTC")),
+    timezone: "UTC",
+    noOverlap: false,
+    ...overrides,
+  }
+}
+
+function cron(expression: string, timezone: string): Cron.Cron {
+  return Result.getOrThrow(Cron.parse(expression, timezone))
 }
 
 interface CapturedLog {
@@ -33,10 +44,6 @@ function capturingLogger(lines: Array<CapturedLog>): Logger.Logger<unknown, void
     lines.push({ level: logLevel, message: parts.join(" ") })
   })
 }
-
-class ScriptedJobFailure extends Schema.TaggedError<ScriptedJobFailure>()("ScriptedJobFailure", {
-  message: Schema.String,
-}) {}
 
 describe("runScheduler", () => {
   it.effect("runs the job at each cron occurrence, not at startup", () =>
@@ -68,13 +75,14 @@ describe("runScheduler", () => {
       const utcJob = Ref.update(utcAttempts, (n) => n + 1)
       const kolkataJob = Ref.update(kolkataAttempts, (n) => n + 1)
       const utcFiber = yield* Effect.forkChild(
-        runScheduler(utcJob, schedulerOptions({ cron: "30 * * * *", timezone: "UTC" })),
+        runScheduler(utcJob, { ...schedulerOptions(), cron: cron("30 * * * *", "UTC") }),
       )
       const kolkataFiber = yield* Effect.forkChild(
-        runScheduler(
-          kolkataJob,
-          schedulerOptions({ cron: "30 * * * *", timezone: "Asia/Kolkata" }),
-        ),
+        runScheduler(kolkataJob, {
+          ...schedulerOptions(),
+          cron: cron("30 * * * *", "Asia/Kolkata"),
+          timezone: "Asia/Kolkata",
+        }),
       )
 
       yield* TestClock.adjust("30 minutes")
@@ -98,7 +106,7 @@ describe("runScheduler", () => {
       const attempts = yield* Ref.make(0)
       const job = Effect.gen(function* () {
         const attempt = yield* Ref.updateAndGet(attempts, (n) => n + 1)
-        if (attempt === 1) return yield* new ScriptedJobFailure({ message: "boom" })
+        if (attempt === 1) return yield* new LoginFailed({ status: 500 })
       })
       const fiber = yield* Effect.forkChild(
         runScheduler(job, schedulerOptions()).pipe(
@@ -171,20 +179,6 @@ describe("runScheduler", () => {
       expect(yield* Ref.get(attempts)).toBe(2)
 
       yield* Fiber.interrupt(fiber)
-    }),
-  )
-
-  it.effect("fails fast with InvalidScheduleError for an invalid cron expression", () =>
-    Effect.gen(function* () {
-      const error = yield* Effect.flip(
-        runScheduler(Effect.void, schedulerOptions({ cron: "not a cron" })),
-      )
-
-      expect(error).toBeInstanceOf(InvalidScheduleError)
-      expect(error).toMatchObject({
-        _tag: "InvalidScheduleError",
-        input: "not a cron",
-      })
     }),
   )
 })

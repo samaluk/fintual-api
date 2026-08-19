@@ -2,13 +2,13 @@ import { it as effectIt } from "@effect/vitest"
 import { Effect, Redacted } from "effect"
 import { describe, expect, it } from "vitest"
 
-import type { RuntimeConfig } from "./env.ts"
+import { redactionSecrets, type RuntimeConfig } from "./env.ts"
 import { email2FASecret, fintualSecret, runtimeConfig, secret } from "./log-test-fixtures.ts"
 import { RedactionPolicy } from "./log.ts"
 
 describe("RedactionPolicy", () => {
   it("redacts every sensitive configured value from the start, including Redacted passwords", () => {
-    const policy = RedactionPolicy.fromConfig(runtimeConfig)
+    const policy = RedactionPolicy.fromConfig(redactionSecrets(runtimeConfig))
 
     expect(policy.redact(`actual ${secret} fintual ${fintualSecret} gmail ${email2FASecret}`)).toBe(
       "actual [redacted] fintual [redacted] gmail [redacted]",
@@ -16,7 +16,7 @@ describe("RedactionPolicy", () => {
   })
 
   it("redacts configured identifiers and email addresses", () => {
-    const policy = RedactionPolicy.fromConfig(runtimeConfig)
+    const policy = RedactionPolicy.fromConfig(redactionSecrets(runtimeConfig))
 
     expect(
       policy.redact(
@@ -28,7 +28,7 @@ describe("RedactionPolicy", () => {
   })
 
   it("keeps redaction state isolated between policies", () => {
-    const configured = RedactionPolicy.fromConfig(runtimeConfig)
+    const configured = RedactionPolicy.fromConfig(redactionSecrets(runtimeConfig))
     const empty = RedactionPolicy.empty
 
     expect(configured.redact(secret)).toBe("[redacted]")
@@ -49,16 +49,16 @@ describe("RedactionPolicy", () => {
         email: "user@example.com",
         password: Redacted.make("fintual-pass"),
         goalId: "goal-42",
-        email2FA: null,
       },
+      email2FA: null,
       schedule: {
         mode: "once",
-        cron: "0 0 22 * * 1-5",
+        cron: runtimeConfig.schedule.cron,
         timezone: "America/Santiago",
         noOverlap: false,
       },
     }
-    const policy = RedactionPolicy.fromConfig(config)
+    const policy = RedactionPolicy.fromConfig(redactionSecrets(config))
 
     config.actual.syncId = "sync-added-after-build"
 
@@ -72,6 +72,6 @@ describe("RedactionPolicy", () => {
       const policy = yield* RedactionPolicy
 
       expect(policy.redact(`secret ${secret} and goal-42`)).toBe("secret [redacted] and [redacted]")
-    }).pipe(Effect.provide(RedactionPolicy.layer(runtimeConfig))),
+    }).pipe(Effect.provide(RedactionPolicy.layer(redactionSecrets(runtimeConfig)))),
   )
 })

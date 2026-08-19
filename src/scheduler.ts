@@ -1,12 +1,21 @@
 import { Cause, Clock, Cron, Duration, Effect, Exit, Ref, Result, Schema, Scope } from "effect"
 
+import type { JobError } from "./job.ts"
+
 export interface SchedulerOptions {
-  readonly cron: string
+  readonly cron: Cron.Cron
   readonly timezone: string
   readonly noOverlap: boolean
 }
 
-export class InvalidScheduleError extends Schema.TaggedError<InvalidScheduleError>()(
+export interface ScheduleParseError {
+  readonly _tag: "InvalidScheduleError"
+  readonly message: string
+  readonly input: string
+  readonly cause: unknown
+}
+
+class InvalidScheduleError extends Schema.TaggedError<InvalidScheduleError>()(
   "InvalidScheduleError",
   {
     message: Schema.String,
@@ -18,7 +27,7 @@ export class InvalidScheduleError extends Schema.TaggedError<InvalidScheduleErro
 export const parseSchedule = (
   cron: string,
   timezone: string,
-): Result.Result<Cron.Cron, InvalidScheduleError> => {
+): Result.Result<Cron.Cron, ScheduleParseError> => {
   const parsed = Cron.parse(cron, timezone)
   if (Result.isFailure(parsed)) {
     return Result.fail(
@@ -33,15 +42,10 @@ export const parseSchedule = (
 }
 
 export const runScheduler = Effect.fn("Scheduler.run")(function* (
-  job: Effect.Effect<unknown, unknown>,
+  job: Effect.Effect<void, JobError>,
   options: SchedulerOptions,
-): Effect.fn.Return<never, InvalidScheduleError> {
-  const parsed = parseSchedule(options.cron, options.timezone)
-  if (Result.isFailure(parsed)) {
-    return yield* parsed.failure
-  }
-
-  const cron = parsed.success
+): Effect.fn.Return<never, never> {
+  const cron = options.cron
   const scope = yield* Scope.make()
   const running = yield* Ref.make(false)
 

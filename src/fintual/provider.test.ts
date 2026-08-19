@@ -12,7 +12,6 @@ const CONFIG: FintualConfig = {
   email: "investor@example.com",
   password: Redacted.make("secret-password"),
   goalId: "goal-123",
-  email2FA: null,
 }
 
 function withProvider(fetch: typeof globalThis.fetch) {

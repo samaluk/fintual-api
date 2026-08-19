@@ -139,14 +139,13 @@ Vitest writes real Istanbul data to `coverage/coverage-final.json`. Fallow uses
 it for exact per-function CRAP evidence in audit and health. The gate fails
 loudly when the file is absent.
 
-`fallow health --coverage-gaps` was evaluated but remains advisory. After the
-local Fallow wrapper was removed, it reported four executable/support files
-(`src/once.ts`, two HAR helper modules, and the GraphQL document) plus the
-`mainOnce` entry function because none has a static dependency path from a test
-root. Importing process entry points merely to satisfy this structural heuristic
-would not test useful behavior; their domain workflows are already exercised at
-narrower boundaries. The real Istanbul signal remains blocking through CRAP
-scoring.
+`fallow health --coverage-gaps` was evaluated but remains advisory. Before the
+two process modes were consolidated, it reported the one-shot entry module, two
+HAR helper modules, and the GraphQL document because none had a static
+dependency path from a test root. The one-shot entry is now part of `src/main.ts`;
+importing process entry points merely to satisfy this structural heuristic would
+not test useful behavior. Their domain workflows are exercised at narrower
+boundaries. The real Istanbul signal remains blocking through CRAP scoring.
 
 ## Intentional configuration
 

@@ -4,7 +4,7 @@ import { TestClock } from "effect/testing"
 import type { SearchObject } from "imapflow"
 import { describe, expect } from "vitest"
 
-import { FintualConfigService, type Email2FAConfig, type FintualConfig } from "../env.ts"
+import { Email2FAConfigService, type Email2FAConfig } from "../env.ts"
 import {
   ImapClientFactory,
   ImapMailboxLockFailure,
@@ -122,15 +122,6 @@ function countOps(ops: string[], name: string): number {
   return ops.filter((op) => op === name).length
 }
 
-function fintualConfig(email2FA: Email2FAConfig | null): FintualConfig {
-  return {
-    email: "investor@example.com",
-    password: Redacted.make("secret-password"),
-    goalId: "goal-123",
-    email2FA,
-  }
-}
-
 function runRetrieval(
   config: Email2FAConfig,
   options: Email2FAOptions,
@@ -143,7 +134,7 @@ function runRetrieval(
       return yield* service.get2FACode(options)
     }).pipe(
       Effect.provide(Email2FAService.layer),
-      Effect.provideService(FintualConfigService, fintualConfig(config)),
+      Effect.provideService(Email2FAConfigService, Option.some(config)),
       Effect.provideService(ImapClientFactory, { create: () => client }),
       Effect.forkChild,
     )

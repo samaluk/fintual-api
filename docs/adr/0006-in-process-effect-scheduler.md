@@ -24,6 +24,12 @@ The application exposes two run modes selected from environment configuration:
   terminating the worker, and optional no-overlap protection skips a tick while
   a previous run is still active.
 
+The once and schedule modes share one Effect-native process entrypoint. The
+`RUN_MODE` value selects the application program after configuration is decoded;
+`bin/run-sync.sh` and `bin/run-schedule.sh` both invoke `src/main.ts` with their
+respective mode explicitly. This keeps the deployment distinction in
+environment configuration rather than maintaining parallel entry modules.
+
 Schedule policy is decoded with Effect Config from `SYNC_CRON`, `SYNC_TIMEZONE`,
 and `SYNC_NO_OVERLAP`. The cron expression and IANA timezone are validated
 eagerly at config decode with `Cron.parse`, so an invalid schedule fails fast as

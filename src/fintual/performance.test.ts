@@ -1,8 +1,8 @@
 import { it } from "@effect/vitest"
-import { Effect, Redacted } from "effect"
+import { Effect, Layer, Option, Redacted } from "effect"
 import { describe, expect } from "vitest"
 
-import { FintualConfigService, type FintualConfig } from "../env.ts"
+import { Email2FAConfigService, FintualConfigService, type FintualConfig } from "../env.ts"
 import { SnapshotWriter, type PerformanceSnapshot } from "../performance-snapshot.ts"
 import { Email2FACode, Email2FAService, Operational, TimedOut } from "./email-2fa.ts"
 import {
@@ -20,14 +20,15 @@ const CONFIG: FintualConfig = {
   email: "investor@example.com",
   password: Redacted.make("secret-password"),
   goalId: "goal-123",
-  email2FA: {
-    userEmail: "inbox@example.com",
-    appPassword: Redacted.make("app-password"),
-    host: "imap.example.com",
-    port: 993,
-    debug: false,
-    sender: "notifications@example.com",
-  },
+}
+
+const EMAIL_2FA_CONFIG = {
+  userEmail: "inbox@example.com",
+  appPassword: Redacted.make("app-password"),
+  host: "imap.example.com",
+  port: 993,
+  debug: false,
+  sender: "notifications@example.com",
 }
 
 interface TestOverrides {
@@ -37,6 +38,7 @@ interface TestOverrides {
   get2FACode?: Email2FAService["Service"]["get2FACode"]
   write?: SnapshotWriter["Service"]["write"]
   config?: FintualConfig
+  email2FAConfig?: typeof EMAIL_2FA_CONFIG | null
 }
 
 function performanceProgram(overrides: TestOverrides = {}) {
@@ -48,6 +50,12 @@ function performanceProgram(overrides: TestOverrides = {}) {
   return program.pipe(
     Effect.provide(FintualPerformance.layer),
     Effect.provideService(FintualConfigService, overrides.config ?? CONFIG),
+    Effect.provideService(
+      Email2FAConfigService,
+      overrides.email2FAConfig === null
+        ? Option.none()
+        : Option.some(overrides.email2FAConfig ?? EMAIL_2FA_CONFIG),
+    ),
     Effect.provideService(FintualProvider, {
       signIn: overrides.signIn ?? (() => Effect.void),
       fetchReferenceGoalPerformanceData:
@@ -57,9 +65,13 @@ function performanceProgram(overrides: TestOverrides = {}) {
         overrides.fetchRecent ??
         Effect.succeed(goalPerformanceData("2026-07-01", { costBasis: 90, valuation: 115 })),
     }),
-    Effect.provideService(Email2FAService, {
-      get2FACode: overrides.get2FACode ?? (() => Effect.succeed(Email2FACode.make("123456"))),
-    }),
+    Effect.provide(
+      overrides.email2FAConfig === null
+        ? Layer.empty
+        : Layer.succeed(Email2FAService, {
+            get2FACode: overrides.get2FACode ?? (() => Effect.succeed(Email2FACode.make("123456"))),
+          }),
+    ),
     Effect.provideService(SnapshotWriter, {
       write: overrides.write ?? (() => Effect.void),
     }),
@@ -117,7 +129,8 @@ it.effect("builds the live layer without Email 2FA configuration", () =>
     expect(Effect.isEffect(service.fetchPerformanceSnapshot)).toBe(true)
   }).pipe(
     Effect.provide(FintualPerformance.live),
-    Effect.provideService(FintualConfigService, { ...CONFIG, email2FA: null }),
+    Effect.provideService(FintualConfigService, CONFIG),
+    Effect.provideService(Email2FAConfigService, Option.none()),
   ),
 )
 
@@ -126,7 +139,7 @@ it.effect("direct login succeeds when Email 2FA is not configured", () =>
     let codeRequests = 0
 
     const snapshot = yield* performanceProgram({
-      config: { ...CONFIG, email2FA: null },
+      email2FAConfig: null,
       get2FACode: () => {
         codeRequests += 1
         return Effect.succeed(Email2FACode.make("123456"))
@@ -179,7 +192,7 @@ describe("fails when Email 2FA cannot produce a code", () => {
 
       const error = yield* Effect.flip(
         performanceProgram({
-          config: { ...CONFIG, email2FA: null },
+          email2FAConfig: null,
           get2FACode: () => {
             codeRequests += 1
             return Effect.succeed(Email2FACode.make("123456"))

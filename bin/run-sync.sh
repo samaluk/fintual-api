@@ -1,4 +1,4 @@
 #!/bin/sh
 set -eu
 
-exec node src/once.ts
+exec env RUN_MODE=once node src/main.ts

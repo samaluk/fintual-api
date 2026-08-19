@@ -52,9 +52,9 @@
 		"fallow:fix:preview": "fallow fix --dry-run",
 		"fallow:fix": "fallow fix --yes",
 		"fallow:ci": "pnpm fallow:audit && pnpm fallow:dead-code && pnpm fallow:dupes && pnpm fallow:health",
-		"dev": "node src/once.ts",
-		"once": "node src/once.ts",
-		"schedule": "node src/main.ts",
+		"dev": "RUN_MODE=once node src/main.ts",
+		"once": "RUN_MODE=once node src/main.ts",
+		"schedule": "RUN_MODE=schedule node src/main.ts",
 		"capture:har": "sh bin/capture-fintual-har.sh",
 		"prepare": "if [ -x node_modules/.bin/effect-tsgo ]; then effect-tsgo patch --typescript; fi"
 	}

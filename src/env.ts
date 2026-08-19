@@ -1,4 +1,14 @@
-import { Config, ConfigProvider, Context, Effect, Option, Redacted, Result, Schema } from "effect"
+import {
+  Config,
+  ConfigProvider,
+  Context,
+  Cron,
+  Effect,
+  Option,
+  Redacted,
+  Result,
+  Schema,
+} from "effect"
 
 import { parseSchedule, type SchedulerOptions } from "./scheduler.ts"
 
@@ -36,22 +46,32 @@ export interface FintualConfig {
   email: string
   password: Redacted.Redacted<string>
   goalId: string
-  email2FA: Email2FAConfig | null
 }
 
 export type RunMode = "once" | "schedule"
 
-export interface ScheduleConfig extends SchedulerOptions {
+export interface ScheduleConfig extends Omit<SchedulerOptions, "cron"> {
   mode: RunMode
+  cron: Cron.Cron
 }
 
 export class FintualConfigService extends Context.Service<FintualConfigService, FintualConfig>()(
   "FintualConfig",
 ) {}
 
+export class Email2FAConfigService extends Context.Service<
+  Email2FAConfigService,
+  Option.Option<Email2FAConfig>
+>()("Email2FAConfig") {}
+
+export class ScheduleConfigService extends Context.Service<ScheduleConfigService, ScheduleConfig>()(
+  "ScheduleConfig",
+) {}
+
 export interface RuntimeConfig {
   actual: ActualConfig
   fintual: FintualConfig
+  email2FA: Email2FAConfig | null
   schedule: ScheduleConfig
 }
 
@@ -99,8 +119,8 @@ export const resolveRuntimeConfig = Effect.fn("RuntimeConfig.resolveRuntimeConfi
       email: values.fintualUserEmail,
       password: values.fintualUserPassword,
       goalId: values.fintualGoalId,
-      email2FA,
     },
+    email2FA,
     schedule: yield* resolveScheduleConfig(values),
   }
 })
@@ -142,7 +162,7 @@ const resolveScheduleConfig = Effect.fn("RuntimeConfig.resolveScheduleConfig")(f
 
   return {
     mode: values.runMode,
-    cron: values.syncCron,
+    cron: parsed.success,
     timezone: values.syncTimezone,
     noOverlap: values.syncNoOverlap,
   }
@@ -216,4 +236,18 @@ function normalizeEnvValue(value: string): string {
   }
 
   return trimmedValue
+}
+
+export function redactionSecrets(config: RuntimeConfig): ReadonlyArray<string> {
+  return [
+    config.actual.serverUrl,
+    Redacted.value(config.actual.password),
+    config.actual.syncId,
+    config.actual.fintualAccount,
+    config.fintual.email,
+    Redacted.value(config.fintual.password),
+    config.fintual.goalId,
+    config.email2FA?.userEmail,
+    config.email2FA ? Redacted.value(config.email2FA.appPassword) : undefined,
+  ].filter((value): value is string => Boolean(value))
 }

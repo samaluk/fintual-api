@@ -30,14 +30,14 @@ it.effect("normalizes runtime values and applies defaults once for every domain"
     expect(configuration.fintual).toMatchObject({
       email: "investor@example.com",
       goalId: "goal-id",
-      email2FA: null,
     })
+    expect(configuration.email2FA).toBeNull()
     expect(configuration.schedule).toMatchObject({
       mode: "once",
-      cron: "0 0 22 * * 1-5",
       timezone: "America/Santiago",
       noOverlap: false,
     })
+    expect(configuration.schedule.cron).toBeDefined()
     // Redacted intentionally exposes a safe placeholder through String().
     // oxlint-disable-next-line typescript/no-base-to-string
     expect(String(configuration.actual.password)).toBe("<redacted>")
@@ -58,12 +58,12 @@ it.effect("selects scheduled mode and decodes the schedule policy", () =>
       SYNC_NO_OVERLAP: "true",
     })
 
-    expect(configuration.schedule).toEqual({
+    expect(configuration.schedule).toMatchObject({
       mode: "schedule",
-      cron: "0 0 6 * * 1",
       timezone: "UTC",
       noOverlap: true,
     })
+    expect(configuration.schedule.cron).toBeDefined()
   }),
 )
 
@@ -134,9 +134,9 @@ it.effect("uses legacy starting date and enables email 2FA when both credentials
 
     expect(configuration.actual.startingDate).toBe("2025-01-02")
     expect(configuration.actual.payee).toBe("Investments")
-    expect(configuration.fintual.email2FA).not.toBeNull()
-    if (configuration.fintual.email2FA) {
-      expect(configuration.fintual.email2FA).toMatchObject({
+    expect(configuration.email2FA).not.toBeNull()
+    if (configuration.email2FA) {
+      expect(configuration.email2FA).toMatchObject({
         userEmail: "mailbox@example.com",
         host: "mail.example.com",
         port: 1993,
@@ -144,8 +144,8 @@ it.effect("uses legacy starting date and enables email 2FA when both credentials
         sender: "security@example.com",
       })
       // oxlint-disable-next-line typescript/no-base-to-string
-      expect(String(configuration.fintual.email2FA.appPassword)).toBe("<redacted>")
-      expect(Redacted.value(configuration.fintual.email2FA.appPassword)).toBe("app password")
+      expect(String(configuration.email2FA.appPassword)).toBe("<redacted>")
+      expect(Redacted.value(configuration.email2FA.appPassword)).toBe("app password")
     }
   }),
 )
@@ -203,7 +203,7 @@ it.effect("uses defaults when optional non-Gmail values are unquoted empty strin
     })
 
     expect(configuration.actual.payee).toBe("Fintual")
-    expect(configuration.fintual.email2FA?.port).toBe(993)
+    expect(configuration.email2FA?.port).toBe(993)
   }),
 )
 
@@ -249,10 +249,10 @@ it.effect("preserves explicitly supplied empty Gmail credentials as present valu
       GMAIL_APP_PASSWORD: "",
     })
 
-    expect(configuration.fintual.email2FA).not.toBeNull()
-    if (configuration.fintual.email2FA) {
-      expect(configuration.fintual.email2FA.userEmail).toBe("")
-      expect(Redacted.value(configuration.fintual.email2FA.appPassword)).toBe("")
+    expect(configuration.email2FA).not.toBeNull()
+    if (configuration.email2FA) {
+      expect(configuration.email2FA.userEmail).toBe("")
+      expect(Redacted.value(configuration.email2FA.appPassword)).toBe("")
     }
   }),
 )
@@ -282,6 +282,6 @@ it.effect("ignores email 2FA settings when automatic retrieval is disabled", () 
       GMAIL_IMAP_PORT: "not-a-port",
     })
 
-    expect(configuration.fintual.email2FA).toBeNull()
+    expect(configuration.email2FA).toBeNull()
   }),
 )

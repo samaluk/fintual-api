@@ -1,8 +1,6 @@
 import { inspect } from "node:util"
 
-import { Context, Layer, Predicate, Redacted } from "effect"
-
-import type { RuntimeConfig } from "./env.ts"
+import { Context, Layer, Predicate } from "effect"
 
 const EMAIL_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi
 
@@ -12,11 +10,13 @@ export class RedactionPolicy extends Context.Service<
     readonly redact: (value: string) => string
   }
 >()("fintual-api/RedactionPolicy") {
-  static readonly layer = (config: RuntimeConfig): Layer.Layer<RedactionPolicy, never, never> =>
-    Layer.succeed(RedactionPolicy, RedactionPolicy.fromConfig(config))
+  static readonly layer = (
+    secrets: ReadonlyArray<string>,
+  ): Layer.Layer<RedactionPolicy, never, never> =>
+    Layer.succeed(RedactionPolicy, RedactionPolicy.fromConfig(secrets))
 
-  static readonly fromConfig = (config: RuntimeConfig): RedactionPolicy["Service"] => {
-    const sensitiveValues = collectSensitiveValues(config)
+  static readonly fromConfig = (secrets: ReadonlyArray<string>): RedactionPolicy["Service"] => {
+    const sensitiveValues = new Set(secrets)
     return RedactionPolicy.of({
       redact: (value) => redactSensitiveText(value, sensitiveValues),
     })
@@ -28,23 +28,6 @@ export class RedactionPolicy extends Context.Service<
       redact: (value) => redactSensitiveText(value, sensitiveValues),
     })
   })()
-}
-
-function collectSensitiveValues(config: RuntimeConfig): ReadonlySet<string> {
-  const email2FA = config.fintual.email2FA
-  return new Set(
-    [
-      config.actual.serverUrl,
-      Redacted.value(config.actual.password),
-      config.actual.syncId,
-      config.actual.fintualAccount,
-      config.fintual.email,
-      Redacted.value(config.fintual.password),
-      config.fintual.goalId,
-      email2FA?.userEmail,
-      email2FA ? Redacted.value(email2FA.appPassword) : undefined,
-    ].filter((value): value is string => Boolean(value)),
-  )
 }
 
 // Error rendering keeps the original cause evidence; redaction is applied once
