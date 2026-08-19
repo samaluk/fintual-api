@@ -5,6 +5,7 @@ import { getErrorMessage } from "../logging.ts"
 export class ActualDataDirectoryFailure extends Schema.TaggedError<ActualDataDirectoryFailure>()(
   "ActualDataDirectoryFailure",
   {
+    path: Schema.optional(Schema.String),
     cause: Schema.Defect(),
     retryable: Schema.Boolean,
   },
@@ -31,108 +32,13 @@ export class ActualHealthCheckFailure extends Schema.TaggedError<ActualHealthChe
 export class ActualInitializationFailure extends Schema.TaggedError<ActualInitializationFailure>()(
   "ActualInitializationFailure",
   {
+    serverUrl: Schema.optional(Schema.String),
     cause: Schema.Defect(),
     retryable: Schema.Boolean,
   },
 ) {
   override get message(): string {
     return `Failed to initialize Actual API: ${getErrorMessage(this.cause)}`
-  }
-}
-
-export class ActualBudgetDownloadFailure extends Schema.TaggedError<ActualBudgetDownloadFailure>()(
-  "ActualBudgetDownloadFailure",
-  {
-    cause: Schema.Defect(),
-    retryable: Schema.Boolean,
-  },
-) {
-  override get message(): string {
-    return `Failed to download Actual budget: ${getErrorMessage(this.cause)}`
-  }
-}
-
-export class ActualTransactionsReadFailure extends Schema.TaggedError<ActualTransactionsReadFailure>()(
-  "ActualTransactionsReadFailure",
-  {
-    cause: Schema.Defect(),
-    retryable: Schema.Boolean,
-  },
-) {
-  override get message(): string {
-    return `Failed to fetch Actual transactions: ${getErrorMessage(this.cause)}`
-  }
-}
-
-export class ActualPayeesReadFailure extends Schema.TaggedError<ActualPayeesReadFailure>()(
-  "ActualPayeesReadFailure",
-  {
-    cause: Schema.Defect(),
-    retryable: Schema.Boolean,
-  },
-) {
-  override get message(): string {
-    return `Failed to fetch Actual payees: ${getErrorMessage(this.cause)}`
-  }
-}
-
-export class ActualTransactionCreationFailure extends Schema.TaggedError<ActualTransactionCreationFailure>()(
-  "ActualTransactionCreationFailure",
-  {
-    cause: Schema.Defect(),
-    retryable: Schema.Boolean,
-  },
-) {
-  override get message(): string {
-    return `Failed to add Actual transaction: ${getErrorMessage(this.cause)}`
-  }
-}
-
-export class ActualTransactionUpdateFailure extends Schema.TaggedError<ActualTransactionUpdateFailure>()(
-  "ActualTransactionUpdateFailure",
-  {
-    cause: Schema.Defect(),
-    retryable: Schema.Boolean,
-  },
-) {
-  override get message(): string {
-    return `Failed to update Actual transaction: ${getErrorMessage(this.cause)}`
-  }
-}
-
-export class ActualDuplicateDeletionFailure extends Schema.TaggedError<ActualDuplicateDeletionFailure>()(
-  "ActualDuplicateDeletionFailure",
-  {
-    cause: Schema.Defect(),
-    retryable: Schema.Boolean,
-  },
-) {
-  override get message(): string {
-    return `Failed to delete duplicate Actual transaction: ${getErrorMessage(this.cause)}`
-  }
-}
-
-export class ActualSyncFailure extends Schema.TaggedError<ActualSyncFailure>()(
-  "ActualSyncFailure",
-  {
-    cause: Schema.Defect(),
-    retryable: Schema.Boolean,
-  },
-) {
-  override get message(): string {
-    return `Failed to sync Actual budget: ${getErrorMessage(this.cause)}`
-  }
-}
-
-export class ActualShutdownFailure extends Schema.TaggedError<ActualShutdownFailure>()(
-  "ActualShutdownFailure",
-  {
-    cause: Schema.Defect(),
-    retryable: Schema.Boolean,
-  },
-) {
-  override get message(): string {
-    return `Failed to shutdown Actual API: ${getErrorMessage(this.cause)}`
   }
 }
 
@@ -148,15 +54,31 @@ export class ActualInvalidStartingDate extends Schema.TaggedError<ActualInvalidS
   }
 }
 
+export class ActualOperationFailure extends Schema.TaggedError<ActualOperationFailure>()(
+  "ActualOperationFailure",
+  {
+    operation: Schema.Literals([
+      "download_budget",
+      "get_transactions",
+      "get_payees",
+      "create_transaction",
+      "update_transaction",
+      "delete_transaction",
+      "sync",
+      "shutdown",
+    ]),
+    cause: Schema.Defect(),
+    retryable: Schema.Boolean,
+  },
+) {
+  override get message(): string {
+    return `Actual ${this.operation} failed: ${getErrorMessage(this.cause)}`
+  }
+}
+
 export type ActualError =
   | ActualDataDirectoryFailure
   | ActualHealthCheckFailure
   | ActualInitializationFailure
-  | ActualBudgetDownloadFailure
-  | ActualTransactionsReadFailure
-  | ActualPayeesReadFailure
-  | ActualTransactionCreationFailure
-  | ActualTransactionUpdateFailure
-  | ActualDuplicateDeletionFailure
-  | ActualSyncFailure
   | ActualInvalidStartingDate
+  | ActualOperationFailure

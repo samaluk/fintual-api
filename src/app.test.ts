@@ -91,14 +91,11 @@ it.effect("runs the assembled Fintual-to-Actual workflow once", () =>
       response("", 200),
     ])
     const actualClient: ActualClient = {
-      downloadBudget: () => Effect.void,
-      getTransactions: () => Effect.succeed([]),
-      getPayees: Effect.succeed([{ id: "payee-id", name: "Fintual" }]),
-      createTransaction: (_accountId, transaction) =>
-        Effect.sync(() => calls.push(`create:${transaction.date}`)),
-      updateTransaction: () => Effect.void,
-      deleteTransaction: () => Effect.void,
-      sync: Effect.void,
+      reconcile: (snapshot, options) =>
+        Effect.sync(() => {
+          calls.push(`reconcile:${snapshot.balance.length}:${options.accountId}`)
+          return { created: 1, updated: 0, deletedDuplicates: 0 }
+        }),
       shutdown: Effect.void,
     }
     const fintualLayer = FintualPerformance.layer
@@ -119,7 +116,7 @@ it.effect("runs the assembled Fintual-to-Actual workflow once", () =>
     const job = yield* Effect.service(Job).pipe(Effect.provide(rootLayer))
     yield* job.synchronize()
 
-    expect(calls).toEqual(["create:2026-07-01"])
+    expect(calls).toEqual(["reconcile:1:account-id"])
     expect(script.requests).toHaveLength(5)
   }),
 )

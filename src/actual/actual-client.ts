@@ -1,52 +1,47 @@
 import * as api from "@actual-app/api"
-import { Context, Effect, Layer, Predicate, Redacted, Schema } from "effect"
+import { Context, DateTime, Effect, Layer, Predicate, Redacted, Schema } from "effect"
 
 import type { ActualConfig } from "../env.ts"
+import type { PerformanceSnapshot } from "../performance-snapshot.ts"
 import {
-  ActualBudgetDownloadFailure,
-  ActualDuplicateDeletionFailure,
   ActualInitializationFailure,
-  ActualPayeesReadFailure,
-  ActualShutdownFailure,
-  ActualSyncFailure,
-  ActualTransactionCreationFailure,
-  ActualTransactionUpdateFailure,
-  ActualTransactionsReadFailure,
+  ActualOperationFailure,
+  type ActualError,
 } from "./actual-error.ts"
 import {
   VARIATION_IMPORTED_ID_PREFIX,
+  planReconciliation,
   type ExistingVariationTransaction,
-  type VariationTransactionInput,
 } from "./reconciliation-policy.ts"
 
 const ACTUAL_DATA_DIR = "./tmp/actual-data"
 
 type ActualInitConfig = Parameters<typeof api.init>[0]
 
-export interface ActualPayee {
+interface ActualPayee {
   readonly id: string
   readonly name: string
 }
 
+export interface SyncCounts {
+  readonly created: number
+  readonly updated: number
+  readonly deletedDuplicates: number
+}
+
+export interface ActualReconcileOptions {
+  readonly startingDate: string
+  readonly startingTimestamp: number
+  readonly accountId: string
+  readonly payeeName: string
+}
+
 export interface ActualClient {
-  readonly downloadBudget: (syncId: string) => Effect.Effect<void, ActualBudgetDownloadFailure>
-  readonly getTransactions: (
-    accountId: string,
-    startDate: string,
-    endDate: string,
-  ) => Effect.Effect<ReadonlyArray<ExistingVariationTransaction>, ActualTransactionsReadFailure>
-  readonly getPayees: Effect.Effect<ReadonlyArray<ActualPayee>, ActualPayeesReadFailure>
-  readonly createTransaction: (
-    accountId: string,
-    transaction: VariationTransactionInput,
-  ) => Effect.Effect<void, ActualTransactionCreationFailure>
-  readonly updateTransaction: (
-    id: string,
-    transaction: VariationTransactionInput,
-  ) => Effect.Effect<void, ActualTransactionUpdateFailure>
-  readonly deleteTransaction: (id: string) => Effect.Effect<void, ActualDuplicateDeletionFailure>
-  readonly sync: Effect.Effect<void, ActualSyncFailure>
-  readonly shutdown: Effect.Effect<void, ActualShutdownFailure>
+  readonly reconcile: (
+    snapshot: PerformanceSnapshot,
+    options: ActualReconcileOptions,
+  ) => Effect.Effect<SyncCounts, ActualError>
+  readonly shutdown: Effect.Effect<void, ActualOperationFailure>
 }
 
 export class ActualClientFactory extends Context.Service<
@@ -76,105 +71,142 @@ export class ActualClientFactory extends Context.Service<
             }),
         })
 
-        return ActualClientLive
+        return makeActualClient(config.syncId)
       }),
     }),
   )
 }
 
-const ActualClientLive: ActualClient = {
-  downloadBudget: Effect.fn("ActualClient.downloadBudget")(function* (syncId: string) {
-    yield* Effect.tryPromise({
-      try: () => api.downloadBudget(syncId),
+function makeActualClient(syncId: string): ActualClient {
+  return {
+    reconcile: Effect.fn("ActualClient.reconcile")(function* (
+      snapshot: PerformanceSnapshot,
+      options: ActualReconcileOptions,
+    ): Effect.fn.Return<SyncCounts, ActualError> {
+      yield* Effect.tryPromise({
+        try: () => api.downloadBudget(syncId),
+        catch: (cause) =>
+          new ActualOperationFailure({
+            operation: "download_budget",
+            cause,
+            retryable: isRetryableActualCause(cause),
+          }),
+      })
+
+      const endingDate = DateTime.formatIsoDateUtc(yield* DateTime.now)
+      const rows = yield* Effect.tryPromise({
+        try: () => api.getTransactions(options.accountId, options.startingDate, endingDate),
+        catch: (cause) =>
+          new ActualOperationFailure({
+            operation: "get_transactions",
+            cause,
+            retryable: isRetryableActualCause(cause),
+          }),
+      })
+      const transactions = yield* decodeTransactions(rows)
+
+      const payees = yield* Effect.tryPromise({
+        try: () => api.getPayees(),
+        catch: (cause) =>
+          new ActualOperationFailure({
+            operation: "get_payees",
+            cause,
+            retryable: isRetryableActualCause(cause),
+          }),
+      }).pipe(Effect.andThen(decodePayees))
+
+      const matchedPayee = payees.find((candidate) => candidate.name === options.payeeName)
+      if (!matchedPayee) {
+        yield* Effect.logInfo("Configured payee not found")
+      }
+      const payeeId = matchedPayee?.id
+
+      const balanceEntries = snapshot.balance.filter(
+        (entry) => entry.date >= options.startingTimestamp,
+      )
+      const plan = planReconciliation({
+        balanceEntries,
+        existingTransactions: transactions,
+        payeeId,
+      })
+
+      for (const warning of plan.warnings) {
+        yield* Effect.logWarning(warning)
+      }
+
+      const syncCounts = {
+        created: 0,
+        updated: 0,
+        deletedDuplicates: 0,
+      }
+
+      for (const action of plan.actions) {
+        switch (action.type) {
+          case "create": {
+            yield* Effect.tryPromise({
+              try: () => api.addTransactions(options.accountId, [action.transaction]),
+              catch: (cause) =>
+                new ActualOperationFailure({
+                  operation: "create_transaction",
+                  cause,
+                  retryable: isRetryableActualCause(cause),
+                }),
+            })
+            syncCounts.created += 1
+            break
+          }
+          case "update": {
+            yield* Effect.tryPromise({
+              try: () => api.updateTransaction(action.id, action.transaction),
+              catch: (cause) =>
+                new ActualOperationFailure({
+                  operation: "update_transaction",
+                  cause,
+                  retryable: isRetryableActualCause(cause),
+                }),
+            })
+            syncCounts.updated += 1
+            break
+          }
+          case "delete": {
+            yield* Effect.tryPromise({
+              try: () => api.deleteTransaction(action.id),
+              catch: (cause) =>
+                new ActualOperationFailure({
+                  operation: "delete_transaction",
+                  cause,
+                  retryable: isRetryableActualCause(cause),
+                }),
+            })
+            syncCounts.deletedDuplicates += 1
+            break
+          }
+        }
+      }
+
+      yield* Effect.tryPromise({
+        try: () => api.sync(),
+        catch: (cause) =>
+          new ActualOperationFailure({
+            operation: "sync",
+            cause,
+            retryable: isRetryableActualCause(cause),
+          }),
+      })
+
+      return syncCounts
+    }),
+
+    shutdown: Effect.tryPromise({
+      try: () => api.shutdown(),
       catch: (cause) =>
-        new ActualBudgetDownloadFailure({
+        new ActualOperationFailure({
+          operation: "shutdown",
           cause,
-          retryable: isRetryableActualCause(cause),
+          retryable: false,
         }),
-    })
-  }),
-
-  getTransactions: Effect.fn("ActualClient.getTransactions")(function* (
-    accountId: string,
-    startDate: string,
-    endDate: string,
-  ) {
-    const rows = yield* Effect.tryPromise({
-      try: () => api.getTransactions(accountId, startDate, endDate),
-      catch: (cause) =>
-        new ActualTransactionsReadFailure({
-          cause,
-          retryable: isRetryableActualCause(cause),
-        }),
-    })
-
-    return yield* decodeTransactions(rows)
-  }),
-
-  getPayees: Effect.tryPromise({
-    try: () => api.getPayees(),
-    catch: (cause) =>
-      new ActualPayeesReadFailure({
-        cause,
-        retryable: isRetryableActualCause(cause),
-      }),
-  }).pipe(
-    Effect.andThen((payees) => decodePayees(payees)),
-    Effect.withSpan("ActualClient.getPayees"),
-  ),
-
-  createTransaction: Effect.fn("ActualClient.createTransaction")(function* (
-    accountId: string,
-    transaction: VariationTransactionInput,
-  ) {
-    yield* Effect.tryPromise({
-      try: () => api.addTransactions(accountId, [transaction]),
-      catch: (cause) =>
-        new ActualTransactionCreationFailure({
-          cause,
-          retryable: isRetryableActualCause(cause),
-        }),
-    })
-  }),
-
-  updateTransaction: Effect.fn("ActualClient.updateTransaction")(function* (
-    id: string,
-    transaction: VariationTransactionInput,
-  ) {
-    yield* Effect.tryPromise({
-      try: () => api.updateTransaction(id, transaction),
-      catch: (cause) =>
-        new ActualTransactionUpdateFailure({
-          cause,
-          retryable: isRetryableActualCause(cause),
-        }),
-    })
-  }),
-
-  deleteTransaction: Effect.fn("ActualClient.deleteTransaction")(function* (id: string) {
-    yield* Effect.tryPromise({
-      try: () => api.deleteTransaction(id),
-      catch: (cause) =>
-        new ActualDuplicateDeletionFailure({
-          cause,
-          retryable: isRetryableActualCause(cause),
-        }),
-    })
-  }),
-
-  sync: Effect.tryPromise({
-    try: () => api.sync(),
-    catch: (cause) =>
-      new ActualSyncFailure({
-        cause,
-        retryable: isRetryableActualCause(cause),
-      }),
-  }).pipe(Effect.withSpan("ActualClient.sync")),
-
-  shutdown: Effect.tryPromise({
-    try: () => api.shutdown(),
-    catch: (cause) => new ActualShutdownFailure({ cause, retryable: false }),
-  }).pipe(Effect.withSpan("ActualClient.shutdown")),
+    }).pipe(Effect.withSpan("ActualClient.shutdown")),
+  }
 }
 
 function isRetryableActualCause(cause: unknown): boolean {
@@ -200,7 +232,7 @@ const sdkPayeeSchema = Schema.Struct({
 
 const decodeTransactions = Effect.fn("ActualClient.decodeTransactions")(function* (
   rows: unknown,
-): Effect.fn.Return<ReadonlyArray<ExistingVariationTransaction>, ActualTransactionsReadFailure> {
+): Effect.fn.Return<ReadonlyArray<ExistingVariationTransaction>, ActualOperationFailure> {
   return yield* Schema.decodeUnknownEffect(Schema.Array(sdkTransactionRowSchema))(rows).pipe(
     Effect.map((rows) =>
       rows.flatMap((row) => {
@@ -208,7 +240,14 @@ const decodeTransactions = Effect.fn("ActualClient.decodeTransactions")(function
         return transaction ? [transaction] : []
       }),
     ),
-    Effect.mapError((cause) => new ActualTransactionsReadFailure({ cause, retryable: false })),
+    Effect.mapError(
+      (cause) =>
+        new ActualOperationFailure({
+          operation: "get_transactions",
+          cause,
+          retryable: false,
+        }),
+    ),
   )
 })
 
@@ -216,9 +255,16 @@ type SdkPayeeRow = Awaited<ReturnType<typeof api.getPayees>>[number]
 
 const decodePayees = Effect.fn("ActualClient.decodePayees")(function* (
   payees: ReadonlyArray<SdkPayeeRow>,
-): Effect.fn.Return<ReadonlyArray<ActualPayee>, ActualPayeesReadFailure> {
+): Effect.fn.Return<ReadonlyArray<ActualPayee>, ActualOperationFailure> {
   return yield* Schema.decodeEffect(Schema.Array(sdkPayeeSchema))(payees).pipe(
-    Effect.mapError((cause) => new ActualPayeesReadFailure({ cause, retryable: false })),
+    Effect.mapError(
+      (cause) =>
+        new ActualOperationFailure({
+          operation: "get_payees",
+          cause,
+          retryable: false,
+        }),
+    ),
   )
 })
 
