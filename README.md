@@ -179,25 +179,12 @@ docker compose --env-file .compose.env up -d --build
 docker exec -it fintual-api-local pnpm once
 ```
 
-The compose stack also starts `ofelia`, so you can test the scheduled `job-exec` path and inspect scheduler logs:
-
-```bash
-docker logs -f fintual-api-ofelia
-```
-
-Set `OFELIA_SYNC_SCHEDULE` in `.compose.env` if you want a faster local test cadence, for example:
-
-```dotenv
-OFELIA_SYNC_SCHEDULE=@every 5m
-```
-
 If you keep runtime secrets in Secret Manager, fetch `GMAIL_APP_PASSWORD` at deploy time and inject it into the homelab runtime env instead of storing it in compose files.
 
 Useful commands while debugging:
 
 ```bash
 docker logs -f fintual-api-local
-docker logs -f fintual-api-ofelia
 docker exec -it fintual-api-local sh
 docker exec -it fintual-api-local pnpm once
 docker compose --env-file .compose.env down
