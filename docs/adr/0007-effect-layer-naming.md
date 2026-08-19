@@ -39,7 +39,7 @@ environment?
 
 - **Yes** — a single layer requiring config, adapters, or the `HttpClient` is
   `.layer`. A layer that takes configuration as an argument is also `.layer`
-  (`RedactionPolicy`).
+  (`RedactingLogger`).
 - **No** — a fully self-contained layer with no environment requirements is
   `.live`, including `Layer.succeed` and `Layer.sync` layers.
   `ActualClientFactory.live`, `ImapClientFactory.live`.

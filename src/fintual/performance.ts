@@ -20,7 +20,7 @@ import {
 } from "effect/unstable/http"
 
 import { Email2FAConfigService, FintualConfigService, type FintualConfig } from "../env.ts"
-import { getErrorMessage } from "../log.ts"
+import { getErrorMessage } from "../logging.ts"
 import {
   validatePerformanceSnapshot,
   writePerformanceSnapshot,

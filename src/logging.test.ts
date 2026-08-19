@@ -1,11 +1,23 @@
 import { it as effectIt } from "@effect/vitest"
-import { Cause, Console, Effect, Logger, Schema } from "effect"
-import { describe, expect } from "vitest"
+import { Cause, Console, Effect, Schema } from "effect"
+import { describe, expect, it } from "vitest"
 
-import { redactionSecrets, type RuntimeConfig } from "./env.ts"
-import { runtimeConfig, secret } from "./log-test-fixtures.ts"
-import { getErrorMessage, RedactionPolicy } from "./log.ts"
-import { makeRedactingLogger, reportUnhandledFailure } from "./logging.ts"
+import { getErrorMessage, RedactingLogger, reportUnhandledFailure } from "./logging.ts"
+
+const secret = "hunter2-super-secret"
+const fintualSecret = "fintual-pass"
+const email2FASecret = "app-password"
+const sampleSecrets = [
+  "http://localhost:5006",
+  secret,
+  "sync-1",
+  "fintual-account",
+  "user@example.com",
+  fintualSecret,
+  "goal-42",
+  "2fa@example.com",
+  email2FASecret,
+]
 
 class UnexpectedFailure extends Schema.TaggedError<UnexpectedFailure>()("UnexpectedFailure", {
   cause: Schema.Defect(),
@@ -18,10 +30,6 @@ class UnexpectedFailure extends Schema.TaggedError<UnexpectedFailure>()("Unexpec
     // Keep Cause.pretty's prefix as `Error:` so the render assertion stays faithful.
     return "Error"
   }
-}
-
-function redactingLoggerFor(config: RuntimeConfig = runtimeConfig): Logger.Logger<unknown, void> {
-  return makeRedactingLogger(RedactionPolicy.fromConfig(redactionSecrets(config)))
 }
 
 function captureConsole(lines: Array<string>): Console.Console {
@@ -48,7 +56,7 @@ function captureConsole(lines: Array<string>): Console.Console {
   }
 }
 
-describe("redactingLogger", () => {
+describe("RedactingLogger", () => {
   effectIt.effect("renders timestamped, level-prefixed lines with sensitive values redacted", () =>
     Effect.gen(function* () {
       const lines: Array<string> = []
@@ -58,7 +66,7 @@ describe("redactingLogger", () => {
       })
 
       yield* program.pipe(
-        Effect.provide(Logger.layer([redactingLoggerFor()])),
+        Effect.provide(RedactingLogger.layer(sampleSecrets)),
         Effect.provideService(Console.Console, captureConsole(lines)),
       )
 
@@ -81,7 +89,7 @@ describe("redactingLogger", () => {
       )
 
       yield* program.pipe(
-        Effect.provide(Logger.layer([redactingLoggerFor()])),
+        Effect.provide(RedactingLogger.layer(sampleSecrets)),
         Effect.provideService(Console.Console, captureConsole(lines)),
       )
 
@@ -98,7 +106,7 @@ describe("redactingLogger", () => {
       const program = Effect.logInfo("password is", secret, "on", "goal-42")
 
       yield* program.pipe(
-        Effect.provide(Logger.layer([redactingLoggerFor()])),
+        Effect.provide(RedactingLogger.layer(sampleSecrets)),
         Effect.provideService(Console.Console, captureConsole(lines)),
       )
 
@@ -106,6 +114,62 @@ describe("redactingLogger", () => {
       expect(lines[0]).toMatch(
         /^\[\d{2}:\d{2}:\d{2}\.\d{3}\] INFO: password is \[redacted\] on \[redacted\]$/,
       )
+    }),
+  )
+
+  effectIt.effect("redacts configured identifiers and arbitrary email addresses", () =>
+    Effect.gen(function* () {
+      const lines: Array<string> = []
+      const program = Effect.logInfo(
+        "sync sync-1 account fintual-account goal goal-42 mail user@example.com 2fa 2fa@example.com other@example.com",
+      )
+
+      yield* program.pipe(
+        Effect.provide(RedactingLogger.layer(sampleSecrets)),
+        Effect.provideService(Console.Console, captureConsole(lines)),
+      )
+
+      expect(lines).toHaveLength(1)
+      expect(lines[0]).toMatch(
+        /^\[\d{2}:\d{2}:\d{2}\.\d{3}\] INFO: sync \[redacted\] account \[redacted\] goal \[redacted\] mail \[redacted\] 2fa \[redacted\] \[redacted email\]$/,
+      )
+    }),
+  )
+
+  effectIt.effect("keeps redaction state isolated between logger layers", () =>
+    Effect.gen(function* () {
+      const configuredLines: Array<string> = []
+      const emptyLines: Array<string> = []
+
+      yield* Effect.logInfo(secret).pipe(
+        Effect.provide(RedactingLogger.layer(sampleSecrets)),
+        Effect.provideService(Console.Console, captureConsole(configuredLines)),
+      )
+      yield* Effect.logInfo(secret).pipe(
+        Effect.provide(RedactingLogger.empty),
+        Effect.provideService(Console.Console, captureConsole(emptyLines)),
+      )
+
+      expect(configuredLines[0]).toContain("[redacted]")
+      expect(configuredLines[0]).not.toContain(secret)
+      expect(emptyLines[0]).toContain(secret)
+    }),
+  )
+
+  effectIt.effect("captures the sensitive snapshot once when the layer is built", () =>
+    Effect.gen(function* () {
+      const lines: Array<string> = []
+      const mutableSecrets = ["sync-before-build"]
+      const layer = RedactingLogger.layer(mutableSecrets)
+
+      mutableSecrets.push("sync-added-after-build")
+
+      yield* Effect.logInfo("sync-before-build sync-added-after-build").pipe(
+        Effect.provide(layer),
+        Effect.provideService(Console.Console, captureConsole(lines)),
+      )
+
+      expect(lines[0]).toContain("[redacted] sync-added-after-build")
     }),
   )
 })
@@ -120,7 +184,7 @@ describe("reportUnhandledFailure", () => {
       )
 
       yield* program.pipe(
-        Effect.provide(Logger.layer([redactingLoggerFor()])),
+        Effect.provide(RedactingLogger.layer(sampleSecrets)),
         Effect.provideService(Console.Console, captureConsole(lines)),
       )
 
@@ -140,7 +204,7 @@ describe("reportUnhandledFailure", () => {
       ).pipe(Effect.tapCause(reportUnhandledFailure), Effect.ignoreCause)
 
       yield* program.pipe(
-        Effect.provide(Logger.layer([redactingLoggerFor()])),
+        Effect.provide(RedactingLogger.layer(sampleSecrets)),
         Effect.provideService(Console.Console, captureConsole(lines)),
       )
 
@@ -161,11 +225,37 @@ describe("reportUnhandledFailure", () => {
       )
 
       yield* program.pipe(
-        Effect.provide(Logger.layer([redactingLoggerFor()])),
+        Effect.provide(RedactingLogger.layer(sampleSecrets)),
         Effect.provideService(Console.Console, captureConsole(lines)),
       )
 
       expect(lines).toHaveLength(0)
     }),
   )
+})
+
+describe("getErrorMessage", () => {
+  it("formats Error instances", () => {
+    expect(getErrorMessage(new Error("something broke"))).toBe("something broke")
+  })
+
+  it("formats structured error objects with type, reason, and message", () => {
+    expect(
+      getErrorMessage({
+        type: "NetworkError",
+        reason: "timeout",
+        message: "failed after 30s",
+      }),
+    ).toBe("NetworkError: timeout: failed after 30s")
+  })
+
+  it("formats arbitrary non-empty string errors", () => {
+    expect(getErrorMessage("plain error string")).toBe("plain error string")
+  })
+
+  it("falls back to Unknown error for undefined/null/empty values", () => {
+    expect(getErrorMessage(null)).toBe("Unknown error")
+    expect(getErrorMessage(undefined)).toBe("Unknown error")
+    expect(getErrorMessage("   ")).toBe("Unknown error")
+  })
 })

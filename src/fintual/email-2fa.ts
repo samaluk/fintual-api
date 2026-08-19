@@ -1,7 +1,7 @@
 import { Clock, Context, Effect, Layer, Option, Schedule, Schema } from "effect"
 
 import { Email2FAConfigService, type Email2FAConfig } from "../env.ts"
-import { getErrorMessage } from "../log.ts"
+import { getErrorMessage } from "../logging.ts"
 import {
   ImapClientFactory,
   ImapMailboxLockFailure,

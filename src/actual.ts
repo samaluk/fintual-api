@@ -13,7 +13,7 @@ import {
 } from "./actual/actual-error.ts"
 import { planReconciliation } from "./actual/reconciliation-policy.ts"
 import { ActualConfigService, type ActualConfig } from "./env.ts"
-import { getErrorMessage } from "./log.ts"
+import { getErrorMessage } from "./logging.ts"
 import type { PerformanceSnapshot } from "./performance-snapshot.ts"
 
 export type { ActualError } from "./actual/actual-error.ts"

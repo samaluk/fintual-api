@@ -1,6 +1,6 @@
 import { Schema } from "effect"
 
-import { getErrorMessage } from "../log.ts"
+import { getErrorMessage } from "../logging.ts"
 
 export class ActualDataDirectoryFailure extends Schema.TaggedError<ActualDataDirectoryFailure>()(
   "ActualDataDirectoryFailure",
