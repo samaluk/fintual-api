@@ -1,3 +1,5 @@
+import * as fs from "node:fs"
+
 import {
   Context,
   DateTime,
@@ -21,11 +23,7 @@ import {
 
 import { Email2FAConfigService, FintualConfigService, type FintualConfig } from "../env.ts"
 import { getErrorMessage } from "../logging.ts"
-import {
-  validatePerformanceSnapshot,
-  writePerformanceSnapshot,
-  type PerformanceSnapshot,
-} from "../performance-snapshot.ts"
+import { performanceSnapshotSchema, type PerformanceSnapshot } from "../performance-snapshot.ts"
 import { Email2FACode, Email2FAService, Operational, TimedOut } from "./email-2fa.ts"
 import {
   Email2FAFailure,
@@ -33,16 +31,19 @@ import {
   LoginFailed,
   MalformedGoalPerformanceData,
   MalformedPerformanceSnapshot,
+  SnapshotWriteFailure,
   UnexpectedHttpStatus,
   type FintualError,
 } from "./fintual-error.ts"
-import { foldGoalPerformanceData, type GoalPerformanceData } from "./fold.ts"
 
 const FINTUAL_ORIGIN = "https://fintual.cl"
 const HTTP_REQUEST_TIMEOUT_MS = 30_000
 const BROWSER_USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 const EMAIL_2FA_STAGE = "Fintual email 2FA"
+
+const SNAPSHOT_DATA_DIR = "./tmp/fintual-data"
+export const PERFORMANCE_SNAPSHOT_PATH = `${SNAPSHOT_DATA_DIR}/balance-2.json`
 
 const TimeIntervalCode = {
   LastMonth: "last_month",
@@ -98,11 +99,15 @@ const goalPerformancePointSchema = Schema.Struct({
   withdrawnAmount: Schema.Finite,
 })
 
+type GoalPerformancePoint = typeof goalPerformancePointSchema.Type
+
 const goalPerformanceDataResponseSchema = Schema.Struct({
   data: Schema.Struct({
     balanceGraphDataPoints: Schema.Array(goalPerformancePointSchema),
   }),
 })
+
+type GoalPerformanceData = (typeof goalPerformanceDataResponseSchema.Type)["data"]
 
 class InvalidGoalPerformanceResponse extends Schema.TaggedError<InvalidGoalPerformanceResponse>()(
   "InvalidGoalPerformanceResponse",
@@ -164,9 +169,16 @@ export class FintualPerformance extends Context.Service<
             }),
         })
 
-        const validatedSnapshot = yield* Effect.mapError(
-          validatePerformanceSnapshot(snapshot),
-          (cause) => new MalformedPerformanceSnapshot({ issues: cause.issues, cause }),
+        const validatedSnapshot = yield* Schema.decodeEffect(performanceSnapshotSchema)(
+          snapshot,
+        ).pipe(
+          Effect.mapError(
+            (cause) =>
+              new MalformedPerformanceSnapshot({
+                issues: cause.message.replace(/\s+/g, " ").trim(),
+                cause,
+              }),
+          ),
         )
         yield* writePerformanceSnapshot(validatedSnapshot)
 
@@ -481,4 +493,92 @@ class FintualHttpSession {
       )
     },
   )
+}
+
+const writePerformanceSnapshot = Effect.fn("FintualPerformance.writeSnapshot")(function* (
+  snapshot: PerformanceSnapshot,
+): Effect.fn.Return<void, SnapshotWriteFailure> {
+  return yield* Effect.andThen(
+    Effect.try({
+      try: () => {
+        fs.mkdirSync(SNAPSHOT_DATA_DIR, { recursive: true })
+        fs.writeFileSync(PERFORMANCE_SNAPSHOT_PATH, JSON.stringify(snapshot, null, 2), "utf-8")
+      },
+      catch: (cause) =>
+        new SnapshotWriteFailure({
+          cause: new Error(
+            `Failed to write performance snapshot artifact: ${getErrorMessage(cause)}`,
+            { cause },
+          ),
+        }),
+    }),
+    () => Effect.logInfo(`Performance snapshot saved to ${PERFORMANCE_SNAPSHOT_PATH}`),
+  )
+})
+
+function foldGoalPerformanceData(
+  referenceData: GoalPerformanceData,
+  recentData: GoalPerformanceData,
+): PerformanceSnapshot {
+  const recentPoints = recentData.balanceGraphDataPoints
+  const previousDeposits = getPreviousValue(
+    referenceData,
+    recentData,
+    (point) => point.unrealizedCostBasisAmount,
+  )
+  const previousBalance = getPreviousValue(
+    referenceData,
+    recentData,
+    (point) => point.sharesValuationAmount,
+  )
+
+  const deposits = recentPoints.map((point, index, points) => {
+    const previousValue =
+      index === 0 ? previousDeposits : points[index - 1].unrealizedCostBasisAmount
+
+    return {
+      date: Date.parse(point.date),
+      value: point.unrealizedCostBasisAmount,
+      difference: point.unrealizedCostBasisAmount - previousValue,
+    }
+  })
+
+  const balance = recentPoints.map((point, index, points) => {
+    const previousValue = index === 0 ? previousBalance : points[index - 1].sharesValuationAmount
+    const previousDeposit =
+      index === 0 ? previousDeposits : points[index - 1].unrealizedCostBasisAmount
+    const deposit = point.unrealizedCostBasisAmount - previousDeposit
+    const difference = point.sharesValuationAmount - previousValue - deposit
+
+    return {
+      date: Date.parse(point.date),
+      value: point.sharesValuationAmount,
+      difference,
+      real_difference: difference,
+    }
+  })
+
+  return { balance, deposits }
+}
+
+function getPreviousValue(
+  baselineData: GoalPerformanceData,
+  currentData: GoalPerformanceData,
+  selectValue: (point: GoalPerformancePoint) => number,
+): number {
+  const currentPoints = currentData.balanceGraphDataPoints
+  const firstDate = currentPoints[0]?.date
+  if (!firstDate) {
+    return 0
+  }
+
+  const previousPoint = [...baselineData.balanceGraphDataPoints]
+    .filter((point) => point.date < firstDate)
+    .sort((left, right) => right.date.localeCompare(left.date))[0]
+
+  if (previousPoint) {
+    return selectValue(previousPoint)
+  }
+
+  return selectValue(currentPoints[0])
 }

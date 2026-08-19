@@ -1,4 +1,5 @@
 import * as fs from "node:fs"
+import * as path from "node:path"
 
 import { it } from "@effect/vitest"
 import { Duration, Effect, Fiber, Layer, Option, Redacted } from "effect"
@@ -7,9 +8,9 @@ import { FetchHttpClient } from "effect/unstable/http"
 import { describe, expect } from "vitest"
 
 import { Email2FAConfigService, FintualConfigService, type FintualConfig } from "../env.ts"
-import { PERFORMANCE_SNAPSHOT_PATH } from "../performance-snapshot.ts"
+import { getErrorMessage } from "../logging.ts"
 import { Email2FACode, Email2FAService, Operational, TimedOut } from "./email-2fa.ts"
-import { FintualPerformance } from "./performance.ts"
+import { FintualPerformance, PERFORMANCE_SNAPSHOT_PATH } from "./performance.ts"
 
 const CONFIG: FintualConfig = {
   email: "investor@example.com",
@@ -492,6 +493,82 @@ it.effect("fails with MalformedPerformanceSnapshot when the fold output is inval
   }),
 )
 
+it.effect("starts with zero differences when reference does not precede the recent window", () =>
+  Effect.gen(function* () {
+    const script = createFetchScript([
+      response("", 200, "session=sign-in"),
+      response("{}", 200, "auth=direct"),
+      goalPerformanceResponse("2026-08-01", { costBasis: 800, valuation: 1000 }),
+      goalPerformanceResponse("2026-08-01", { costBasis: 850, valuation: 1100 }),
+    ])
+
+    const snapshot = yield* performanceProgram(script.fetch)
+
+    expect(snapshot).toEqual({
+      balance: [{ date: Date.parse("2026-08-01"), value: 1100, difference: 0, real_difference: 0 }],
+      deposits: [{ date: Date.parse("2026-08-01"), value: 850, difference: 0 }],
+    })
+  }),
+)
+
+it.effect("folds multiple reference and recent points into a Performance Snapshot", () =>
+  Effect.gen(function* () {
+    const script = createFetchScript([
+      response("", 200, "session=sign-in"),
+      response("{}", 200, "auth=direct"),
+      multiPointGoalPerformanceResponse([{ date: "2026-07-30", costBasis: 800, valuation: 1000 }]),
+      multiPointGoalPerformanceResponse([
+        { date: "2026-08-01", costBasis: 850, valuation: 1100 },
+        { date: "2026-08-02", costBasis: 900, valuation: 1150 },
+      ]),
+    ])
+
+    const snapshot = yield* performanceProgram(script.fetch)
+
+    expect(snapshot).toEqual({
+      balance: [
+        { date: Date.parse("2026-08-01"), value: 1100, difference: 50, real_difference: 50 },
+        { date: Date.parse("2026-08-02"), value: 1150, difference: 0, real_difference: 0 },
+      ],
+      deposits: [
+        { date: Date.parse("2026-08-01"), value: 850, difference: 50 },
+        { date: Date.parse("2026-08-02"), value: 900, difference: 50 },
+      ],
+    })
+  }),
+)
+
+it.effect("fails with SnapshotWriteFailure when the snapshot file cannot be written", () =>
+  Effect.gen(function* () {
+    const originalContents = readFileIfPresent(PERFORMANCE_SNAPSHOT_PATH)
+    fs.mkdirSync(path.dirname(PERFORMANCE_SNAPSHOT_PATH), { recursive: true })
+
+    try {
+      if (originalContents !== null) {
+        fs.rmSync(PERFORMANCE_SNAPSHOT_PATH)
+      }
+      fs.mkdirSync(PERFORMANCE_SNAPSHOT_PATH, { recursive: true })
+
+      const script = createFetchScript([
+        response("", 200, "session=sign-in"),
+        response("{}", 200, "auth=direct"),
+        goalPerformanceResponse("2026-01-01", { costBasis: 80, valuation: 100 }),
+        goalPerformanceResponse("2026-07-01", { costBasis: 90, valuation: 115 }),
+      ])
+
+      const error = yield* Effect.flip(performanceProgram(script.fetch))
+
+      expect(error).toMatchObject({
+        _tag: "SnapshotWriteFailure",
+      })
+      expect(getErrorMessage(error)).toContain("Failed to write performance snapshot artifact")
+    } finally {
+      fs.rmSync(PERFORMANCE_SNAPSHOT_PATH, { force: true, recursive: true })
+      restoreFile(PERFORMANCE_SNAPSHOT_PATH, originalContents)
+    }
+  }),
+)
+
 interface RecordedRequest {
   url: string
   init: RequestInit
@@ -563,10 +640,54 @@ function goalPerformanceResponse(
   return response(JSON.stringify(goalPerformanceBody(date, amounts)), 200, setCookie)
 }
 
+function multiPointGoalPerformanceResponse(
+  points: ReadonlyArray<{
+    date: string
+    costBasis?: number
+    valuation?: number
+  }>,
+): Response {
+  return response(
+    JSON.stringify({
+      data: {
+        balanceGraphDataPoints: points.map((p) => ({
+          date: p.date,
+          unrealizedCostBasisAmount: p.costBasis ?? 100,
+          unrealizedGainOrLossAmount: 10,
+          realizedCostBasisAmount: 90,
+          realizedGainOrLossAmount: 5,
+          sharesCostBasisAmount: 95,
+          sharesValuationAmount: p.valuation ?? 110,
+          pendingFulfillmentReinvestmentDepositsCostBasisAmount: 0,
+          pendingFulfillmentReinvestmentDepositsAmount: 0,
+          withdrawnAmount: 0,
+        })),
+      },
+    }),
+  )
+}
+
 function requestBody(request: RecordedRequest | undefined): string {
   return typeof request?.init.body === "string" ? request.init.body : ""
 }
 
 function requestHeaders(request: RecordedRequest | undefined): Headers {
   return new Headers(request?.init.headers)
+}
+
+function readFileIfPresent(filePath: string): string | null {
+  if (!fs.existsSync(filePath)) {
+    return null
+  }
+
+  return fs.readFileSync(filePath, "utf-8")
+}
+
+function restoreFile(filePath: string, contents: string | null): void {
+  if (contents === null) {
+    fs.rmSync(filePath, { force: true })
+    return
+  }
+
+  fs.writeFileSync(filePath, contents, "utf-8")
 }
