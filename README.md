@@ -176,7 +176,7 @@ The local compose file keeps the worker container idle so you can run the sync m
 
 ```bash
 docker compose --env-file .compose.env up -d --build
-docker exec -it fintual-api-local ./bin/run-sync.sh
+docker exec -it fintual-api-local pnpm once
 ```
 
 The compose stack also starts `ofelia`, so you can test the scheduled `job-exec` path and inspect scheduler logs:
@@ -199,7 +199,7 @@ Useful commands while debugging:
 docker logs -f fintual-api-local
 docker logs -f fintual-api-ofelia
 docker exec -it fintual-api-local sh
-docker exec -it fintual-api-local ./bin/run-sync.sh
+docker exec -it fintual-api-local pnpm once
 docker compose --env-file .compose.env down
 ```
 
@@ -246,14 +246,14 @@ Starting with the v3 major, the image default command runs the in-process
 scheduler instead of a one-shot sync. This is a breaking change to the
 container process contract:
 
-- The default command (`bin/run-schedule.sh`) no longer exits after one sync.
+- The default command (`pnpm schedule`) no longer exits after one sync.
   It runs the synchronization on the configured `SYNC_CRON` schedule until the
   process is interrupted (for example, SIGTERM).
 - The previous invocation contract is not preserved: there is no
   retro-compatibility shim, and images published under the v3 major and later
   do not accept the old invocation.
 - One-shot invocations remain available explicitly via `RUN_MODE=once` or
-  `bin/run-sync.sh`, for manual `docker exec` diagnostics and CI-style runs.
+  `pnpm once`, for manual `docker exec` diagnostics and CI-style runs.
 
 Publish the breaking change under a new major version tag (for example, `v3.0.0`);
 do not publish it under an existing v2 tag, because `latest` follows GitHub
