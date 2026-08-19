@@ -2,7 +2,7 @@ import { pathToFileURL } from "node:url"
 
 import { NodeRuntime } from "@effect/platform-node"
 import { config as loadDotEnv } from "dotenv"
-import { Effect, Logger, Option } from "effect"
+import { Effect, Option } from "effect"
 
 import { runApplication } from "./app.ts"
 import {
@@ -15,8 +15,7 @@ import {
   resolveRuntimeConfig,
 } from "./env.ts"
 import { Job, type JobError } from "./job.ts"
-import { RedactionPolicy } from "./log.ts"
-import { makeRedactingLogger, reportUnhandledFailure } from "./logging.ts"
+import { RedactingLogger, reportUnhandledFailure } from "./logging.ts"
 
 loadDotEnv()
 
@@ -26,9 +25,7 @@ const main = Effect.fn("Main.main")(function* (): Effect.fn.Return<
 > {
   const runtimeConfig = yield* resolveRuntimeConfig(process.env).pipe(
     Effect.tapCause((cause) =>
-      reportUnhandledFailure(cause).pipe(
-        Effect.provide(Logger.layer([makeRedactingLogger(RedactionPolicy.empty)])),
-      ),
+      reportUnhandledFailure(cause).pipe(Effect.provide(RedactingLogger.empty)),
     ),
   )
 
@@ -42,11 +39,7 @@ const main = Effect.fn("Main.main")(function* (): Effect.fn.Return<
       runtimeConfig.email2FA ? Option.some(runtimeConfig.email2FA) : Option.none(),
     ),
     Effect.provideService(ScheduleConfigService, runtimeConfig.schedule),
-    Effect.provide(
-      Logger.layer([
-        makeRedactingLogger(RedactionPolicy.fromConfig(redactionSecrets(runtimeConfig))),
-      ]),
-    ),
+    Effect.provide(RedactingLogger.layer(redactionSecrets(runtimeConfig))),
   )
 })
 

@@ -5,7 +5,7 @@ import { it } from "@effect/vitest"
 import { Effect } from "effect"
 import { expect } from "vitest"
 
-import { getErrorMessage } from "./log.ts"
+import { getErrorMessage } from "./logging.ts"
 import {
   PERFORMANCE_SNAPSHOT_PATH,
   validatePerformanceSnapshot,
