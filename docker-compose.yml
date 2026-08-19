@@ -12,25 +12,4 @@ services:
     ports:
       - "3000:3000"
     command: ["sleep", "infinity"]
-    labels:
-      ofelia.enabled: "true"
-      ofelia.job-exec.fintual-sync.schedule: "${OFELIA_SYNC_SCHEDULE:-0 0 21 * * 1-5}"
-      ofelia.job-exec.fintual-sync.command: "pnpm once"
-      ofelia.job-exec.fintual-sync.no-overlap: "true"
-    restart: unless-stopped
-
-  ofelia:
-    image: mcuadros/ofelia:0.3.22@sha256:efcbe2c5cf658a25de6443c1462d653f9cc03791d642e01fc6c638a00f97e492
-    container_name: fintual-api-ofelia
-    depends_on:
-      - fintual-api
-    command:
-      - daemon
-      - --docker
-      - -f
-      - label=com.docker.compose.project=fintual-api
-    environment:
-      TZ: America/Santiago
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
     restart: unless-stopped
