@@ -17,7 +17,7 @@ import {
   VARIATION_IMPORTED_ID_PREFIX,
   type ExistingVariationTransaction,
   type VariationTransactionInput,
-} from "./variation-transaction.ts"
+} from "./reconciliation-policy.ts"
 
 const ACTUAL_DATA_DIR = "./tmp/actual-data"
 

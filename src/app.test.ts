@@ -6,9 +6,6 @@ import { expect } from "vitest"
 
 import { ActualSynchronization } from "./actual.ts"
 import { ActualClientFactory, type ActualClient } from "./actual/actual-client.ts"
-import { ActualFileSystem } from "./actual/actual-file-system.ts"
-import { ActualHealthCheck } from "./actual/actual-health-check.ts"
-import { ActualRetryPolicy } from "./actual/retry-policy.ts"
 import { runApplication } from "./app.ts"
 import {
   ActualConfigService,
@@ -91,6 +88,7 @@ it.effect("runs the assembled Fintual-to-Actual workflow once", () =>
       response("{}"),
       goalPerformanceResponse("2026-01-01", { costBasis: 80, valuation: 100 }),
       goalPerformanceResponse("2026-07-01", { costBasis: 90, valuation: 115 }),
+      response("", 200),
     ])
     const actualClient: ActualClient = {
       downloadBudget: () => Effect.void,
@@ -110,13 +108,6 @@ it.effect("runs the assembled Fintual-to-Actual workflow once", () =>
           acquire: () => Effect.succeed(actualClient),
         }),
       ),
-      Layer.provide(
-        Layer.succeed(ActualFileSystem, { reset: Effect.sync(() => calls.push("reset")) }),
-      ),
-      Layer.provide(
-        Layer.succeed(ActualHealthCheck, { check: Effect.sync(() => calls.push("health")) }),
-      ),
-      Layer.provide(ActualRetryPolicy.live),
     )
     const appLayer = Job.layer.pipe(Layer.provide(fintualLayer), Layer.provide(actualLayer))
 
@@ -128,8 +119,8 @@ it.effect("runs the assembled Fintual-to-Actual workflow once", () =>
     const job = yield* Effect.service(Job).pipe(Effect.provide(rootLayer))
     yield* job.synchronize()
 
-    expect(calls).toEqual(["reset", "health", "create:2026-07-01"])
-    expect(script.requests).toHaveLength(4)
+    expect(calls).toEqual(["create:2026-07-01"])
+    expect(script.requests).toHaveLength(5)
   }),
 )
 
