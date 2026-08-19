@@ -1,4 +1,4 @@
 #!/bin/sh
 set -eu
 
-exec node src/main.ts
+exec env RUN_MODE=schedule node src/main.ts

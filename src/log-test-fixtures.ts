@@ -1,6 +1,7 @@
-import { Redacted } from "effect"
+import { Redacted, Result } from "effect"
 
 import type { RuntimeConfig } from "./env.ts"
+import { parseSchedule } from "./scheduler.ts"
 
 export const secret = "hunter2-super-secret"
 export const fintualSecret = "fintual-pass"
@@ -19,18 +20,18 @@ export const runtimeConfig: RuntimeConfig = {
     email: "user@example.com",
     password: Redacted.make(fintualSecret),
     goalId: "goal-42",
-    email2FA: {
-      userEmail: "2fa@example.com",
-      appPassword: Redacted.make(email2FASecret),
-      host: "imap.gmail.com",
-      port: 993,
-      debug: false,
-      sender: "notificaciones@fintual.com",
-    },
+  },
+  email2FA: {
+    userEmail: "2fa@example.com",
+    appPassword: Redacted.make(email2FASecret),
+    host: "imap.gmail.com",
+    port: 993,
+    debug: false,
+    sender: "notificaciones@fintual.com",
   },
   schedule: {
     mode: "once",
-    cron: "0 0 22 * * 1-5",
+    cron: Result.getOrThrow(parseSchedule("0 0 22 * * 1-5", "America/Santiago")),
     timezone: "America/Santiago",
     noOverlap: false,
   },

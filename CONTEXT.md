@@ -28,6 +28,13 @@ _Avoid_: OTP, verification code, security code
 
 ### Synchronization
 
+**Job**:
+The Effect service that owns one complete Synchronization Attempt. It obtains
+the Performance Snapshot through FintualPerformance and passes it to
+ActualSynchronization without exposing provider or adapter sequencing to the
+entrypoint.
+_Avoid_: Run job, job wrapper
+
 **Variation Transaction**:
 A balance-change transaction for one date, identified by the `fintual-variation:<date>` imported id, managed as a unit by the Actual sync. The Actual adapter resolves each existing transaction's date at the boundary, tolerating legacy numeric imported ids and stale date fields, so the reconciliation policy only sees well-formed values.
 _Avoid_: Balance transaction, sync entry

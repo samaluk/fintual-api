@@ -1,6 +1,6 @@
 import { Context, Effect, Layer, Option } from "effect"
 
-import { FintualConfigService, type Email2FAConfig } from "../env.ts"
+import { Email2FAConfigService, FintualConfigService } from "../env.ts"
 import { getErrorMessage } from "../log.ts"
 import {
   SnapshotWriter,
@@ -21,10 +21,10 @@ export class FintualPerformance extends Context.Service<
   static readonly layer = Layer.effect(
     FintualPerformance,
     Effect.gen(function* () {
-      const config = yield* FintualConfigService
+      yield* FintualConfigService
       const provider = yield* FintualProvider
       const snapshotWriter = yield* SnapshotWriter
-      const email2FAService = yield* acquireEmail2FAService(config.email2FA)
+      const email2FAService = yield* acquireEmail2FAService()
 
       const fetchPerformanceSnapshot = Effect.gen(function* () {
         yield* provider.signIn(requestEmail2FACode(email2FAService))
@@ -56,26 +56,24 @@ export class FintualPerformance extends Context.Service<
 
   static readonly live = Layer.unwrap(
     Effect.gen(function* () {
-      const config = yield* FintualConfigService
+      yield* FintualConfigService
+
+      const email2FAConfig = yield* Email2FAConfigService
 
       return FintualPerformance.layer.pipe(
         Layer.provide(FintualProvider.layer),
-        Layer.provide(config.email2FA ? Email2FAService.live : Layer.empty),
+        Layer.provide(Option.isSome(email2FAConfig) ? Email2FAService.live : Layer.empty),
         Layer.provide(SnapshotWriter.live),
       )
     }),
   )
 }
 
-const acquireEmail2FAService = Effect.fn("FintualPerformance.acquireEmail2FAService")(function* (
-  email2FAConfig: Email2FAConfig | null,
-): Effect.fn.Return<Option.Option<Email2FAService["Service"]>, never> {
-  if (!email2FAConfig) {
-    return Option.none()
-  }
-
-  return yield* Effect.serviceOption(Email2FAService)
-})
+const acquireEmail2FAService = Effect.fn("FintualPerformance.acquireEmail2FAService")(
+  function* (): Effect.fn.Return<Option.Option<Email2FAService["Service"]>, never> {
+    return yield* Effect.serviceOption(Email2FAService)
+  },
+)
 
 const requestEmail2FACode =
   (

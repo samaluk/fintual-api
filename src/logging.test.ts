@@ -2,7 +2,7 @@ import { it as effectIt } from "@effect/vitest"
 import { Cause, Console, Effect, Logger, Schema } from "effect"
 import { describe, expect } from "vitest"
 
-import type { RuntimeConfig } from "./env.ts"
+import { redactionSecrets, type RuntimeConfig } from "./env.ts"
 import { runtimeConfig, secret } from "./log-test-fixtures.ts"
 import { getErrorMessage, RedactionPolicy } from "./log.ts"
 import { makeRedactingLogger, reportUnhandledFailure } from "./logging.ts"
@@ -21,7 +21,7 @@ class UnexpectedFailure extends Schema.TaggedError<UnexpectedFailure>()("Unexpec
 }
 
 function redactingLoggerFor(config: RuntimeConfig = runtimeConfig): Logger.Logger<unknown, void> {
-  return makeRedactingLogger(RedactionPolicy.fromConfig(config))
+  return makeRedactingLogger(RedactionPolicy.fromConfig(redactionSecrets(config)))
 }
 
 function captureConsole(lines: Array<string>): Console.Console {

@@ -193,18 +193,3 @@ const closeActualClient = Effect.fn("ActualSynchronization.closeClient")(functio
     ),
   )
 })
-
-export function main(
-  config: ActualConfig,
-  snapshot: PerformanceSnapshot,
-): Effect.Effect<void, ActualError> {
-  return runMain(snapshot).pipe(
-    Effect.provide(ActualSynchronization.live),
-    Effect.provideService(ActualConfigService, config),
-  )
-}
-
-const runMain = Effect.fn("Actual.main")(function* (snapshot: PerformanceSnapshot) {
-  const actual = yield* ActualSynchronization
-  yield* actual.synchronize(snapshot)
-})
