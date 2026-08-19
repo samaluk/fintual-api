@@ -1,4 +1,6 @@
 import { Clock, Context, Effect, Layer, Option, Schedule, Schema } from "effect"
+import type { SearchObject } from "imapflow"
+import { simpleParser } from "mailparser"
 
 import { Email2FAConfigService, type Email2FAConfig } from "../env.ts"
 import { getErrorMessage } from "../logging.ts"
@@ -9,13 +11,6 @@ import {
   MissingServerExtension,
   type ImapClient,
 } from "./email-2fa-client.ts"
-import {
-  buildEmail2FASearchQueries,
-  EmailMessageParseFailure,
-  isGmailImapHost,
-  selectEmail2FACode,
-  type Email2FACandidate,
-} from "./email-2fa/email-2fa-policy.ts"
 
 const DEFAULT_TIMEOUT_MS = 120_000
 const DEFAULT_POLL_INTERVAL_MS = 2_000
@@ -307,6 +302,143 @@ const extractCodeFromMailboxUids = Effect.fn("Email2FA.extractCodeFromMailboxUid
     Effect.map((code) => (code ? Option.some(Email2FACode.make(code)) : Option.none())),
   )
 })
+
+interface Email2FACandidate {
+  readonly source: Buffer | Uint8Array
+  readonly envelopeSubject?: string
+  readonly receivedAt?: Date
+}
+
+class EmailMessageParseFailure extends Schema.TaggedError<EmailMessageParseFailure>()(
+  "EmailMessageParseFailure",
+  {
+    cause: Schema.Defect(),
+  },
+) {
+  override get message(): string {
+    return `Failed to parse Gmail IMAP message: ${getErrorMessage(this.cause)}`
+  }
+}
+
+function buildEmail2FASearchQueries(config: Email2FAConfig, afterTimestamp: Date): SearchObject[] {
+  const queries: SearchObject[] = []
+
+  if (isGmailImapHost(config.host)) {
+    const after = formatGmailAfterDate(afterTimestamp)
+    queries.push({ gmraw: `from:${config.sender} after:${after}` })
+    queries.push({ gmraw: `from:fintual.com after:${after}` })
+    // Relative queries cover date and timezone disagreement between Gmail and the caller.
+    queries.push({ gmraw: `from:${config.sender} newer_than:1d` })
+    queries.push({ gmraw: "from:fintual.com newer_than:1d" })
+  }
+
+  queries.push({ from: config.sender, since: afterTimestamp })
+  return queries
+}
+
+const selectEmail2FACode = Effect.fn("Email2FA.selectEmail2FACode")(function* (
+  candidates: Iterable<Email2FACandidate>,
+  afterTimestamp: Date,
+): Effect.fn.Return<string | null, EmailMessageParseFailure> {
+  for (const candidate of candidates) {
+    if (candidate.receivedAt && candidate.receivedAt < afterTimestamp) {
+      continue
+    }
+
+    const sources = yield* collectMessageSources(candidate)
+    for (const source of sources) {
+      const code = extractCodeFromText(source)
+      if (code) {
+        return code
+      }
+    }
+  }
+
+  return null
+})
+
+function isGmailImapHost(host: string): boolean {
+  const normalized = host.trim().toLowerCase()
+  return normalized === "imap.gmail.com" || normalized === "imap.googlemail.com"
+}
+
+/** Gmail web-style search; avoids broken IMAP SUBJECT matching for UTF-8 (e.g. "Código"). */
+function formatGmailAfterDate(date: Date): string {
+  const yyyy = date.getFullYear()
+  const mm = String(date.getMonth() + 1).padStart(2, "0")
+  const dd = String(date.getDate()).padStart(2, "0")
+  return `${yyyy}/${mm}/${dd}`
+}
+
+const collectMessageSources = Effect.fn("Email2FA.collectMessageSources")(function* (
+  candidate: Email2FACandidate,
+): Effect.fn.Return<string[], EmailMessageParseFailure> {
+  const sources: string[] = []
+  if (candidate.envelopeSubject) {
+    sources.push(candidate.envelopeSubject)
+  }
+
+  const parsedMessage = yield* Effect.tryPromise({
+    try: () => simpleParser(Buffer.from(candidate.source)),
+    catch: (cause) => new EmailMessageParseFailure({ cause }),
+  })
+  if (parsedMessage.subject) {
+    sources.push(parsedMessage.subject)
+  }
+  if (parsedMessage.text) {
+    sources.push(parsedMessage.text)
+  }
+  if (parsedMessage.html) {
+    sources.push(String(parsedMessage.html))
+  }
+
+  return sources
+})
+
+function decodeQuotedPrintable(value: string): string {
+  return (
+    value
+      .replaceAll(/=\r?\n/g, "")
+      // oxlint-disable-next-line typescript/no-unsafe-argument
+      .replaceAll(/=([0-9A-Fa-f]{2})/g, (_, hex) => String.fromCodePoint(Number.parseInt(hex, 16)))
+  )
+}
+
+function extractCodeFromText(rawContent: string): string | null {
+  const decodedContent = decodeQuotedPrintable(rawContent)
+  const htmlAsText = decodedContent.replaceAll(/<[^>]*>/g, " ")
+  const collapsedText = htmlAsText.replaceAll(/\s+/g, " ")
+  const candidates = collectCandidateCodes(collapsedText)
+
+  return candidates.find((candidate) => candidate !== "000000") ?? null
+}
+
+function collectCandidateCodes(text: string): string[] {
+  const orderedCandidates: string[] = []
+  const preferredPatterns = [
+    /(?:codigo|c\u00f3digo)\D{0,20}(\d{6})/gi,
+    /(?:entrar(?:\s+a)?\s+tu\s+cuenta)\D{0,20}(\d{6})/gi,
+    /(?:cuenta)\D{0,20}(\d{6})/gi,
+  ]
+
+  for (const pattern of preferredPatterns) {
+    for (const match of text.matchAll(pattern)) {
+      const [, code] = match
+      if (code) {
+        orderedCandidates.push(code)
+      }
+    }
+  }
+
+  for (const match of text.matchAll(/\b(\d{6})\b/g)) {
+    const [, code] = match
+    if (code) {
+      orderedCandidates.push(code)
+    }
+  }
+
+  return [...new Set(orderedCandidates)]
+}
 
 function messageSeenKey(mailboxPath: string, uid: number): string {
   return `${mailboxPath}:${uid}`

@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises"
+
 import { it } from "@effect/vitest"
 import { Cause, Effect, Exit, Fiber, Option, Redacted } from "effect"
 import { TestClock } from "effect/testing"
@@ -473,6 +475,141 @@ describe("Email2FAService.get2FACode recoverability", () => {
     }),
   )
 })
+
+describe("Email2FAService.get2FACode MIME parsing", () => {
+  it.effect.each([
+    { label: "plain text", fixtureName: "2fa-plain.eml", expectedCode: "123456" },
+    { label: "HTML", fixtureName: "2fa-html.eml", expectedCode: "234567" },
+    { label: "quoted-printable", fixtureName: "2fa-quoted-printable.eml", expectedCode: "345678" },
+  ])("extracts the 2FA code from a captured $label email", ({ fixtureName, expectedCode }) =>
+    Effect.gen(function* () {
+      const source = yield* Effect.tryPromise(() => loadFixture(fixtureName))
+      const fake = createFakeClient({
+        search: () => [100],
+        fetchOne: () => ({
+          source,
+          internalDate: new Date("2026-07-14T10:31:00"),
+        }),
+      })
+
+      const exit = yield* runRetrieval(
+        NON_GMAIL_CONFIG,
+        { afterTimestamp: AFTER_TIMESTAMP },
+        fake.client,
+        () => Effect.void,
+      )
+
+      expect(Exit.isSuccess(exit)).toBe(true)
+      if (Exit.isSuccess(exit)) {
+        expect(exit.value).toBe(Email2FACode.make(expectedCode))
+      }
+    }),
+  )
+
+  it.effect("rejects stale and invalid candidates before selecting a fresh code", () =>
+    Effect.gen(function* () {
+      const messages = new Map<number, ImapMessage>([
+        [
+          1,
+          {
+            source: Buffer.from("Subject: Codigo 456789\n\nCodigo: 456789"),
+            internalDate: new Date("2026-07-14T10:29:00"),
+          },
+        ],
+        [
+          2,
+          {
+            // The parser rejects the all-zero sentinel before considering fresher candidates.
+            source: Buffer.from("Subject: Codigo 000000\n\nCodigo: 000000"),
+            internalDate: new Date("2026-07-14T10:31:00"),
+          },
+        ],
+        [
+          3,
+          {
+            source: Buffer.from("Subject: Codigo 567890\n\nCodigo: 567890"),
+            internalDate: new Date("2026-07-14T10:32:00"),
+          },
+        ],
+      ])
+      const fake = createFakeClient({
+        search: () => [1, 2, 3],
+        fetchOne: (uid) => messages.get(uid) ?? null,
+      })
+
+      const exit = yield* runRetrieval(
+        NON_GMAIL_CONFIG,
+        { afterTimestamp: AFTER_TIMESTAMP },
+        fake.client,
+        () => Effect.void,
+      )
+
+      expect(Exit.isSuccess(exit)).toBe(true)
+      if (Exit.isSuccess(exit)) {
+        expect(exit.value).toBe(Email2FACode.make("567890"))
+      }
+    }),
+  )
+})
+
+describe("Email2FAService search query generation", () => {
+  it.effect(
+    "sends Gmail sender, domain, relative-window, and portable queries for Gmail host",
+    () =>
+      Effect.gen(function* () {
+        const receivedQueries: SearchObject[] = []
+        const fake = createFakeClient({
+          search: (query) => {
+            receivedQueries.push(query)
+            return false
+          },
+        })
+
+        yield* runRetrieval(
+          GMAIL_CONFIG,
+          { afterTimestamp: AFTER_TIMESTAMP, timeoutMs: 1_000 },
+          fake.client,
+          () => TestClock.adjust("1 second"),
+        )
+
+        expect(receivedQueries).toContainEqual({
+          gmraw: "from:security@fintual.com after:2026/07/14",
+        })
+        expect(receivedQueries).toContainEqual({ gmraw: "from:fintual.com after:2026/07/14" })
+        expect(receivedQueries).toContainEqual({ gmraw: "from:security@fintual.com newer_than:1d" })
+        expect(receivedQueries).toContainEqual({ gmraw: "from:fintual.com newer_than:1d" })
+        expect(receivedQueries).toContainEqual({
+          from: "security@fintual.com",
+          since: AFTER_TIMESTAMP,
+        })
+      }),
+  )
+
+  it.effect("sends only portable IMAP search query for non-Gmail host", () =>
+    Effect.gen(function* () {
+      const receivedQueries: SearchObject[] = []
+      const fake = createFakeClient({
+        search: (query) => {
+          receivedQueries.push(query)
+          return false
+        },
+      })
+
+      yield* runRetrieval(
+        NON_GMAIL_CONFIG,
+        { afterTimestamp: AFTER_TIMESTAMP, timeoutMs: 1_000 },
+        fake.client,
+        () => TestClock.adjust("1 second"),
+      )
+
+      expect(receivedQueries).toEqual([{ from: "security@fintual.com", since: AFTER_TIMESTAMP }])
+    }),
+  )
+})
+
+async function loadFixture(name: string): Promise<Buffer> {
+  return await readFile(new URL(`./fixtures/${name}`, import.meta.url))
+}
 
 function messageWithCode(code: string): ImapMessage {
   return {
