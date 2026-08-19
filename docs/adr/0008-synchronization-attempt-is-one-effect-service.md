@@ -33,7 +33,7 @@ The redaction policy receives only the validated secrets list and does not
 depend on the runtime configuration tree.
 
 The scheduler remains a plain application module. It receives an
-`Effect<void, JobError>` and parsed schedule options, while `app.ts` selects
+`Effect<void, JobError>` and parsed schedule options, while `main.ts` selects
 the once or schedule program from `ScheduleConfigService`. `RunJobService`,
 `SchedulerService`, the configuration-taking `runJob` function, and the
 parallel once entry module are not retained.
