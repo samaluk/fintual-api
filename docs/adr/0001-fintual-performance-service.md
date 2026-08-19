@@ -16,7 +16,7 @@ Callers need a validated `PerformanceSnapshot`, not login steps, GraphQL payload
 fetchPerformanceSnapshot(): Effect<PerformanceSnapshot, FintualError>
 ```
 
-Its live layer acquires validated Fintual configuration, an Effect `HttpClient`-backed session adapter, `Email2FA`, and `SnapshotWriter`. The method itself has no remaining environment requirements.
+Its live layer acquires validated Fintual configuration, an Effect `HttpClient`-backed session adapter, and `Email2FA`. The method itself has no remaining environment requirements.
 
 The module owns the complete workflow: establish a scoped authenticated session, perform login and optional email 2FA, fetch reference and recent performance data, decode both responses with Schema, fold them into the domain model, validate the final snapshot, and persist the inspection artifact.
 

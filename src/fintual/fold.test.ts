@@ -1,7 +1,6 @@
 import { expect, test } from "vitest"
 
-import { foldGoalPerformanceData } from "./fold.ts"
-import type { GoalPerformanceData } from "./provider.ts"
+import { foldGoalPerformanceData, type GoalPerformanceData } from "./fold.ts"
 
 test("folds reference and recent Goal Performance Data into a Performance Snapshot", () => {
   const snapshot = foldGoalPerformanceData(

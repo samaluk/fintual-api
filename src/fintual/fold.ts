@@ -1,5 +1,21 @@
 import type { PerformanceSnapshot } from "../performance-snapshot.ts"
-import type { GoalPerformanceData } from "./provider.ts"
+
+export interface GoalPerformancePoint {
+  readonly date: string
+  readonly unrealizedCostBasisAmount: number
+  readonly unrealizedGainOrLossAmount?: number
+  readonly realizedCostBasisAmount?: number
+  readonly realizedGainOrLossAmount?: number
+  readonly sharesCostBasisAmount?: number
+  readonly sharesValuationAmount: number
+  readonly pendingFulfillmentReinvestmentDepositsCostBasisAmount?: number
+  readonly pendingFulfillmentReinvestmentDepositsAmount?: number
+  readonly withdrawnAmount?: number
+}
+
+export interface GoalPerformanceData {
+  readonly balanceGraphDataPoints: ReadonlyArray<GoalPerformancePoint>
+}
 
 export function foldGoalPerformanceData(
   referenceData: GoalPerformanceData,
