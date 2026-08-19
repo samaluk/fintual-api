@@ -72,7 +72,6 @@ const acquireClient = Effect.gen(function* () {
 const reconcileSnapshot = (client: ActualClient) =>
   client.reconcile(SNAPSHOT, {
     startingDate: CONFIG.startingDate,
-    startingTimestamp: Date.parse(`${CONFIG.startingDate}T00:00:00Z`),
     accountId: CONFIG.fintualAccount,
     payeeName: CONFIG.payee,
   })
@@ -187,6 +186,25 @@ it.effect("uses the Effect Clock for the transaction end date", () =>
       "2026-01-01",
       "2026-02-03",
     )
+  }),
+)
+
+it.effect("fails with a non-retryable failure on an invalid starting date", () =>
+  Effect.gen(function* () {
+    const client = yield* acquireClient
+    const failure = yield* Effect.flip(
+      client.reconcile(SNAPSHOT, {
+        startingDate: "not-a-date",
+        accountId: CONFIG.fintualAccount,
+        payeeName: CONFIG.payee,
+      }),
+    )
+
+    expect(failure).toMatchObject({
+      _tag: "ActualInvalidStartingDate",
+      startingDate: "not-a-date",
+      retryable: false,
+    })
   }),
 )
 

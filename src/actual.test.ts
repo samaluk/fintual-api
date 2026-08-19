@@ -20,7 +20,11 @@ vi.mock("@actual-app/api", () => actualApiMock)
 
 import { ActualSynchronization } from "./actual.ts"
 import { ActualClientFactory, type ActualClient } from "./actual/actual-client.ts"
-import { ActualInitializationFailure, ActualOperationFailure } from "./actual/actual-error.ts"
+import {
+  ActualInitializationFailure,
+  ActualInvalidStartingDate,
+  ActualOperationFailure,
+} from "./actual/actual-error.ts"
 import { ActualConfigService, type ActualConfig } from "./env.ts"
 import type { PerformanceSnapshot } from "./performance-snapshot.ts"
 
@@ -130,7 +134,6 @@ it.effect("the live Actual adapter preserves stable SDK network codes", () =>
         const client = yield* factory.acquire(CONFIG)
         return yield* client.reconcile(SNAPSHOT, {
           startingDate: CONFIG.startingDate,
-          startingTimestamp: Date.parse(`${CONFIG.startingDate}T00:00:00Z`),
           accountId: CONFIG.fintualAccount,
           payeeName: CONFIG.payee,
         })
@@ -261,7 +264,17 @@ it.effect("health-check timeout is controlled by the Effect Clock", () =>
 it.effect("rejects an invalid starting date with a non-retryable failure", () =>
   Effect.gen(function* () {
     const calls: string[] = []
-    const client = scriptedClient(calls)
+    const client = scriptedClient(calls, {
+      reconcile: (_snapshot, options) =>
+        options.startingDate === "not-a-date"
+          ? Effect.fail(
+              new ActualInvalidStartingDate({
+                startingDate: options.startingDate,
+                retryable: false,
+              }),
+            )
+          : Effect.succeed({ created: 1, updated: 0, deletedDuplicates: 0 }),
+    })
     const invalidConfig = { ...CONFIG, startingDate: "not-a-date" }
 
     const error = yield* Effect.flip(

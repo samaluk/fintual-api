@@ -1,10 +1,11 @@
 import * as api from "@actual-app/api"
-import { Context, DateTime, Effect, Layer, Predicate, Redacted, Schema } from "effect"
+import { Context, DateTime, Effect, Layer, Option, Predicate, Redacted, Schema } from "effect"
 
 import type { ActualConfig } from "../env.ts"
 import type { PerformanceSnapshot } from "../performance-snapshot.ts"
 import {
   ActualInitializationFailure,
+  ActualInvalidStartingDate,
   ActualOperationFailure,
   type ActualError,
 } from "./actual-error.ts"
@@ -31,7 +32,6 @@ export interface SyncCounts {
 
 export interface ActualReconcileOptions {
   readonly startingDate: string
-  readonly startingTimestamp: number
   readonly accountId: string
   readonly payeeName: string
 }
@@ -83,6 +83,15 @@ function makeActualClient(syncId: string): ActualClient {
       snapshot: PerformanceSnapshot,
       options: ActualReconcileOptions,
     ): Effect.fn.Return<SyncCounts, ActualError> {
+      const startingDate = DateTime.make(options.startingDate)
+      if (Option.isNone(startingDate)) {
+        return yield* new ActualInvalidStartingDate({
+          startingDate: options.startingDate,
+          retryable: false,
+        })
+      }
+      const startingTimestamp = DateTime.toEpochMillis(startingDate.value)
+
       yield* Effect.tryPromise({
         try: () => api.downloadBudget(syncId),
         catch: (cause) =>
@@ -121,9 +130,7 @@ function makeActualClient(syncId: string): ActualClient {
       }
       const payeeId = matchedPayee?.id
 
-      const balanceEntries = snapshot.balance.filter(
-        (entry) => entry.date >= options.startingTimestamp,
-      )
+      const balanceEntries = snapshot.balance.filter((entry) => entry.date >= startingTimestamp)
       const plan = planReconciliation({
         balanceEntries,
         existingTransactions: transactions,

@@ -1,13 +1,12 @@
 import * as fs from "node:fs"
 
-import { Context, DateTime, Duration, Effect, Layer, Option, Schedule } from "effect"
+import { Context, Duration, Effect, Layer, Schedule } from "effect"
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/unstable/http"
 
 import { ActualClientFactory, type ActualClient, type SyncCounts } from "./actual/actual-client.ts"
 import {
   ActualDataDirectoryFailure,
   ActualHealthCheckFailure,
-  ActualInvalidStartingDate,
   type ActualError,
 } from "./actual/actual-error.ts"
 import { ActualConfigService, type ActualConfig } from "./env.ts"
@@ -98,20 +97,10 @@ const runActualSyncAttempt = Effect.fn("ActualSynchronization.attempt")(function
       yield* resetDataDirectory()
       yield* checkHealth(httpClient, config.serverUrl)
 
-      const startingDate = DateTime.make(config.startingDate)
-      if (Option.isNone(startingDate)) {
-        return yield* new ActualInvalidStartingDate({
-          startingDate: config.startingDate,
-          retryable: false,
-        })
-      }
-      const startingTimestamp = DateTime.toEpochMillis(startingDate.value)
-
       const client = yield* Effect.acquireRelease(clientFactory.acquire(config), closeActualClient)
 
       return yield* client.reconcile(snapshot, {
         startingDate: config.startingDate,
-        startingTimestamp,
         accountId: config.fintualAccount,
         payeeName: config.payee,
       })
