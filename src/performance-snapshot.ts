@@ -1,27 +1,12 @@
 import * as fs from "node:fs"
 
-import { Context, Effect, Layer, Schema } from "effect"
+import { Effect, Schema } from "effect"
 
 import { SnapshotWriteFailure } from "./fintual/fintual-error.ts"
 import { getErrorMessage } from "./log.ts"
 
 const SNAPSHOT_DATA_DIR = "./tmp/fintual-data"
 export const PERFORMANCE_SNAPSHOT_PATH = `${SNAPSHOT_DATA_DIR}/balance-2.json`
-
-export class SnapshotWriter extends Context.Service<
-  SnapshotWriter,
-  {
-    write: (snapshot: PerformanceSnapshot) => Effect.Effect<void, SnapshotWriteFailure>
-  }
->()("SnapshotWriter") {
-  static readonly live = Layer.sync(SnapshotWriter, () =>
-    SnapshotWriter.of({
-      write: Effect.fn("SnapshotWriter.write")(function* (snapshot) {
-        return yield* writePerformanceSnapshot(snapshot)
-      }),
-    }),
-  )
-}
 
 class PerformanceSnapshotValidationError extends Schema.TaggedError<PerformanceSnapshotValidationError>()(
   "PerformanceSnapshotValidationError",

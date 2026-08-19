@@ -17,9 +17,7 @@ import {
   ScheduleConfigService,
 } from "./env.ts"
 import { FintualPerformance } from "./fintual/performance.ts"
-import { FintualProvider } from "./fintual/provider.ts"
 import { Job } from "./job.ts"
-import { SnapshotWriter } from "./performance-snapshot.ts"
 
 const CONFIG = {
   actual: {
@@ -105,14 +103,7 @@ it.effect("runs the assembled Fintual-to-Actual workflow once", () =>
       sync: Effect.void,
       shutdown: Effect.void,
     }
-    const fintualLayer = FintualPerformance.layer.pipe(
-      Layer.provide(FintualProvider.layer),
-      Layer.provide(
-        Layer.succeed(SnapshotWriter, {
-          write: (snapshot) => Effect.sync(() => calls.push(`snapshot:${snapshot.balance.length}`)),
-        }),
-      ),
-    )
+    const fintualLayer = FintualPerformance.layer
     const actualLayer = ActualSynchronization.layer.pipe(
       Layer.provide(
         Layer.succeed(ActualClientFactory, {
@@ -137,7 +128,7 @@ it.effect("runs the assembled Fintual-to-Actual workflow once", () =>
     const job = yield* Effect.service(Job).pipe(Effect.provide(rootLayer))
     yield* job.synchronize()
 
-    expect(calls).toEqual(["snapshot:1", "reset", "health", "create:2026-07-01"])
+    expect(calls).toEqual(["reset", "health", "create:2026-07-01"])
     expect(script.requests).toHaveLength(4)
   }),
 )
