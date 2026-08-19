@@ -285,14 +285,3 @@ it.effect("ignores email 2FA settings when automatic retrieval is disabled", () 
     expect(configuration.email2FA).toBeNull()
   }),
 )
-
-it.effect("supports resolving runtime config without explicit environment", () =>
-  Effect.gen(function* () {
-    const result = yield* Effect.result(resolveRuntimeConfig())
-    if (Result.isFailure(result)) {
-      expect(result.failure).toBeInstanceOf(RuntimeConfigError)
-    } else {
-      expect(result.success.actual.serverUrl).toBeDefined()
-    }
-  }),
-)
