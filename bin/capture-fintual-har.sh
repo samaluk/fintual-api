@@ -14,7 +14,7 @@ if ! command -v agent-browser >/dev/null 2>&1; then
 	exit 1
 fi
 
-# Load only FINTUAL_* from .env via dotenv (single-quoted values so $ in passwords is not expanded).
+# Load only FINTUAL_* from .env (single-quoted values so $ in passwords is not expanded).
 if [ -f .env ]; then
 	# shellcheck disable=SC1090
 	eval "$(node "$ROOT_DIR/bin/load-fintual-env-for-capture.mjs")"
