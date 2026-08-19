@@ -5,12 +5,14 @@ import {
   Context,
   Cron,
   Effect,
+  Layer,
   Option,
   Redacted,
   Result,
   Schema,
 } from "effect"
 
+import { RedactingLogger } from "./logging.ts"
 import { parseSchedule, type SchedulerOptions } from "./scheduler.ts"
 
 export class RuntimeConfigError extends Schema.TaggedError<RuntimeConfigError>()(
@@ -255,7 +257,7 @@ function normalizeEnvValue(value: string): string {
   return trimmedValue
 }
 
-export function redactionSecrets(config: RuntimeConfig): ReadonlyArray<string> {
+function redactionSecrets(config: RuntimeConfig): ReadonlyArray<string> {
   return [
     config.actual.serverUrl,
     Redacted.value(config.actual.password),
@@ -267,4 +269,17 @@ export function redactionSecrets(config: RuntimeConfig): ReadonlyArray<string> {
     config.email2FA?.userEmail,
     config.email2FA ? Redacted.value(config.email2FA.appPassword) : undefined,
   ].filter((value): value is string => Boolean(value))
+}
+
+export function runtimeLayer(runtimeConfig: RuntimeConfig) {
+  return Layer.mergeAll(
+    Layer.succeed(ActualConfigService, runtimeConfig.actual),
+    Layer.succeed(FintualConfigService, runtimeConfig.fintual),
+    Layer.succeed(
+      Email2FAConfigService,
+      runtimeConfig.email2FA ? Option.some(runtimeConfig.email2FA) : Option.none(),
+    ),
+    Layer.succeed(ScheduleConfigService, runtimeConfig.schedule),
+    RedactingLogger.layer(redactionSecrets(runtimeConfig)),
+  )
 }
