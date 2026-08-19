@@ -15,10 +15,10 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV RUN_MODE=schedule
 
+RUN corepack enable
+
 COPY --from=deps /app/node_modules ./node_modules
 
 COPY . .
 
-RUN chmod +x ./bin/run-sync.sh ./bin/run-schedule.sh
-
-CMD ["./bin/run-schedule.sh"]
+CMD ["pnpm", "schedule"]
