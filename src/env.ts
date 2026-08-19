@@ -1,3 +1,4 @@
+import { NodeFileSystem } from "@effect/platform-node"
 import {
   Config,
   ConfigProvider,
@@ -78,18 +79,12 @@ export interface RuntimeConfig {
 export type Environment = Readonly<Record<string, string | undefined>>
 
 export const resolveRuntimeConfig = Effect.fn("RuntimeConfig.resolveRuntimeConfig")(function* (
-  environment: Environment,
+  environment?: Environment,
 ): Effect.fn.Return<RuntimeConfig, RuntimeConfigError> {
-  const provider = ConfigProvider.fromUnknown(
-    Object.fromEntries(
-      Object.entries(environment).flatMap(([name, value]) =>
-        value === undefined || (value === "" && !isGmailCredential(name))
-          ? []
-          : [[name, normalizeEnvValue(value)]],
-      ),
-    ),
-    { preserveEmptyStrings: true },
-  )
+  const provider =
+    environment !== undefined
+      ? configProviderFromEnvironment(environment)
+      : yield* liveConfigProvider
   const values = yield* runtimeValueConfig.pipe(
     Effect.provideService(ConfigProvider.ConfigProvider, provider),
     Effect.mapError(
@@ -124,6 +119,28 @@ export const resolveRuntimeConfig = Effect.fn("RuntimeConfig.resolveRuntimeConfi
     schedule: yield* resolveScheduleConfig(values),
   }
 })
+
+const liveConfigProvider = Effect.gen(function* () {
+  const dotEnvProvider = yield* ConfigProvider.fromDotEnv().pipe(
+    Effect.provide(NodeFileSystem.layer),
+    Effect.orElseSucceed(() => ConfigProvider.fromUnknown({})),
+  )
+  const envProvider = configProviderFromEnvironment(process.env)
+  return ConfigProvider.orElse(envProvider, dotEnvProvider)
+})
+
+function configProviderFromEnvironment(environment: Environment): ConfigProvider.ConfigProvider {
+  return ConfigProvider.fromUnknown(
+    Object.fromEntries(
+      Object.entries(environment).flatMap(([name, value]) =>
+        value === undefined || (value === "" && !isGmailCredential(name))
+          ? []
+          : [[name, normalizeEnvValue(value)]],
+      ),
+    ),
+    { preserveEmptyStrings: true },
+  )
+}
 
 const runtimeValueConfig = Config.all({
   actualServerUrl: Config.string("ACTUAL_SERVER_URL"),

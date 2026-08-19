@@ -1,7 +1,6 @@
 import { pathToFileURL } from "node:url"
 
 import { NodeRuntime } from "@effect/platform-node"
-import { config as loadDotEnv } from "dotenv"
 import { Effect, Option } from "effect"
 
 import { runApplication } from "./app.ts"
@@ -17,13 +16,11 @@ import {
 import { Job, type JobError } from "./job.ts"
 import { RedactingLogger, reportUnhandledFailure } from "./logging.ts"
 
-loadDotEnv()
-
 const main = Effect.fn("Main.main")(function* (): Effect.fn.Return<
   void,
   RuntimeConfigError | JobError
 > {
-  const runtimeConfig = yield* resolveRuntimeConfig(process.env).pipe(
+  const runtimeConfig = yield* resolveRuntimeConfig().pipe(
     Effect.tapCause((cause) =>
       reportUnhandledFailure(cause).pipe(Effect.provide(RedactingLogger.empty)),
     ),
