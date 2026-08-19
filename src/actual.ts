@@ -1,17 +1,14 @@
 import * as fs from "node:fs"
 
-import { Context, DateTime, Duration, Effect, Layer, Option, Schedule } from "effect"
+import { Context, Duration, Effect, Layer, Schedule } from "effect"
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/unstable/http"
 
-import { ActualClientFactory, type ActualClient } from "./actual/actual-client.ts"
+import { ActualClientFactory, type ActualClient, type SyncCounts } from "./actual/actual-client.ts"
 import {
   ActualDataDirectoryFailure,
   ActualHealthCheckFailure,
-  ActualInvalidStartingDate,
   type ActualError,
-  type ActualPayeesReadFailure,
 } from "./actual/actual-error.ts"
-import { planReconciliation } from "./actual/reconciliation-policy.ts"
 import { ActualConfigService, type ActualConfig } from "./env.ts"
 import { getErrorMessage } from "./logging.ts"
 import type { PerformanceSnapshot } from "./performance-snapshot.ts"
@@ -34,12 +31,6 @@ const actualRetrySchedule: ActualRetrySchedule = Schedule.max([
   ]),
   Schedule.recurs(MAX_SYNC_ATTEMPTS - 1),
 ]).pipe(Schedule.jittered, Schedule.setInputType<ActualError>())
-
-interface SyncCounts {
-  readonly created: number
-  readonly updated: number
-  readonly deletedDuplicates: number
-}
 
 export class ActualSynchronization extends Context.Service<
   ActualSynchronization,
@@ -108,8 +99,11 @@ const runActualSyncAttempt = Effect.fn("ActualSynchronization.attempt")(function
 
       const client = yield* Effect.acquireRelease(clientFactory.acquire(config), closeActualClient)
 
-      yield* client.downloadBudget(config.syncId)
-      return yield* syncDailyVariationTransactions(client, config, snapshot)
+      return yield* client.reconcile(snapshot, {
+        startingDate: config.startingDate,
+        accountId: config.fintualAccount,
+        payeeName: config.payee,
+      })
     }),
   )
 })
@@ -174,86 +168,6 @@ const checkHealth = Effect.fn("ActualSynchronization.checkHealth")(function* (
     cause: new Error(`health endpoint returned HTTP ${response.status}`),
     retryable: isRetryableStatus(response.status),
   })
-})
-
-const syncDailyVariationTransactions = Effect.fn(
-  "ActualSynchronization.syncDailyVariationTransactions",
-)(function* (
-  client: ActualClient,
-  config: ActualConfig,
-  snapshot: PerformanceSnapshot,
-): Effect.fn.Return<SyncCounts, ActualError> {
-  const endingDate = DateTime.formatIsoDateUtc(yield* DateTime.now)
-  const startingDate = DateTime.make(config.startingDate)
-
-  if (Option.isNone(startingDate)) {
-    return yield* new ActualInvalidStartingDate({
-      startingDate: config.startingDate,
-      retryable: false,
-    })
-  }
-
-  const startingTimestamp = DateTime.toEpochMillis(startingDate.value)
-  const balanceEntries = snapshot.balance.filter((entry) => entry.date >= startingTimestamp)
-  const transactions = yield* client.getTransactions(
-    config.fintualAccount,
-    config.startingDate,
-    endingDate,
-  )
-  const payeeId = yield* resolvePayeeId(client, config.payee)
-  const plan = planReconciliation({
-    balanceEntries,
-    existingTransactions: transactions,
-    payeeId,
-  })
-
-  for (const warning of plan.warnings) {
-    yield* Effect.logWarning(warning)
-  }
-
-  const syncCounts = {
-    created: 0,
-    updated: 0,
-    deletedDuplicates: 0,
-  }
-
-  for (const action of plan.actions) {
-    switch (action.type) {
-      case "create": {
-        yield* client.createTransaction(config.fintualAccount, action.transaction)
-        syncCounts.created += 1
-        break
-      }
-      case "update": {
-        yield* client.updateTransaction(action.id, action.transaction)
-        syncCounts.updated += 1
-        break
-      }
-      case "delete": {
-        yield* client.deleteTransaction(action.id)
-        syncCounts.deletedDuplicates += 1
-        break
-      }
-    }
-  }
-
-  yield* client.sync
-  return syncCounts
-})
-
-const resolvePayeeId = Effect.fn("ActualSynchronization.resolvePayeeId")(function* (
-  client: ActualClient,
-  configuredPayee: string,
-): Effect.fn.Return<string | undefined, ActualPayeesReadFailure> {
-  const payees = yield* client.getPayees
-  const payee = payees.find((candidate) => candidate.name === configuredPayee)
-
-  if (!payee) {
-    yield* Effect.logInfo("Configured payee not found")
-    return undefined
-  }
-
-  return payee.id
 })
 
 const closeActualClient = Effect.fn("ActualSynchronization.closeClient")(function* (

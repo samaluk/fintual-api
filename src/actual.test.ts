@@ -21,11 +21,10 @@ vi.mock("@actual-app/api", () => actualApiMock)
 import { ActualSynchronization } from "./actual.ts"
 import { ActualClientFactory, type ActualClient } from "./actual/actual-client.ts"
 import {
-  ActualBudgetDownloadFailure,
   ActualInitializationFailure,
-  ActualTransactionCreationFailure,
+  ActualInvalidStartingDate,
+  ActualOperationFailure,
 } from "./actual/actual-error.ts"
-import type { ExistingVariationTransaction } from "./actual/reconciliation-policy.ts"
 import { ActualConfigService, type ActualConfig } from "./env.ts"
 import type { PerformanceSnapshot } from "./performance-snapshot.ts"
 
@@ -67,44 +66,25 @@ it.effect("synchronizes through one service and shuts down the Actual session on
 
     yield* synchronizationProgram([client], calls)
 
-    expect(calls).toEqual([
-      "health",
-      "download",
-      "transactions",
-      "payees",
-      "create:2026-01-05",
-      "sync",
-      "shutdown",
-    ])
+    expect(calls).toEqual(["health", "reconcile", "shutdown"])
   }),
 )
 
 it.effect("retries a failed mutation as a fresh Synchronization Attempt", () =>
   Effect.gen(function* () {
     const calls: string[] = []
-    const importedTransaction = {
-      id: "created-after-timeout",
-      date: "2026-01-05",
-      notes: "Variation",
-      payee: "payee-id",
-      imported_id: "fintual-variation:2026-01-05",
-    }
-    const secondAttemptTransactions: Array<typeof importedTransaction> = []
     const firstAttempt = scriptedClient(calls, {
-      create: (_accountId, transaction) => {
-        calls.push(`create:${transaction.date}`)
-        secondAttemptTransactions.push(importedTransaction)
-        return Effect.fail(
-          new ActualTransactionCreationFailure({
+      reconcile: () =>
+        Effect.gen(function* () {
+          calls.push("reconcile")
+          return yield* new ActualOperationFailure({
+            operation: "create_transaction",
             cause: { code: "network-failure" },
             retryable: true,
-          }),
-        )
-      },
+          })
+        }),
     })
-    const secondAttempt = scriptedClient(calls, {
-      transactions: secondAttemptTransactions,
-    })
+    const secondAttempt = scriptedClient(calls)
 
     const fiber = yield* Effect.forkChild(
       synchronizationProgram([firstAttempt, secondAttempt], calls),
@@ -112,21 +92,7 @@ it.effect("retries a failed mutation as a fresh Synchronization Attempt", () =>
     yield* TestClock.adjust("10 seconds")
     yield* Fiber.join(fiber)
 
-    expect(calls).toEqual([
-      "health",
-      "download",
-      "transactions",
-      "payees",
-      "create:2026-01-05",
-      "shutdown",
-      "health",
-      "download",
-      "transactions",
-      "payees",
-      "update:created-after-timeout",
-      "sync",
-      "shutdown",
-    ])
+    expect(calls).toEqual(["health", "reconcile", "shutdown", "health", "reconcile", "shutdown"])
   }),
 )
 
@@ -135,10 +101,11 @@ it.effect("does not retry a non-retryable Actual failure", () =>
     const calls: string[] = []
     const client: ActualClient = {
       ...scriptedClient(calls),
-      downloadBudget: () =>
+      reconcile: () =>
         Effect.gen(function* () {
-          calls.push("download")
-          return yield* new ActualBudgetDownloadFailure({
+          calls.push("reconcile")
+          return yield* new ActualOperationFailure({
+            operation: "download_budget",
             cause: { code: "budget-not-found" },
             retryable: false,
           })
@@ -148,10 +115,11 @@ it.effect("does not retry a non-retryable Actual failure", () =>
     const error = yield* Effect.flip(synchronizationProgram([client], calls))
 
     expect(error).toMatchObject({
-      _tag: "ActualBudgetDownloadFailure",
+      _tag: "ActualOperationFailure",
+      operation: "download_budget",
       retryable: false,
     })
-    expect(calls).toEqual(["health", "download", "shutdown"])
+    expect(calls).toEqual(["health", "reconcile", "shutdown"])
   }),
 )
 
@@ -164,7 +132,11 @@ it.effect("the live Actual adapter preserves stable SDK network codes", () =>
       Effect.gen(function* () {
         const factory = yield* ActualClientFactory
         const client = yield* factory.acquire(CONFIG)
-        return yield* client.downloadBudget(CONFIG.syncId)
+        return yield* client.reconcile(SNAPSHOT, {
+          startingDate: CONFIG.startingDate,
+          accountId: CONFIG.fintualAccount,
+          payeeName: CONFIG.payee,
+        })
       }).pipe(Effect.provide(ActualClientFactory.live)),
     )
 
@@ -172,7 +144,8 @@ it.effect("the live Actual adapter preserves stable SDK network codes", () =>
     expect(actualApiMock.init).toHaveBeenCalledWith(expect.objectContaining({ password: "secret" }))
     if (Result.isFailure(result)) {
       expect(result.failure).toMatchObject({
-        _tag: "ActualBudgetDownloadFailure",
+        _tag: "ActualOperationFailure",
+        operation: "download_budget",
         cause: { code: "network-failure" },
         retryable: true,
       })
@@ -288,41 +261,64 @@ it.effect("health-check timeout is controlled by the Effect Clock", () =>
   }),
 )
 
-it.effect("uses the Effect Clock for the transaction end date", () =>
+it.effect("rejects an invalid starting date with a non-retryable failure", () =>
   Effect.gen(function* () {
     const calls: string[] = []
-    const endingDates: string[] = []
     const client = scriptedClient(calls, {
-      onTransactions: (_startDate, endDate) => endingDates.push(endDate),
+      reconcile: (_snapshot, options) =>
+        options.startingDate === "not-a-date"
+          ? Effect.fail(
+              new ActualInvalidStartingDate({
+                startingDate: options.startingDate,
+                retryable: false,
+              }),
+            )
+          : Effect.succeed({ created: 1, updated: 0, deletedDuplicates: 0 }),
     })
+    const invalidConfig = { ...CONFIG, startingDate: "not-a-date" }
 
-    yield* TestClock.setTime(Date.parse("2026-02-03T12:00:00Z"))
-    yield* synchronizationProgram([client], calls)
+    const error = yield* Effect.flip(
+      Effect.gen(function* () {
+        const service = yield* ActualSynchronization
+        yield* service.synchronize(SNAPSHOT)
+      }).pipe(
+        Effect.provide(ActualSynchronization.layer),
+        Effect.provideService(ActualConfigService, invalidConfig),
+        Effect.provideService(ActualClientFactory, {
+          acquire: () => Effect.succeed(client),
+        }),
+        Effect.provideService(FetchHttpClient.Fetch, async () => new Response("", { status: 200 })),
+      ),
+    )
 
-    expect(endingDates).toEqual(["2026-02-03"])
+    expect(error).toMatchObject({
+      _tag: "ActualInvalidStartingDate",
+      startingDate: "not-a-date",
+      retryable: false,
+    })
   }),
 )
 
 it.effect("shuts down the scoped Actual session when the workflow is interrupted", () =>
   Effect.gen(function* () {
     const calls: string[] = []
-    let resolveDownloadStarted!: () => void
-    const downloadStarted = new Promise<void>((resolve) => {
-      resolveDownloadStarted = resolve
+    let resolveReconcileStarted!: () => void
+    const reconcileStarted = new Promise<void>((resolve) => {
+      resolveReconcileStarted = resolve
     })
     const client = scriptedClient(calls, {
-      download: () =>
+      reconcile: () =>
         Effect.gen(function* () {
-          calls.push("download")
-          resolveDownloadStarted()
+          calls.push("reconcile")
+          resolveReconcileStarted()
           return yield* Effect.never
         }),
     })
     const fiber = yield* Effect.forkChild(synchronizationProgram([client], calls))
-    yield* Effect.promise(() => downloadStarted)
+    yield* Effect.promise(() => reconcileStarted)
     yield* Fiber.interrupt(fiber)
 
-    expect(calls).toEqual(["health", "download", "shutdown"])
+    expect(calls).toEqual(["health", "reconcile", "shutdown"])
   }),
 )
 
@@ -367,30 +363,22 @@ function synchronizationProgram(
 function scriptedClient(
   calls: string[],
   options: {
-    transactions?: ReadonlyArray<ExistingVariationTransaction>
-    create?: ActualClient["createTransaction"]
-    download?: ActualClient["downloadBudget"]
-    onTransactions?: (startDate: string, endDate: string) => void
+    reconcile?: ActualClient["reconcile"]
+    shutdown?: ActualClient["shutdown"]
   } = {},
 ): ActualClient {
   return {
-    downloadBudget: options.download ?? (() => Effect.sync(() => calls.push("download"))),
-    getTransactions: (_accountId, startDate, endDate) =>
+    reconcile:
+      options.reconcile ??
+      ((_snapshot, _opts) =>
+        Effect.sync(() => {
+          calls.push("reconcile")
+          return { created: 1, updated: 0, deletedDuplicates: 0 }
+        })),
+    shutdown:
+      options.shutdown ??
       Effect.sync(() => {
-        calls.push("transactions")
-        options.onTransactions?.(startDate, endDate)
-        return options.transactions ?? []
+        calls.push("shutdown")
       }),
-    getPayees: Effect.sync(() => {
-      calls.push("payees")
-      return [{ id: "payee-id", name: "Fintual" }]
-    }),
-    createTransaction:
-      options.create ??
-      ((_accountId, transaction) => Effect.sync(() => calls.push(`create:${transaction.date}`))),
-    updateTransaction: (id) => Effect.sync(() => calls.push(`update:${id}`)),
-    deleteTransaction: (id) => Effect.sync(() => calls.push(`delete:${id}`)),
-    sync: Effect.sync(() => calls.push("sync")),
-    shutdown: Effect.sync(() => calls.push("shutdown")),
   }
 }
