@@ -26,7 +26,7 @@ The application exposes two run modes selected from environment configuration:
 
 The once and schedule modes share one Effect-native process entrypoint. The
 `RUN_MODE` value selects the application program after configuration is decoded;
-`bin/run-sync.sh` and `bin/run-schedule.sh` both invoke `src/main.ts` with their
+`pnpm once` and `pnpm schedule` both invoke `src/main.ts` with their
 respective mode explicitly. This keeps the deployment distinction in
 environment configuration rather than maintaining parallel entry modules.
 
@@ -34,8 +34,8 @@ Schedule policy is decoded with Effect Config from `SYNC_CRON`, `SYNC_TIMEZONE`,
 and `SYNC_NO_OVERLAP`. The cron expression and IANA timezone are validated
 eagerly at config decode with `Cron.parse`, so an invalid schedule fails fast as
 a typed configuration error. The container image defaults to scheduler mode via
-`ENV RUN_MODE=schedule` and `bin/run-schedule.sh`; the one-shot path remains
-available as `bin/run-sync.sh` or `RUN_MODE=once`.
+`ENV RUN_MODE=schedule` and `pnpm schedule`; the one-shot path remains
+available as `pnpm once` or `RUN_MODE=once`.
 
 The scheduler core owns the recurring program and its testable timing,
 failure-continuation, interruption, and no-overlap behavior. The composition
@@ -66,7 +66,7 @@ deployment change.
   Keeping a compatibility shim would have to distinguish "one-shot by default"
   from "one-shot on request" across invocations and would have delayed the
   homelab migration without protecting any external consumer; the one-shot path
-  remains available explicitly via `RUN_MODE=once` and `bin/run-sync.sh`.
+  remains available explicitly via `RUN_MODE=once` and `pnpm once`.
 
 ## Consequences
 
