@@ -12,11 +12,11 @@ importers:
         specifier: 26.8.1
         version: 26.8.1
       '@effect/platform-node':
-        specifier: 4.0.0-rc.110
-        version: 4.0.0-rc.110(effect@4.0.0-rc.110)(redis@6.2.1)
+        specifier: 4.0.0-rc.111
+        version: 4.0.0-rc.111(effect@4.0.0-rc.111)(redis@6.2.1)
       effect:
-        specifier: 4.0.0-rc.110
-        version: 4.0.0-rc.110
+        specifier: 4.0.0-rc.111
+        version: 4.0.0-rc.111
       imapflow:
         specifier: 1.7.1
         version: 1.7.1
@@ -28,8 +28,8 @@ importers:
         specifier: 0.36.5
         version: 0.36.5
       '@effect/vitest':
-        specifier: 4.0.0-rc.110
-        version: 4.0.0-rc.110(effect@4.0.0-rc.110)(vitest@4.1.11)
+        specifier: 4.0.0-rc.111
+        version: 4.0.0-rc.111(effect@4.0.0-rc.111)(vitest@4.1.11)
       '@types/mailparser':
         specifier: 3.4.6
         version: 3.4.6
@@ -97,17 +97,17 @@ packages:
   '@bufbuild/protobuf@2.13.0':
     resolution: {integrity: sha512-acq7c49vxfm1ggJ95P70TX7ABDM0vxr1SYD3BB0o0jnBLB4OAqeHyKuN+cD3w80gXEDQ2zxHpR6CUeA+O/aU9g==}
 
-  '@effect/platform-node-shared@4.0.0-rc.110':
-    resolution: {integrity: sha512-P8EZloxS7RtCOSL3VSBPyqSenUm93xLbXf9jkWoy67cibZ2wgZ9nAou9iN8f1i4vzgxUsWtDuy6BEmg67np6Zw==}
+  '@effect/platform-node-shared@4.0.0-rc.111':
+    resolution: {integrity: sha512-iES0Q9vmjhaUKqeW9ceonuD45MUg/Ouk08LzRSptZ+B5qB0w9WlRjDmUz5TJmY2betNop5FRI5k4AD4mtQt3Bw==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
-      effect: ^4.0.0-rc.110
+      effect: ^4.0.0-rc.111
 
-  '@effect/platform-node@4.0.0-rc.110':
-    resolution: {integrity: sha512-poj6VxTc2kRDowUHgjGXAZL2nWHTyGi/18607jK+pV9A9CH/wqZ4NeYj38rij95j5SiZ3U7Y1iOsk2Vfnr4GEw==}
+  '@effect/platform-node@4.0.0-rc.111':
+    resolution: {integrity: sha512-oy1i7HsOGg/5r+DuBe5+ddmnUhnXmyZFPFPXZCBdO/RQpHK3PIFe1/2UMGxZE+ngDymrSksuQTSgQLF6P+MLqw==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
-      effect: ^4.0.0-rc.110
+      effect: ^4.0.0-rc.111
       redis: '>=5.0.0 <7.0.0'
 
   '@effect/tsgo-darwin-arm64@0.36.5':
@@ -149,10 +149,10 @@ packages:
     resolution: {integrity: sha512-BHxVjeRK1/XlqYHWXkbT4W9JpOrT3sNA2wrfwQPBTojD5OSyxI2TUIltobYhWudyfuCrn770qP6uOpDjdrmghA==}
     hasBin: true
 
-  '@effect/vitest@4.0.0-rc.110':
-    resolution: {integrity: sha512-ZvceBAWOPDnLgQgoObxPZOBuRTaRhBUR0K8sT4vfwwnf6Sv92GvCFp+WmfFV31j58Inf2p+wU1C3o9TNC1MZrQ==}
+  '@effect/vitest@4.0.0-rc.111':
+    resolution: {integrity: sha512-YDaEVT+grREBVMzykRNFtJwGxy02achzT0WXZYwMJA4ukzuB9krkgQ5roc3N6zhC3NQq/j4IyM32/Pcov7AhHw==}
     peerDependencies:
-      effect: ^4.0.0-rc.110
+      effect: ^4.0.0-rc.111
       vitest: '>=4.1.0 <5.0.0'
 
   '@fallow-cli/darwin-arm64@3.17.0':
@@ -930,8 +930,8 @@ packages:
   domutils@3.2.2:
     resolution: {integrity: sha512-6kZKyUajlDuqlHKVX1w7gyslj9MPIXzIFiz/rGu35uC1wMi+kMhQwGhl4lt9unC9Vb9INnY9Z3/ZA3+FhASLaw==}
 
-  effect@4.0.0-rc.110:
-    resolution: {integrity: sha512-ega6FTJ8CS2of7tHZiADvgyJyV999Q6tZ9juE56V81O0jw6flRwydaPNtyfvP2a5LL9PZrse8A1jnNUD5sWVHg==}
+  effect@4.0.0-rc.111:
+    resolution: {integrity: sha512-ASd5L58EIR0CUNueZNKKjSsyOCd+2alxOAIaTcHaqkJkPsaYSsw5Cg/cfANk5K4Jr2YsX756xvX11shzqsreWA==}
 
   encoding-japanese@2.2.0:
     resolution: {integrity: sha512-EuJWwlHPZ1LbADuKTClvHtwbaFn4rOD+dRAbWysqEOXRc2Uui0hJInNJrsdH0c+OhJA4nrCBdSkW4DD5YxAo6A==}
@@ -1773,19 +1773,19 @@ snapshots:
 
   '@bufbuild/protobuf@2.13.0': {}
 
-  '@effect/platform-node-shared@4.0.0-rc.110(effect@4.0.0-rc.110)':
+  '@effect/platform-node-shared@4.0.0-rc.111(effect@4.0.0-rc.111)':
     dependencies:
       '@types/ws': 8.18.1
-      effect: 4.0.0-rc.110
+      effect: 4.0.0-rc.111
       ws: 8.21.3
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
 
-  '@effect/platform-node@4.0.0-rc.110(effect@4.0.0-rc.110)(redis@6.2.1)':
+  '@effect/platform-node@4.0.0-rc.111(effect@4.0.0-rc.111)(redis@6.2.1)':
     dependencies:
-      '@effect/platform-node-shared': 4.0.0-rc.110(effect@4.0.0-rc.110)
-      effect: 4.0.0-rc.110
+      '@effect/platform-node-shared': 4.0.0-rc.111(effect@4.0.0-rc.111)
+      effect: 4.0.0-rc.111
       mime: 4.1.0
       redis: 6.2.1
       undici: 8.10.0
@@ -1824,9 +1824,9 @@ snapshots:
       '@effect/tsgo-win32-arm64': 0.36.5
       '@effect/tsgo-win32-x64': 0.36.5
 
-  '@effect/vitest@4.0.0-rc.110(effect@4.0.0-rc.110)(vitest@4.1.11)':
+  '@effect/vitest@4.0.0-rc.111(effect@4.0.0-rc.111)(vitest@4.1.11)':
     dependencies:
-      effect: 4.0.0-rc.110
+      effect: 4.0.0-rc.111
       vitest: 4.1.11(@types/node@24.13.3)(@vitest/coverage-v8@4.1.11)(vite@8.2.1(@types/node@24.13.3))
 
   '@fallow-cli/darwin-arm64@3.17.0':
@@ -2323,7 +2323,7 @@ snapshots:
       domelementtype: 2.3.0
       domhandler: 5.0.3
 
-  effect@4.0.0-rc.110:
+  effect@4.0.0-rc.111:
     dependencies:
       '@standard-schema/spec': 1.1.0
       fast-check: 4.9.0
