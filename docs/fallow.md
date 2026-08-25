@@ -102,6 +102,27 @@ the same Istanbul coverage evidence. The Action receives the GitHub workspace
 as `coverage-root`; native audit forwards the evidence to base analysis so HEAD
 and base use the same coverage model.
 
+## Version drift enforcement
+
+`.github/workflows/fallow-drift.yml` runs the same covered full gate once for
+each exact Fallow version newly resolved in `pnpm-lock.yaml`. It triggers when a
+push to `main` changes `package.json` or `pnpm-lock.yaml`, and it can be started
+manually. There is no cron because the analyzer cannot change while the exact
+locked version remains unchanged; unrelated dependency changes trigger only a
+cache-hit no-op.
+
+The lockfile version keys an `actions/cache` marker. On a miss, the workflow
+sets up the pinned Node.js and pnpm versions, installs with
+`--frozen-lockfile`, confirms the installed CLI matches the cache key,
+regenerates `coverage/coverage-final.json`, and runs `pnpm fallow:ci`. The
+marker is written after the gate, and GitHub saves a new cache only after the
+job succeeds. Install, coverage, or analyzer failures therefore remain
+uncached and retryable on the next qualifying push or manual dispatch.
+
+This is not a second Action-based approximation: it executes the same package
+script and real-coverage contract as CI and pre-push. Local mechanics evidence
+is recorded in [`fallow-drift-proof.md`](fallow-drift-proof.md).
+
 ## Git hooks
 
 `hk.pkl` is the sole hook manager:
@@ -169,12 +190,14 @@ verdict.
 
 ## Release-age policy
 
-`pnpm-workspace.yaml` keeps strict release-age handling. The long-lived
-exceptions for `@actual-app/api` and `@actual-app/core` support their coordinated
-release workflow. The migration temporarily added the exact
-`fallow@3.17.0` version so the repository could adopt the just-published release;
-it was removed again once the release was older than the configured age window.
-No Fallow release-age exception remains.
+`pnpm-workspace.yaml` keeps strict release-age handling for packages not listed
+in `minimumReleaseAgeExclude`. The long-lived Actual exceptions support their
+coordinated release workflow; `fallow`, `fallow-type-aware`, and
+`@fallow-cli/*` are also explicitly excluded, so the age window does not delay
+those packages. The drift workflow does not resolve or upgrade dependencies: it
+uses the already-committed lockfile and a frozen install. It therefore scans the
+exact Fallow version admitted by the repository's dependency policy, while
+`minimumReleaseAgeStrict` continues to govern non-excluded dependencies.
 
 ## Investigating findings
 
