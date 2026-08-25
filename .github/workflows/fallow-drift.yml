@@ -12,11 +12,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: fallow-drift-${{ github.ref }}
+  group: fallow-drift
   cancel-in-progress: true
 
 jobs:
   drift-scan:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -30,7 +31,7 @@ jobs:
       - name: Resolve Fallow version
         id: fallow-version
         run: |
-          version="$(grep -m1 -oE '^  fallow@[0-9]+\.[0-9]+\.[0-9]+' pnpm-lock.yaml | cut -d@ -f2-)"
+          version="$(awk '/^  fallow@/ { version=$1; sub(/^fallow@/, "", version); sub(/:$/, "", version); print version; exit }' pnpm-lock.yaml)"
           if [ -z "$version" ]; then
             echo "::error::Fallow version not found in pnpm-lock.yaml"
             exit 1

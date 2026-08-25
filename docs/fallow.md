@@ -107,9 +107,10 @@ and base use the same coverage model.
 `.github/workflows/fallow-drift.yml` runs the same covered full gate once for
 each exact Fallow version newly resolved in `pnpm-lock.yaml`. It triggers when a
 push to `main` changes `package.json` or `pnpm-lock.yaml`, and it can be started
-manually. There is no cron because the analyzer cannot change while the exact
-locked version remains unchanged; unrelated dependency changes trigger only a
-cache-hit no-op.
+manually against `main`. Dispatches targeting another ref skip the scan so a
+branch-scoped cache cannot record the same version independently. There is no
+cron because the analyzer cannot change while the exact locked version remains
+unchanged; unrelated dependency changes trigger only a cache-hit no-op.
 
 The lockfile version keys an `actions/cache` marker. On a miss, the workflow
 sets up the pinned Node.js and pnpm versions, installs with
