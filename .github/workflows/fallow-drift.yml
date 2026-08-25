@@ -1,0 +1,84 @@
+name: Fallow (drift scan)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - package.json
+      - pnpm-lock.yaml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fallow-drift
+  cancel-in-progress: true
+
+jobs:
+  drift-scan:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve Fallow version
+        id: fallow-version
+        run: |
+          version="$(awk '/^  fallow@/ { version=$1; sub(/^fallow@/, "", version); sub(/:$/, "", version); print version; exit }' pnpm-lock.yaml)"
+          if [ -z "$version" ]; then
+            echo "::error::Fallow version not found in pnpm-lock.yaml"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      # A hit means this exact lockfile-resolved version already passed the
+      # canonical covered gate. actions/cache saves misses only on job success.
+      - name: Restore version marker
+        id: seen
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .fallow-drift
+          key: fallow-drift-${{ steps.fallow-version.outputs.version }}
+
+      - name: Setup pnpm and Node.js
+        if: steps.seen.outputs.cache-hit != 'true'
+        uses: pnpm/setup@84cb39b217b10273981911c288cd62326dc7c6d2 # v2.0.2
+        with:
+          runtime: node
+          cache: true
+          install: false
+
+      - name: Install dependencies
+        if: steps.seen.outputs.cache-hit != 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Assert resolved Fallow version
+        if: steps.seen.outputs.cache-hit != 'true'
+        run: |
+          installed="$(pnpm exec fallow --version | sed -n '1s/^fallow //p')"
+          test "$installed" = "${{ steps.fallow-version.outputs.version }}"
+
+      - name: Generate canonical coverage
+        if: steps.seen.outputs.cache-hit != 'true'
+        run: pnpm test:coverage
+
+      - name: Run canonical Fallow gate
+        if: steps.seen.outputs.cache-hit != 'true'
+        run: |
+          test -f coverage/coverage-final.json
+          pnpm fallow:ci
+        env:
+          FALLOW_AUDIT_BASE: origin/main
+
+      # This step and the cache save are unreachable when install, coverage, or
+      # Fallow fails, so failed versions remain eligible for a later retry.
+      - name: Mark version as scanned
+        if: steps.seen.outputs.cache-hit != 'true'
+        run: mkdir -p .fallow-drift && date > ".fallow-drift/${{ steps.fallow-version.outputs.version }}"
