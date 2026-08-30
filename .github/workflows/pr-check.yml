@@ -157,11 +157,8 @@ jobs:
       # project-wide gates.
       - name: Fallow audit
         id: fallow
-        # Pinned to the v3.17.0 release commit; the `version` input keeps the
-        # CLI aligned with the pinned local fallow dependency.
         uses: fallow-rs/fallow@94d5f7ad28fd921c6709bf4939c2d5fe0b76a273 # v3.19.0
         with:
-          version: 3.17.0
           command: audit
           format: json
           changed-since: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'origin/main' }}
