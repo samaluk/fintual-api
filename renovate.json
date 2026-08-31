@@ -17,6 +17,13 @@
 			"groupName": "Effect packages"
 		},
 		{
+			"description": "Keep the Fallow package and GitHub Action together",
+			"matchPackageNames": ["fallow", "fallow-rs/fallow"],
+			"groupName": "Fallow",
+			"groupSlug": "fallow",
+			"groupSingleUpdates": true
+		},
+		{
 			"matchPackageNames": [
 				"@actual-app/api"
 			],
