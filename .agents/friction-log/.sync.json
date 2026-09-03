@@ -13,6 +13,10 @@
       "path": ".agents/friction-log/20260811070643-fallow-audit-emits/friction.md"
     },
     {
+      "issue": "samaluk/fintual-api#331",
+      "path": ".agents/friction-log/20260811064709-fallow-audit-emits/friction.md"
+    },
+    {
       "issue": "samaluk/fintual-api#338",
       "path": ".agents/friction-log/20260811145903-fallow-audit-rejects/friction.md"
     },
