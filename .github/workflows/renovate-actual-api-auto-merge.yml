@@ -33,7 +33,8 @@ jobs:
           const fs = require('fs');
           const base = JSON.parse(fs.readFileSync('/tmp/base-package.json', 'utf8'));
           const head = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-          const getVersion = (pkg) => pkg.dependencies?.['@actual-app/api'] ?? pkg.devDependencies?.['@actual-app/api'] ?? null;
+          const KEY = '@actual-app/api';
+          const getVersion = (pkg) => pkg.dependencies?.[KEY] ?? pkg.devDependencies?.[KEY] ?? null;
           const shouldMerge = getVersion(base) !== getVersion(head);
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `should_merge=${shouldMerge}\n`);
           NODE

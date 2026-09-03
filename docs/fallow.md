@@ -185,9 +185,10 @@ Each retained exception was removed and reprobed under Fallow 3.17:
   repository tooling outside the four runtime architecture zones. Removing
   either exclusion produces boundary-coverage failures for those files.
 
-The `@actual-app/api` workflow-expression glob warnings are a known upstream
-parser limitation tracked in issue #331; they are noisy but do not weaken a
-verdict.
+Inline workflow script blocks hoist hyphenated package names into a constant
+(e.g. `const KEY = '@actual-app/api'`) to prevent Fallow's entry auto-discovery
+from misinterpreting bracket tokens as invalid character-range globs.
+
 
 ## Release-age policy
 
