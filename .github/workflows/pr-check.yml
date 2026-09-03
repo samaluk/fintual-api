@@ -17,6 +17,10 @@ jobs:
   # so pull requests go green as fast as possible. Each is its own required
   # status check (the main-branch ruleset lists these exact names), so every one
   # must pass for a merge.
+  #
+  # Note: running static and test in parallel with `cache: true` means lockfile cache
+  # misses (e.g. dependency bump PRs) may log a harmless "Unable to reserve cache"
+  # warning when both jobs finish and race to save the key. See docs/ci.md.
   static:
     name: Lint, typecheck & format
     runs-on: ubuntu-latest
