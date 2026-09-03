@@ -47,6 +47,9 @@ Only run an individual check outside the hooks when diagnosing a reported hook
 failure or when the user explicitly asks for it. Focused tests are still
 appropriate when they directly support development or diagnosis.
 
+Known benign CI tooling warnings (parallel cache-save races and Node deprecations)
+are documented in `docs/ci.md`.
+
 ### Fallow
 
 The version-matched Fallow agent skill at `.agents/skills/fallow` links directly
