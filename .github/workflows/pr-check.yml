@@ -161,7 +161,7 @@ jobs:
       # project-wide gates.
       - name: Fallow audit
         id: fallow
-        uses: fallow-rs/fallow@79a0e8d8dbcaa408dce348b3df14fc1e824f988b # v3.22.0
+        uses: fallow-rs/fallow@c55ba1ba3c98c6e4ad48f0aed0e0f256c256d959 # v3.23.0
         with:
           command: audit
           format: json
