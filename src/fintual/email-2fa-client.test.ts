@@ -33,6 +33,23 @@ it.effect("surfaces a plain search failure with the preserved message and origin
   }),
 )
 
+it.effect("treats an undefined imapflow v2 search result as no match", () =>
+  Effect.gen(function* () {
+    const raw = new ImapFlow({
+      host: "imap.example.com",
+      port: 993,
+      secure: true,
+      auth: { user: "user@example.com", pass: "app-password" },
+      logger: false,
+    })
+    raw.search = async () => undefined
+
+    const result = yield* new ImapFlowClient(raw).search({ gmraw: "from:a" })
+
+    expect(result).toBe(false)
+  }),
+)
+
 it.effect("exposes only the subject from the message envelope across the seam", () =>
   Effect.gen(function* () {
     const raw = new ImapFlow({
