@@ -106,7 +106,7 @@ export class ImapFlowClient implements ImapClient {
       query: SearchObject,
     ): Effect.fn.Return<number[] | false, ImapOperationFailure | MissingServerExtension> {
       return yield* Effect.tryPromise({
-        try: () => this.raw.search(query, { uid: true }),
+        try: () => this.raw.search(query, { uid: true }).then((result) => result ?? false),
         catch: (cause) => {
           // oxlint-disable-next-line typescript/consistent-type-assertions, typescript/no-unsafe-type-assertion
           const originalError = cause as { code?: string } | undefined
