@@ -145,24 +145,24 @@ function configProviderFromEnvironment(environment: Environment): ConfigProvider
 }
 
 const runtimeValueConfig = Config.all({
-  actualServerUrl: Config.string("ACTUAL_SERVER_URL"),
-  actualPassword: Config.redacted("ACTUAL_PASSWORD"),
-  actualSyncId: Config.string("ACTUAL_SYNC_ID"),
-  actualFintualAccount: Config.string("ACTUAL_FINTUAL_ACCOUNT"),
-  actualStartingDate: Config.string("ACTUAL_STARTING_DATE").pipe(
-    Config.orElse(() => Config.string("STARTING_DATE")),
+  actualServerUrl: Config.String("ACTUAL_SERVER_URL"),
+  actualPassword: Config.Redacted("ACTUAL_PASSWORD"),
+  actualSyncId: Config.String("ACTUAL_SYNC_ID"),
+  actualFintualAccount: Config.String("ACTUAL_FINTUAL_ACCOUNT"),
+  actualStartingDate: Config.String("ACTUAL_STARTING_DATE").pipe(
+    Config.orElse(() => Config.String("STARTING_DATE")),
     Config.withDefault("2024-03-01"),
   ),
-  actualPayee: Config.string("ACTUAL_PAYEE").pipe(Config.withDefault("Fintual")),
-  fintualUserEmail: Config.string("FINTUAL_USER_EMAIL"),
-  fintualUserPassword: Config.redacted("FINTUAL_USER_PASSWORD"),
-  fintualGoalId: Config.string("FINTUAL_GOAL_ID"),
-  gmailUserEmail: Config.option(Config.string("GMAIL_USER_EMAIL")),
-  gmailAppPassword: Config.option(Config.redacted("GMAIL_APP_PASSWORD")),
-  runMode: Config.literals(["once", "schedule"], "RUN_MODE").pipe(Config.withDefault("once")),
-  syncCron: Config.string("SYNC_CRON").pipe(Config.withDefault("0 0 22 * * 1-5")),
-  syncTimezone: Config.string("SYNC_TIMEZONE").pipe(Config.withDefault("America/Santiago")),
-  syncNoOverlap: Config.boolean("SYNC_NO_OVERLAP").pipe(Config.withDefault(false)),
+  actualPayee: Config.String("ACTUAL_PAYEE").pipe(Config.withDefault("Fintual")),
+  fintualUserEmail: Config.String("FINTUAL_USER_EMAIL"),
+  fintualUserPassword: Config.Redacted("FINTUAL_USER_PASSWORD"),
+  fintualGoalId: Config.String("FINTUAL_GOAL_ID"),
+  gmailUserEmail: Config.option(Config.String("GMAIL_USER_EMAIL")),
+  gmailAppPassword: Config.option(Config.Redacted("GMAIL_APP_PASSWORD")),
+  runMode: Config.Literals(["once", "schedule"], "RUN_MODE").pipe(Config.withDefault("once")),
+  syncCron: Config.String("SYNC_CRON").pipe(Config.withDefault("0 0 22 * * 1-5")),
+  syncTimezone: Config.String("SYNC_TIMEZONE").pipe(Config.withDefault("America/Santiago")),
+  syncNoOverlap: Config.Boolean("SYNC_NO_OVERLAP").pipe(Config.withDefault(false)),
 })
 
 const resolveScheduleConfig = Effect.fn("RuntimeConfig.resolveScheduleConfig")(function* (values: {
@@ -188,13 +188,13 @@ const resolveScheduleConfig = Effect.fn("RuntimeConfig.resolveScheduleConfig")(f
 })
 
 const email2FAValueConfig = Config.all({
-  gmailImapHost: Config.string("GMAIL_IMAP_HOST").pipe(Config.withDefault("imap.gmail.com")),
-  gmailImapPort: Config.port("GMAIL_IMAP_PORT").pipe(Config.withDefault(993)),
-  gmailImapDebug: Config.string("GMAIL_IMAP_DEBUG").pipe(
+  gmailImapHost: Config.String("GMAIL_IMAP_HOST").pipe(Config.withDefault("imap.gmail.com")),
+  gmailImapPort: Config.Port("GMAIL_IMAP_PORT").pipe(Config.withDefault(993)),
+  gmailImapDebug: Config.String("GMAIL_IMAP_DEBUG").pipe(
     Config.withDefault(""),
     Config.map((value) => ["1", "true"].includes(value.toLowerCase())),
   ),
-  fintual2FASender: Config.string("FINTUAL_2FA_SENDER").pipe(
+  fintual2FASender: Config.String("FINTUAL_2FA_SENDER").pipe(
     Config.withDefault("notificaciones@fintual.com"),
   ),
 })

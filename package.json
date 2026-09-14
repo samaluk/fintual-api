@@ -11,7 +11,7 @@
 	"type": "module",
 	"devDependencies": {
 		"@effect/tsgo": "0.45.0",
-		"@effect/vitest": "4.0.0-rc.112",
+		"@effect/vitest": "4.0.0-rc.113",
 		"@types/mailparser": "3.4.6",
 		"@types/node": "24.13.4",
 		"@vitest/coverage-v8": "5.0.0",
@@ -24,8 +24,8 @@
 	},
 	"dependencies": {
 		"@actual-app/api": "26.9.0",
-		"@effect/platform-node": "4.0.0-rc.112",
-		"effect": "4.0.0-rc.112",
+		"@effect/platform-node": "4.0.0-rc.113",
+		"effect": "4.0.0-rc.113",
 		"imapflow": "2.0.2",
 		"mailparser": "3.9.24"
 	},
