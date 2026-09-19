@@ -12,7 +12,7 @@ The repo intentionally supports only these flows:
 
 - Node.js 24+
 - pnpm
-- [hk](https://hk.jdx.dev/) 1.54+
+- [hk](https://hk.jdx.dev/) 2.0.1+ (pinned in `mise.toml` for mise users)
 - Fintual credentials
 - Actual Budget server credentials
 - Gmail app password for unattended 2FA
@@ -25,13 +25,18 @@ The repo intentionally supports only these flows:
 pnpm install
 ```
 
-1. Enable the repository's Git hooks. With Git 2.54+, the recommended one-time setup is:
+1. Install hk 2.0.1+ (or run `mise install` to use the pinned version), then enable
+   the repository's Git hooks. With Git 2.54+, the recommended one-time setup is:
 
 ```bash
 hk install --global
 ```
 
    For an installation scoped to this clone instead, run `hk install`.
+   If mise manages hk, add `--mise` to either install command so Git resolves
+   the repository's tool version. When upgrading from hk v1, update any
+   `.mise.local.toml` override and rerun the install command. See the
+   [hk v2 upgrade guide](https://hk.jdx.dev/migration-v2).
 
 1. Create a local env file:
 
@@ -137,6 +142,9 @@ hk run pre-commit
 hk run pre-push
 hk check --all
 ```
+
+`hk fix` applies fixes without staging them; use `hk fix --stage` to stage
+the fixed files. The pre-commit hook continues to stage fixes automatically.
 
 ## Docker Image
 

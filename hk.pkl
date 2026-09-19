@@ -1,19 +1,19 @@
-amends "package://github.com/jdx/hk/releases/download/v1.54.1/hk@1.54.1#/Config.pkl"
-import "package://github.com/jdx/hk/releases/download/v1.54.1/hk@1.54.1#/Builtins.pkl"
+amends "package://github.com/jdx/hk/releases/download/v2.0.1/hk@2.0.1#/Config.pkl"
+import "package://github.com/jdx/hk/releases/download/v2.0.1/hk@2.0.1#/Builtins.pkl"
 
 local sourceGlobs = List("src/**/*.ts")
 
 local sourceChecks = new Mapping<String, Step> {
     ["oxfmt"] = (Builtins.oxfmt) {
         glob = sourceGlobs
-        prefix = "pnpm exec"
+        prefix = List("pnpm", "exec")
         check_first = true
         // These built-in fixtures cannot resolve repo-local pnpm binaries from their temp dirs.
         tests = new Mapping<String, StepTest> {}
     }
     ["oxlint"] = (Builtins.ox_lint) {
         glob = sourceGlobs
-        prefix = "pnpm exec"
+        prefix = List("pnpm", "exec")
         check_first = true
         // These built-in fixtures cannot resolve repo-local pnpm binaries from their temp dirs.
         tests = new Mapping<String, StepTest> {}
@@ -59,6 +59,7 @@ hooks {
     }
     ["pre-commit"] {
         fix = true
+        stage = true
         stash = "git"
         steps = new Mapping<String, Step> {
             ...sourceChecks
@@ -70,6 +71,7 @@ hooks {
     }
     ["fix"] {
         fix = true
+        stage = false
         steps = sourceChecks
     }
     ["check"] {
