@@ -106,8 +106,8 @@ jobs:
           name: coverage
           path: coverage
 
-      # Authoritative strict Fallow gate: changed-file audit plus project-wide
-      # dead-code, duplication, and health checks. Mirrors `pnpm fallow:ci`.
+      # Strict changed-file audit plus one combined full-repository scan.
+      # Pre-push and the version-drift workflow use the same package script.
       - name: Fallow CI gate
         run: pnpm fallow:ci
         env:
@@ -141,40 +141,25 @@ jobs:
       - name: Expose npm global binaries
         run: echo "$(npm config get prefix)/bin" >> "$GITHUB_PATH"
 
-      # Same coverage evidence the test job produced, so audit CRAP scoring
-      # matches — downloaded rather than regenerated to avoid a second
-      # install + test run.
       - name: Download coverage
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: coverage
           path: coverage
 
-      # One authoritative audit: the Action analyzes once, then renders native
-      # type-aware PR feedback from the saved JSON envelope — a sticky summary
-      # comment plus a Fallow Check Run (`comment`) and inline review comments
-      # (`review-comments`). No second analysis, no SARIF. Code Scanning is not
-      # used: its two-run upload needed manual splitting, and the Check Run,
-      # summary comment, and review comments already surface the same findings
-      # on the PR. This job is a required check (fail-on-issues is on), so
-      # Fallow findings block the merge. The gate job owns the strict
-      # project-wide gates.
+      # The Action reads the CLI version from package.json and analysis policy
+      # from .fallowrc.json, including complete type-aware evidence, gate: all,
+      # and semantic/near duplication. It renders each PR surface from one audit.
       - name: Fallow audit
-        id: fallow
         uses: fallow-rs/fallow@4f3bd9720ca6b22c8547adb7f1d225f57fc502d4 # v3.26.0
         with:
           command: audit
           format: json
           changed-since: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'origin/main' }}
-          gate: all
-          type-aware: true
           coverage: coverage/coverage-final.json
           coverage-root: ${{ github.workspace }}
-          dupes-mode: semantic
-          args: --dupes-near --dupes-ignore-imports
           comment: true
           comment-layout: compact
           review-comments: true
           review-guidance: true
           branded-token: false
-          sarif: false
