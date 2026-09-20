@@ -28,6 +28,7 @@
     "minLines": 8,
     "minTokens": 60,
     "minOccurrences": 2,
+    "threshold": 5e-324,
     "ignoreImports": true,
     "ignoredClones": [
       "dup:c77b3abb6f87acd9-1:2",
