@@ -66,6 +66,23 @@ threshold handling:
 - [Combined output at v3.26.0](https://github.com/fallow-rs/fallow/blob/v3.26.0/crates/cli/src/combined/output.rs)
 - [Duplication gate at v3.26.0](https://github.com/fallow-rs/fallow/blob/v3.26.0/crates/cli/src/dupes.rs)
 
+## Repository verification
+
+The first pre-push run passed TypeScript and all 112 tests, then the corrected
+duplication gate rejected two groups whose old ignore keys no longer matched.
+Reviewing their fragments confirmed that both are distinct tagged-error
+declarations, already covered by the repository's intentional-duplication policy:
+
+- `dup:c77b3abb6f87acd9-r1:2`: Actual error declarations at lines 5 and 32.
+- `dup:c77b3abb6f87acd9-r2:2`: Fintual error declarations at lines 13 and 57.
+
+Fallow 3.23 deliberately stopped aliasing old numeric collision handles to the
+new location-independent `-rN` handles. Following its migration guidance, the
+four obsolete keys were replaced with these two reviewed fingerprint/count keys.
+The focused duplication check then returned 0 with no unignored groups. No
+source-wide suppression or application refactor was needed. A changed fingerprint
+or occurrence count makes the group reportable again.
+
 ## Why the previous composition existed
 
 The [original zero-debt migration](https://github.com/samaluk/fintual-api/pull/405)

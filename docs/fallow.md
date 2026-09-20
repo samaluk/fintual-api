@@ -54,8 +54,9 @@ against the upstream or remote default. CI pins the base explicitly.
   exports, private type leaks, and stale suppressions.
 - Type-aware analysis of `tsconfig.json`, with completeness required.
 - Semantic and near duplication at two occurrences, eight lines, and 60 tokens.
-  Four reviewed fingerprint/count exceptions cover three distinct tagged-error
-  declaration sequences and symmetric Actual API adapter wiring.
+  Two reviewed fingerprint/count exceptions cover distinct tagged-error
+  declaration sequences in the Actual and Fintual adapters. The obsolete four
+  keys from the previous analyzer were replaced after reviewing current output.
 - Health limits: cyclomatic 13, cognitive 15, CRAP 30, and unit size 60.
   Real Istanbul coverage feeds CRAP scoring.
 - Architecture boundary coverage for every analyzed source file.
