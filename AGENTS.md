@@ -69,10 +69,11 @@ surface in `docs/fallow.md`. Use it when:
   `pnpm exec fallow inspect --file <path>`.
 - **Checking architecture rules before editing** — `pnpm exec fallow guard <files>`.
 
-Exit codes: 0 = clean, 1 = findings found (analysis succeeded), 2 = real
-analyzer/config error. Do not treat exit 1 as infrastructure failure. The
-repository carries no Fallow baselines: strict standalone commands reject every
-finding directly.
+Use `pnpm fallow:ci` for the blocking full gate. Its explicit human format and
+the configured positive duplication threshold are required: combined JSON output
+and `dupes --fail-on-issues` alone can report findings but exit successfully.
+See `docs/fallow.md` for the verified native gate contract. For machine output,
+inspect findings as well as status and consult `fallow schema` for exit codes.
 
 ### Friction logging
 

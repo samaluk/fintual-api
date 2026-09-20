@@ -122,8 +122,8 @@ Details and observed endpoints are in [`docs/fintual-http-capture.md`](docs/fint
 
 ## Quality gate
 
-Fallow 3.17 runs as a strict zero-debt gate: a changed-file audit plus
-standalone project-wide dead-code, duplication, and health checks, all enforced
+Fallow runs as a strict zero-debt gate: a changed-file audit plus one combined
+project-wide dead-code, duplication, and health scan, all enforced
 locally, in git hooks, and in CI. See [`docs/fallow.md`](docs/fallow.md).
 
 ## Git hooks
