@@ -6,7 +6,7 @@
 		"helpers:pinGitHubActionDigests"
 	],
 	"rangeStrategy": "pin",
-	"minimumReleaseAge": "3 days",
+	"minimumReleaseAge": "1 day",
 	"packageRules": [
 		{
 			"matchPackageNames": [
