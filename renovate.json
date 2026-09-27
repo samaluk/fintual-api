@@ -27,7 +27,6 @@
 			"matchPackageNames": [
 				"@actual-app/api"
 			],
-			"minimumReleaseAge": "0 days",
 			"automerge": true,
 			"platformAutomerge": true
 		},
