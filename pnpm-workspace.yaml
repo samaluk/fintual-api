@@ -3,9 +3,4 @@ allowBuilds:
   fallow: true
   msgpackr-extract: false
 minimumReleaseAgeStrict: true
-minimumReleaseAgeExclude:
-  - '@actual-app/api'
-  - '@actual-app/core'
-  - '@fallow-cli/*'
-  - 'fallow'
-  - 'fallow-type-aware'
+minimumReleaseAge: 1440
