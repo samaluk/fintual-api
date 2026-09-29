@@ -1,7 +1,7 @@
 import * as fs from "node:fs"
 
 import { Context, Duration, Effect, Layer, Schedule } from "effect"
-import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/unstable/http"
+import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http"
 
 import { ActualClientFactory, type ActualClient, type SyncCounts } from "./actual/actual-client.ts"
 import {

@@ -1,6 +1,6 @@
 import { it } from "@effect/vitest"
 import { Cron, Effect, Layer, Option, Redacted, Result } from "effect"
-import { FetchHttpClient } from "effect/unstable/http"
+import { FetchHttpClient } from "effect/http"
 import { expect } from "vitest"
 
 import { ActualSynchronization } from "./actual.ts"

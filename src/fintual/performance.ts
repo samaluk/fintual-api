@@ -19,7 +19,7 @@ import {
   HttpClient,
   HttpClientRequest,
   HttpClientResponse,
-} from "effect/unstable/http"
+} from "effect/http"
 
 import { Email2FAConfigService, FintualConfigService, type FintualConfig } from "../env.ts"
 import { getErrorMessage } from "../logging.ts"

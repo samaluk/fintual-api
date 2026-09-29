@@ -1,7 +1,7 @@
 import { it } from "@effect/vitest"
 import { Effect, Fiber, Redacted, Result } from "effect"
 import { TestClock } from "effect/testing"
-import { FetchHttpClient } from "effect/unstable/http"
+import { FetchHttpClient } from "effect/http"
 import { afterEach, expect, vi } from "vitest"
 
 const actualApiMock = vi.hoisted(() => ({
