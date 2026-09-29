@@ -3,8 +3,8 @@ import * as path from "node:path"
 
 import { it } from "@effect/vitest"
 import { Duration, Effect, Fiber, Layer, Option, Redacted } from "effect"
+import { FetchHttpClient } from "effect/http"
 import { TestClock } from "effect/testing"
-import { FetchHttpClient } from "effect/unstable/http"
 import { describe, expect } from "vitest"
 
 import { Email2FAConfigService, FintualConfigService, type FintualConfig } from "../env.ts"
