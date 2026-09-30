@@ -44,6 +44,6 @@
 		"once": "RUN_MODE=once node src/main.ts",
 		"schedule": "RUN_MODE=schedule node src/main.ts",
 		"capture:har": "sh bin/capture-fintual-har.sh",
-		"prepare": "if [ -x node_modules/.bin/effect-tsgo ]; then effect-tsgo patch --typescript; fi"
+		"prepare": "if [ -x node_modules/.bin/effect-tsgo ]; then effect-tsgo patch --typescript --force; fi"
 	}
 }

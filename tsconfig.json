@@ -27,7 +27,10 @@
 		"plugins": [
 			{
 				"name": "@effect/language-service",
-				"ignoreEffectSuggestionsInTscExitCode": false
+				"ignoreEffectSuggestionsInTscExitCode": false,
+				"diagnosticSeverity": {
+					"unstableApiUsage": "off"
+				}
 			}
 		]
 	},
