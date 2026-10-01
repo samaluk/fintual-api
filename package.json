@@ -14,13 +14,13 @@
 		"@effect/vitest": "4.0.0-rc.118",
 		"@types/mailparser": "3.9.0",
 		"@types/node": "24.19.0",
-		"@vitest/coverage-v8": "5.0.2",
+		"@vitest/coverage-v8": "5.0.3",
 		"fallow": "3.30.0",
 		"oxfmt": "0.71.0",
 		"oxlint": "1.86.0",
 		"oxlint-tsgolint": "7.0.2003",
 		"typescript": "7.0.2",
-		"vitest": "5.0.2"
+		"vitest": "5.0.3"
 	},
 	"dependencies": {
 		"@actual-app/api": "26.9.0",
