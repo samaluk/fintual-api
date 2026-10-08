@@ -176,8 +176,8 @@ importers:
         specifier: 4.0.1
         version: 4.0.1
       imapflow:
-        specifier: 2.2.6
-        version: 2.2.6
+        specifier: 2.2.7
+        version: 2.2.7
       mailparser:
         specifier: 3.9.36
         version: 3.9.36
@@ -1104,8 +1104,8 @@ packages:
     resolution: {integrity: sha512-IKXpvIzjnC9XTAUbVBcMfGS0EPaIXtW6v+zr+RRp+hqULEpo0owZax6wyRwPOJbWbzjYspQwusTsfVr0ifh4uQ==}
     engines: {node: '>=0.10.0'}
 
-  imapflow@2.2.6:
-    resolution: {integrity: sha512-8yMy5Pe9CfWGGrs8z+GzJ3q7DVCD6hNiiuUjxNTUJHM/QwwMHLYiVmTfcwWKSPaf8Aim/IPkcMK0I1thDdjgWg==}
+  imapflow@2.2.7:
+    resolution: {integrity: sha512-5vb8I+e5kJN6K7VXotH4escg33CoKuj9MteFGK6rf7q1GaExJzQCdltrklshNvLp69/dlDeemMR2MxhCWjBAqQ==}
     engines: {node: '>=20.0.0'}
 
   ip-address@10.2.0:
@@ -2288,7 +2288,7 @@ snapshots:
     dependencies:
       safer-buffer: 2.1.2
 
-  imapflow@2.2.6:
+  imapflow@2.2.7:
     dependencies:
       '@zone-eu/mailsplit': 5.4.20
       encoding-japanese: 2.4.0
