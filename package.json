@@ -27,7 +27,7 @@
 		"@effect/platform-node": "4.0.2",
 		"effect": "4.0.2",
 		"imapflow": "2.2.10",
-		"mailparser": "3.9.36"
+		"mailparser": "3.9.37"
 	},
 	"scripts": {
 		"test": "vitest run",
