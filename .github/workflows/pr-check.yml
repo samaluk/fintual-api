@@ -151,7 +151,7 @@ jobs:
       # from .fallowrc.json, including complete type-aware evidence, gate: all,
       # and semantic/near duplication. It renders each PR surface from one audit.
       - name: Fallow audit
-        uses: fallow-rs/fallow@aaaec796f5449810b9ecf82ed7e62b775d4d1ef3 # v3.32.0
+        uses: fallow-rs/fallow@278dbc6c34ab13fe844589c34971f8e84cb7989f # v3.33.0
         with:
           command: audit
           format: json
