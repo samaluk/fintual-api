@@ -31,8 +31,8 @@
     "threshold": 5e-324,
     "ignoreImports": true,
     "ignoredClones": [
-      "dup:c77b3abb6f87acd9-r1:2",
-      "dup:c77b3abb6f87acd9-r2:2"
+      "dup:bc73cd24:2",
+      "dup:d0778e7c:2"
     ]
   },
   "health": {
