@@ -171,10 +171,10 @@ importers:
         version: 26.10.0
       '@effect/platform-node':
         specifier: 4.0.4
-        version: 4.0.4(effect@4.0.3)(redis@6.2.1)
+        version: 4.0.4(effect@4.0.4)(redis@6.2.1)
       effect:
-        specifier: 4.0.3
-        version: 4.0.3
+        specifier: 4.0.4
+        version: 4.0.4
       imapflow:
         specifier: 2.4.0
         version: 2.4.0
@@ -187,7 +187,7 @@ importers:
         version: 0.51.1
       '@effect/vitest':
         specifier: 4.0.4
-        version: 4.0.4(effect@4.0.3)(vitest@5.0.4)
+        version: 4.0.4(effect@4.0.4)(vitest@5.0.4)
       '@types/mailparser':
         specifier: 3.9.0
         version: 3.9.0
@@ -1025,8 +1025,8 @@ packages:
   domutils@3.2.2:
     resolution: {integrity: sha512-6kZKyUajlDuqlHKVX1w7gyslj9MPIXzIFiz/rGu35uC1wMi+kMhQwGhl4lt9unC9Vb9INnY9Z3/ZA3+FhASLaw==}
 
-  effect@4.0.3:
-    resolution: {integrity: sha512-LoWn/Uwwx0JjHSDmBAAahx8sB+klzM6vsZovnbYowBNw6B4QScJLRLBByO61plvNiycx7HPN8FnsWUCu0eXW5w==}
+  effect@4.0.4:
+    resolution: {integrity: sha512-Sr50OeVSC3M5UkoUYUhFf3EULryhGaZZUf6OzDHTvaznOw7HRlxOKdF3/4nvQXHL22StOyMG3Cvo8Bt7xUp+Ng==}
 
   encoding-japanese@2.4.0:
     resolution: {integrity: sha512-PE0KjlsDy9JSsoU4C2Q8NXb1kC4c+bZRac9ZvHXUE4q1Ht63gScKMdEy9jst9+Fi3M4eDkqzkEhBZvix4blP2A==}
@@ -1731,19 +1731,19 @@ snapshots:
 
   '@bufbuild/protobuf@2.13.0': {}
 
-  '@effect/platform-node-shared@4.0.4(effect@4.0.3)':
+  '@effect/platform-node-shared@4.0.4(effect@4.0.4)':
     dependencies:
       '@types/ws': 8.18.2
-      effect: 4.0.3
+      effect: 4.0.4
       ws: 8.22.0
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
 
-  '@effect/platform-node@4.0.4(effect@4.0.3)(redis@6.2.1)':
+  '@effect/platform-node@4.0.4(effect@4.0.4)(redis@6.2.1)':
     dependencies:
-      '@effect/platform-node-shared': 4.0.4(effect@4.0.3)
-      effect: 4.0.3
+      '@effect/platform-node-shared': 4.0.4(effect@4.0.4)
+      effect: 4.0.4
       redis: 6.2.1
       undici: 8.11.2
     transitivePeerDependencies:
@@ -1781,9 +1781,9 @@ snapshots:
       '@effect/tsgo-win32-arm64': 0.51.1
       '@effect/tsgo-win32-x64': 0.51.1
 
-  '@effect/vitest@4.0.4(effect@4.0.3)(vitest@5.0.4)':
+  '@effect/vitest@4.0.4(effect@4.0.4)(vitest@5.0.4)':
     dependencies:
-      effect: 4.0.3
+      effect: 4.0.4
       vitest: 5.0.4(@types/node@24.19.2)(@vitest/coverage-v8@5.0.4)(vite@8.2.1(@types/node@24.19.2))
 
   '@fallow-cli/darwin-arm64@3.33.1':
@@ -2208,7 +2208,7 @@ snapshots:
       domelementtype: 2.3.0
       domhandler: 5.0.3
 
-  effect@4.0.3: {}
+  effect@4.0.4: {}
 
   encoding-japanese@2.4.0: {}
 
