@@ -15,13 +15,13 @@ import {
 import { RedactingLogger } from "./logging.ts"
 import { parseSchedule, type SchedulerOptions } from "./scheduler.ts"
 
-export class RuntimeConfigError extends Schema.TaggedError<RuntimeConfigError>()(
-  "RuntimeConfigError",
-  {
-    message: Schema.String,
-    cause: Schema.Defect(),
-  },
-) {}
+export class RuntimeConfigError extends Schema.TaggedError<
+  RuntimeConfigError,
+  { readonly brand: unique symbol }
+>()("RuntimeConfigError", {
+  message: Schema.String,
+  cause: Schema.Defect(),
+}) {}
 
 export interface ActualConfig {
   serverUrl: string

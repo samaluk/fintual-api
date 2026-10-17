@@ -109,12 +109,12 @@ const goalPerformanceDataResponseSchema = Schema.Struct({
 
 type GoalPerformanceData = (typeof goalPerformanceDataResponseSchema.Type)["data"]
 
-class InvalidGoalPerformanceResponse extends Schema.TaggedError<InvalidGoalPerformanceResponse>()(
-  "InvalidGoalPerformanceResponse",
-  {
-    cause: Schema.Defect(),
-  },
-) {
+class InvalidGoalPerformanceResponse extends Schema.TaggedError<
+  InvalidGoalPerformanceResponse,
+  { readonly brand: unique symbol }
+>()("InvalidGoalPerformanceResponse", {
+  cause: Schema.Defect(),
+}) {
   override get message(): string {
     return getErrorMessage(this.cause)
   }
