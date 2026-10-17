@@ -27,41 +27,44 @@ export interface ImapClient {
   readonly logout: Effect.Effect<void, ImapOperationFailure>
 }
 
-export class MissingServerExtension extends Schema.TaggedError<MissingServerExtension>()(
-  "MissingServerExtension",
-  {
-    cause: Schema.Defect(),
-  },
-) {
+export class MissingServerExtension extends Schema.TaggedError<
+  MissingServerExtension,
+  { readonly brand: unique symbol }
+>()("MissingServerExtension", {
+  cause: Schema.Defect(),
+}) {
   override get message(): string {
     return getErrorMessage(this.cause)
   }
 }
 
-export class MissingMailbox extends Schema.TaggedError<MissingMailbox>()("MissingMailbox", {
+export class MissingMailbox extends Schema.TaggedError<
+  MissingMailbox,
+  { readonly brand: unique symbol }
+>()("MissingMailbox", {
   path: Schema.String,
   cause: Schema.Defect(),
 }) {}
 
-export class ImapOperationFailure extends Schema.TaggedError<ImapOperationFailure>()(
-  "ImapOperationFailure",
-  {
-    stage: Schema.String,
-    cause: Schema.Defect(),
-  },
-) {
+export class ImapOperationFailure extends Schema.TaggedError<
+  ImapOperationFailure,
+  { readonly brand: unique symbol }
+>()("ImapOperationFailure", {
+  stage: Schema.String,
+  cause: Schema.Defect(),
+}) {
   override get message(): string {
     return `${this.stage}: ${getErrorMessage(this.cause)}`
   }
 }
 
-export class ImapMailboxLockFailure extends Schema.TaggedError<ImapMailboxLockFailure>()(
-  "ImapMailboxLockFailure",
-  {
-    path: Schema.String,
-    cause: Schema.Defect(),
-  },
-) {
+export class ImapMailboxLockFailure extends Schema.TaggedError<
+  ImapMailboxLockFailure,
+  { readonly brand: unique symbol }
+>()("ImapMailboxLockFailure", {
+  path: Schema.String,
+  cause: Schema.Defect(),
+}) {
   override get message(): string {
     return `Failed to lock Gmail IMAP mailbox ${this.path}: ${getErrorMessage(this.cause)}`
   }

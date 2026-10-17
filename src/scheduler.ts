@@ -15,14 +15,14 @@ export interface ScheduleParseError {
   readonly cause: unknown
 }
 
-class InvalidScheduleError extends Schema.TaggedError<InvalidScheduleError>()(
-  "InvalidScheduleError",
-  {
-    message: Schema.String,
-    input: Schema.String,
-    cause: Schema.Defect(),
-  },
-) {}
+class InvalidScheduleError extends Schema.TaggedError<
+  InvalidScheduleError,
+  { readonly brand: unique symbol }
+>()("InvalidScheduleError", {
+  message: Schema.String,
+  input: Schema.String,
+  cause: Schema.Defect(),
+}) {}
 
 export const parseSchedule = (
   cron: string,

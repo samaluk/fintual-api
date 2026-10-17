@@ -19,7 +19,10 @@ const sampleSecrets = [
   email2FASecret,
 ]
 
-class UnexpectedFailure extends Schema.TaggedError<UnexpectedFailure>()("UnexpectedFailure", {
+class UnexpectedFailure extends Schema.TaggedError<
+  UnexpectedFailure,
+  { readonly brand: unique symbol }
+>()("UnexpectedFailure", {
   cause: Schema.Defect(),
 }) {
   override get message(): string {

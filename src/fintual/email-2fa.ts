@@ -30,9 +30,15 @@ export const Email2FACode = {
   make: (value: string): Email2FACode => Email2FACodeSchema.make(value),
 }
 
-export class TimedOut extends Schema.TaggedError<TimedOut>()("TimedOut", {}) {}
+export class TimedOut extends Schema.TaggedError<TimedOut, { readonly brand: unique symbol }>()(
+  "TimedOut",
+  {},
+) {}
 
-export class Operational extends Schema.TaggedError<Operational>()("Operational", {
+export class Operational extends Schema.TaggedError<
+  Operational,
+  { readonly brand: unique symbol }
+>()("Operational", {
   cause: Schema.Defect(),
 }) {
   override get message(): string {
@@ -309,12 +315,12 @@ interface Email2FACandidate {
   readonly receivedAt?: Date
 }
 
-class EmailMessageParseFailure extends Schema.TaggedError<EmailMessageParseFailure>()(
-  "EmailMessageParseFailure",
-  {
-    cause: Schema.Defect(),
-  },
-) {
+class EmailMessageParseFailure extends Schema.TaggedError<
+  EmailMessageParseFailure,
+  { readonly brand: unique symbol }
+>()("EmailMessageParseFailure", {
+  cause: Schema.Defect(),
+}) {
   override get message(): string {
     return `Failed to parse Gmail IMAP message: ${getErrorMessage(this.cause)}`
   }
