@@ -48,6 +48,27 @@ Cross-system end-to-end tests may use a dedicated directory when no single imple
 - For a regression test, reproduce the failure at the lowest honest boundary and assert the corrected behavior. Add one when the failure is plausible enough, or the affected journey important enough, to justify its maintenance cost.
 - Keep fixtures as small and representative as possible. Make important values visible in the test rather than burying them in a large shared fixture.
 
+## Assert redacted rendering
+
+When testing a secret's safe rendering, assert that `String(redacted)` returns
+`"<redacted>"`, as in [the runtime configuration tests](../../src/env.test.ts).
+This protects the rendering contract; inspecting the underlying value alone
+does not verify that stringification hides the secret.
+
+Oxlint 1.88.0 reports `typescript/no-base-to-string` for Effect's `Redacted`
+values even though they intentionally render a safe placeholder. Keep the
+assertion and suppress only that line, with a short explanation:
+
+```ts
+// Redacted intentionally exposes a safe placeholder through String().
+// oxlint-disable-next-line typescript/no-base-to-string
+expect(String(configuration.actual.password)).toBe("<redacted>")
+```
+
+The lint script's `--report-unused-disable-directives` reports obsolete
+suppressions when the rule starts recognizing this behavior. Remove the
+suppression then and retain the assertion.
+
 ## Keep tests deterministic
 
 - Tests must run offline unless access to a third-party system is the explicit subject of an opt-in integration test.
