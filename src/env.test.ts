@@ -42,6 +42,7 @@ it.effect("normalizes runtime values and applies defaults once for every domain"
     // oxlint-disable-next-line typescript/no-base-to-string
     expect(String(configuration.actual.password)).toBe("<redacted>")
     expect(Redacted.value(configuration.actual.password)).toBe("actual password")
+    // Redacted intentionally exposes a safe placeholder through String().
     // oxlint-disable-next-line typescript/no-base-to-string
     expect(String(configuration.fintual.password)).toBe("<redacted>")
     expect(Redacted.value(configuration.fintual.password)).toBe("fintual password")
@@ -143,6 +144,7 @@ it.effect("uses legacy starting date and enables email 2FA when both credentials
         debug: true,
         sender: "security@example.com",
       })
+      // Redacted intentionally exposes a safe placeholder through String().
       // oxlint-disable-next-line typescript/no-base-to-string
       expect(String(configuration.email2FA.appPassword)).toBe("<redacted>")
       expect(Redacted.value(configuration.email2FA.appPassword)).toBe("app password")
