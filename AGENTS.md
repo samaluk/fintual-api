@@ -1,6 +1,6 @@
 ## Agent skills
 
-### Learning more about the Effect
+### Learning more about Effect
 
 This repository uses the Effect Typescript library.
 
@@ -82,35 +82,3 @@ Friction is logged with Frog (see https://frog.fm). Use `pnpx frog log` to write
 - Log papercuts and friction (tooling, docs, APIs, tests, conventions) as you hit them with `pnpx frog log`.
 - Do not add global, system, or internal friction.
 - Run `pnpx frog list` first to see what is already known.
-
-<!-- effect-solutions:start -->
-## Effect Best Practices
-
-**IMPORTANT:** Always consult effect-solutions before writing Effect code.
-
-The installed Effect package is authoritative for APIs and patterns. The
-effect-solutions guides and local Effect clone may target a different release;
-check examples against `node_modules/effect/AGENTS.md` and the installed source
-before using them.
-
-1. Run `effect-solutions list` to see available guides
-2. Run `effect-solutions show <topic>...` for relevant patterns (supports multiple topics)
-3. Search `~/.local/share/effect-solutions/effect` for real implementations
-
-Topics: quick-start, project-setup, tsconfig, basics, services-and-layers, data-modeling, error-handling, config, testing, cli.
-
-For example, the error-handling guide uses `Schema.TaggedErrorClass` and
-`Schema.Defect`, while the pinned `effect@4.0.5` provides `Schema.TaggedError`
-and requires calling `Schema.Defect()`. Recheck these differences when upgrading
-Effect rather than copying either spelling without checking the pinned API.
-
-Never guess at Effect patterns - consult the guide, then verify against the
-installed package.
-<!-- effect-solutions:end -->
-
-## Local Effect Source
-
-The Effect v4 repository is cloned to `~/.local/share/effect-solutions/effect` for
-reference. Confirm its version matches the pinned package before relying on its
-APIs. Use it to find usage examples and understand implementation details; when
-versions differ, use the installed package's source.
