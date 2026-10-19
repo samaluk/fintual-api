@@ -26,7 +26,7 @@
 		"@actual-app/api": "26.10.0",
 		"@effect/platform-node": "4.0.5",
 		"effect": "4.0.5",
-		"imapflow": "2.5.4",
+		"imapflow": "2.5.5",
 		"mailparser": "3.9.46"
 	},
 	"scripts": {
