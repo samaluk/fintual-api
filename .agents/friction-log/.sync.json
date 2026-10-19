@@ -21,8 +21,20 @@
       "path": ".agents/friction-log/20260811075217-concurrent-pnpm-pre/friction.md"
     },
     {
+      "issue": "samaluk/fintual-api#334",
+      "path": ".agents/friction-log/20260811142356-oxlint-rejects-intentional/friction.md"
+    },
+    {
+      "issue": "samaluk/fintual-api#337",
+      "path": ".agents/friction-log/20260811145903-fallow-audit-flags/friction.md"
+    },
+    {
       "issue": "samaluk/fintual-api#338",
       "path": ".agents/friction-log/20260811145903-fallow-audit-rejects/friction.md"
+    },
+    {
+      "issue": "samaluk/fintual-api#349",
+      "path": ".agents/friction-log/20260811175106-effect-solutions-error/friction.md"
     },
     {
       "issue": "samaluk/fintual-api#370",
