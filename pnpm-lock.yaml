@@ -179,8 +179,8 @@ importers:
         specifier: 2.5.8
         version: 2.5.8
       mailparser:
-        specifier: 3.9.47
-        version: 3.9.47
+        specifier: 3.10.0
+        version: 3.10.0
     devDependencies:
       '@effect/tsgo':
         specifier: 0.54.0
@@ -1218,8 +1218,8 @@ packages:
   magicast@0.5.5:
     resolution: {integrity: sha512-UicdXN8zQ3JHlxVq+28afMXPr1z7WNY6+7EJnzTdQWkTAlMLF5fNCCKxJHBQwGaNGR11581EiQmQzx73+MvszA==}
 
-  mailparser@3.9.47:
-    resolution: {integrity: sha512-ASLA6qFqknd6w9ehxE444B+qiT57yn41sIzUarj6D1HBwNDb0vHIEHtzWOeSOL2MBY+6L8rCePpbZATO7GBg8w==}
+  mailparser@3.10.0:
+    resolution: {integrity: sha512-kgJPwOde5VrPp4zwh+bfRw82+5AlgJ9rnzoPTyb9Hyn0iAZEfRcbRr/LFn7yRFCE02LKjdVUgSAb+Gk7k8aQ4Q==}
     engines: {node: '>=20.0.0'}
 
   minimist@1.2.8:
@@ -2388,7 +2388,7 @@ snapshots:
       '@babel/types': 7.29.8
       source-map-js: 1.2.1
 
-  mailparser@3.9.47:
+  mailparser@3.10.0:
     dependencies:
       '@zone-eu/mailsplit': 5.4.27
       encoding-japanese: 2.4.0
