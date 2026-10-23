@@ -179,8 +179,8 @@ importers:
         specifier: 2.8.0
         version: 2.8.0
       mailparser:
-        specifier: 3.12.1
-        version: 3.12.1
+        specifier: 3.12.2
+        version: 3.12.2
     devDependencies:
       '@effect/tsgo':
         specifier: 0.56.0
@@ -1222,8 +1222,8 @@ packages:
   magicast@0.5.5:
     resolution: {integrity: sha512-UicdXN8zQ3JHlxVq+28afMXPr1z7WNY6+7EJnzTdQWkTAlMLF5fNCCKxJHBQwGaNGR11581EiQmQzx73+MvszA==}
 
-  mailparser@3.12.1:
-    resolution: {integrity: sha512-g5COYtl4iuCfhCOGLASIaJq7uL6GPB621n1ZDXP/rCftcnKpADAe2J/3zJNV2wftOD6EOl78frjS6mL+JgTYqw==}
+  mailparser@3.12.2:
+    resolution: {integrity: sha512-JbOt+AjJIr7+bhMp8g7ILevleoDAD0bXVlAJmikrz0sbQqmt88YELKDwYQL5JNugkV9lcN+DFv32dyhPsvqpHQ==}
     engines: {node: '>=20.0.0'}
 
   minimist@1.2.8:
@@ -2399,7 +2399,7 @@ snapshots:
       '@babel/types': 7.29.8
       source-map-js: 1.2.1
 
-  mailparser@3.12.1:
+  mailparser@3.12.2:
     dependencies:
       '@zone-eu/mailsplit': 5.4.27
       he: 1.2.0
