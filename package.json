@@ -11,7 +11,7 @@
 	"type": "module",
 	"devDependencies": {
 		"@effect/tsgo": "0.56.0",
-		"@effect/vitest": "4.0.5",
+		"@effect/vitest": "4.0.6",
 		"@types/mailparser": "3.9.0",
 		"@types/node": "24.19.2",
 		"@vitest/coverage-v8": "5.0.5",
