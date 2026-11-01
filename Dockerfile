@@ -1,21 +1,22 @@
-FROM node:24.22.2-slim AS deps
+FROM node:26.13.0-slim AS base
 
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY package.json ./
+
+RUN npm install --global "$(node -p 'require("./package.json").packageManager')"
+
+FROM base AS deps
+
+COPY pnpm-lock.yaml pnpm-workspace.yaml ./
 
 RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
-	corepack enable \
-	&& pnpm install --frozen-lockfile --prod
+	pnpm install --frozen-lockfile --prod
 
-FROM node:24.22.2-slim AS runtime
-
-WORKDIR /app
+FROM base AS runtime
 
 ENV NODE_ENV=production
 ENV RUN_MODE=schedule
-
-RUN corepack enable
 
 COPY --from=deps /app/node_modules ./node_modules
 
