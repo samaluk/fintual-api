@@ -51,6 +51,25 @@ Use **Preserve log** in Chrome DevTools Network, or **`network har start` … `h
 
 ## Programmatic follow-up in this repo
 
+### Cookie scope with Effect 4.1
+
+The HTTP session uses Effect's URL-scoped cookie array. It preserves the
+server's `Domain`, `Path`, `Secure`, and expiry semantics rather than widening
+cookies to make them reach unrelated paths. A cookie without `Path` on
+`/f/sign-in/` is scoped to `/f/sign-in` and will not reach `/auth/sessions/`
+or `/gql/`. A session intended for all three paths needs `Path=/`.
+
+The regression fixtures explicitly model root-scoped session cookies and
+path-scoped 2FA challenge cookies; they also verify that missing paths and
+unrelated domains do not leak cookies. These are protocol scenarios, not a
+claim about Fintual's authenticated response headers.
+
+An unauthenticated HTTP probe on 2026-11-02 returned 200 for `/f/sign-in/`
+and `/`, and 401 for a `CurrentUser` query on `/gql/`, with no `Set-Cookie`
+headers in any response. This does not establish authenticated cookie scope.
+The successful-login capture checklist above remains necessary to verify the
+real session attributes; record cookie names and attributes only, never values.
+
 - [`src/fintual/performance.ts`](../src/fintual/performance.ts) — the `FintualPerformance` service: sign-in → optional Gmail IMAP 2FA → GraphQL ingestion, then fold, validate, and persist the performance snapshot.
 - [`src/fintual/provider.ts`](../src/fintual/provider.ts) — the provider-owned HTTP session: ephemeral cookie jar and browser-header requests against Fintual.
 

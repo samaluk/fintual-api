@@ -131,7 +131,7 @@ export class FintualPerformance extends Context.Service<
     Effect.gen(function* () {
       const config = yield* FintualConfigService
       const email2FAService = yield* acquireEmail2FAService()
-      const cookies = yield* Ref.make(Cookies.empty)
+      const cookies = yield* Ref.make<ReadonlyArray<Cookies.Cookie>>([])
       const transport = (yield* HttpClient.HttpClient).pipe(
         HttpClient.mapRequest((request) =>
           request.pipe(

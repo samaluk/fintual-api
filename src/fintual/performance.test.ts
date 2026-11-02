@@ -267,9 +267,9 @@ it.effect("fails on an unexpected finalize login status", () =>
 it.effect("propagates cookies and browser headers through the authenticated session", () =>
   Effect.gen(function* () {
     const script = createFetchScript([
-      response("", 200, "session=sign-in"),
-      response("{}", 200, "auth=direct"),
-      goalPerformanceResponse("2026-01-01", {}, "graph=reference"),
+      response("", 200, "session=sign-in; Path=/; Secure; HttpOnly"),
+      response("{}", 200, "auth=direct; Path=/; Secure; HttpOnly"),
+      goalPerformanceResponse("2026-01-01", {}, "graph=reference; Path=/; Secure"),
       goalPerformanceResponse("2026-07-01"),
     ])
 
@@ -285,6 +285,48 @@ it.effect("propagates cookies and browser headers through the authenticated sess
     for (const request of script.requests) {
       expect(requestHeaders(request).get("User-Agent") ?? "").toMatch(/Mozilla\/5\.0/)
       expect(requestHeaders(request).get("Origin")).toBe("https://fintual.cl")
+    }
+  }),
+)
+
+it.effect.each([
+  { scope: "default sign-in path", cookie: "session=sign-in", loginCookie: null },
+  {
+    scope: "explicit sign-in path",
+    cookie: "session=sign-in; Path=/f/sign-in/",
+    loginCookie: null,
+  },
+  {
+    scope: "unrelated domain",
+    cookie: "session=sign-in; Domain=example.com; Path=/",
+    loginCookie: null,
+  },
+  {
+    scope: "matching domain and root path",
+    cookie: "session=sign-in; Domain=fintual.cl; Path=/; Secure",
+    loginCookie: "session=sign-in",
+  },
+])("respects cookies scoped to $scope through email 2FA", ({ cookie, loginCookie }) =>
+  Effect.gen(function* () {
+    const script = createFetchScript([
+      response("", 200, cookie),
+      response("{}", 201, "challenge=email; Path=/auth/sessions; Secure"),
+      response("{}", 200, "auth=two-factor; Path=/; Secure; HttpOnly"),
+      goalPerformanceResponse("2026-01-01"),
+      goalPerformanceResponse("2026-07-01"),
+    ])
+
+    yield* performanceProgram(script.fetch)
+
+    expect(requestHeaders(script.requests[0]).get("Cookie")).toBeNull()
+    expect(requestHeaders(script.requests[1]).get("Cookie")).toBe(loginCookie)
+    expect(requestHeaders(script.requests[2]).get("Cookie")).toBe(
+      loginCookie === null ? "challenge=email" : `challenge=email; ${loginCookie}`,
+    )
+    for (const request of script.requests.slice(3)) {
+      expect(requestHeaders(request).get("Cookie")).toBe(
+        loginCookie === null ? "auth=two-factor" : `${loginCookie}; auth=two-factor`,
+      )
     }
   }),
 )
