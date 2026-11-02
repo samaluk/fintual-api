@@ -1,17 +1,19 @@
 FROM node:26.13.0-slim AS base
 
+ENV PNPM_HOME=/pnpm
+
+COPY --from=ghcr.io/pnpm/pnpm:12.16.1 /opt/pnpm /opt/pnpm
+
+RUN for bin in pnpm pn pnpx pnx; do ln -s "/opt/pnpm/$bin" "/usr/local/bin/$bin"; done
+
 WORKDIR /app
-
-COPY package.json ./
-
-RUN npm install --global "$(node -p 'require("./package.json").packageManager')"
 
 FROM base AS deps
 
-COPY pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
-RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
-	pnpm install --frozen-lockfile --prod
+RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
+	pnpm install --store-dir=/pnpm/store --frozen-lockfile --prod
 
 FROM base AS runtime
 

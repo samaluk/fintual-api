@@ -148,6 +148,13 @@ the fixed files. The pre-commit hook continues to stage fixes automatically.
 
 ## Docker Image
 
+The Dockerfile follows [pnpm’s Docker guidance](https://pnpm.io/docker) by copying
+the standalone pnpm distribution (including its bundled `node-gyp`) from the
+version-pinned official pnpm image into the Node.js slim base. It requires neither
+Corepack nor an npm bootstrap. The dependency stage installs only production
+dependencies using a BuildKit cache mount at `/pnpm/store`; the runtime stage
+copies the installed dependencies without carrying the package store.
+
 > **Breaking change in the v3 major:** the image default command changed from
 > a one-shot sync (exit after running once) to a long-lived scheduler process
 > (run until interrupted). The previous invocation contract is not preserved
