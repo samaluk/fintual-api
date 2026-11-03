@@ -167,8 +167,8 @@ importers:
   .:
     dependencies:
       '@actual-app/api':
-        specifier: 26.10.0
-        version: 26.10.0
+        specifier: 26.11.0
+        version: 26.11.0
       '@effect/platform-node':
         specifier: 4.1.2
         version: 4.1.2(effect@4.1.2)(redis@6.2.1)
@@ -221,15 +221,15 @@ importers:
 
 packages:
 
-  '@actual-app/api@26.10.0':
-    resolution: {integrity: sha512-yVpl37aXJ6kikV5wljRgedji5NQ0lQNhCUfoBOpDvxrxVfKpPuUdAbq94k4GvF53kf4r1E4h7yjonDoxdVcumA==}
+  '@actual-app/api@26.11.0':
+    resolution: {integrity: sha512-pDBwnbbZfEW0lh0NuiwsLLHSzgclHzRTUywN2P9DKnczNidqUIRoK39fRc4czerCToohuAj/tP+S344irhhKEA==}
     engines: {node: '>=22'}
 
-  '@actual-app/core@26.10.0':
-    resolution: {integrity: sha512-uhBeqN+xs+cKAtChfW78TXp7/cQFtwLy+etikPAU0v4Q8k/N/x/OkKGJCnXwnQBNzVffVeLpR+TO21LWeFujTA==}
+  '@actual-app/core@26.11.0':
+    resolution: {integrity: sha512-4+Io7GJJ/TTSCF5nTUKqYy3BqYV8W0eR159d3A0Q1mxpsrBjSDlokiGruoDeuI6V8lDyoccL2+RhH9CLlR6owQ==}
 
-  '@actual-app/crdt@3.1.3':
-    resolution: {integrity: sha512-3BfVYYasM7uAhIOTQIzMFpIAB6H+0CQhlQMvN+nLHbgWvEVZzpwynoFBSq7pXLX0xAlG3TFnjlBp47URNkeDwQ==}
+  '@actual-app/crdt@3.1.4':
+    resolution: {integrity: sha512-YSNj7kpTHCtJsxsQEks+IfyQOLYBXb4Xjs1Wm8KhSa4DOAcxySrEoFSZS+8h9v46SwMK9wtPfor43pvbaVfrEw==}
 
   '@babel/helper-string-parser@7.29.7':
     resolution: {integrity: sha512-Pb5ijPrZ89GDH8223L4UP8i6QApWxs04RbPQJTeWDV0/keR2E36MeKnyr6LYmUUvqRRI+Iv87SuF1W6ErINzYw==}
@@ -252,8 +252,8 @@ packages:
     resolution: {integrity: sha512-6zABk/ECA/QYSCQ1NGiVwwbQerUCZ+TQbp64Q3AgmfNvurHH0j8TtXa1qbShXA6qqkpAj4V5W8pP6mLe1mcMqA==}
     engines: {node: '>=18'}
 
-  '@bufbuild/protobuf@2.13.0':
-    resolution: {integrity: sha512-acq7c49vxfm1ggJ95P70TX7ABDM0vxr1SYD3BB0o0jnBLB4OAqeHyKuN+cD3w80gXEDQ2zxHpR6CUeA+O/aU9g==}
+  '@bufbuild/protobuf@2.16.0':
+    resolution: {integrity: sha512-FWa0sPlqYGJgpTs6OxBRcL/AW4JT0OIO+W1ajerluoTVh8CV0B7XM1qsNCRgnkSCkRCgOICKHRQlY17jrsm0+Q==}
 
   '@effect/platform-node-shared@4.1.2':
     resolution: {integrity: sha512-wSwl9A/G1hcVvF8nLI+YfB3EyOIDvWS6+lsTZBkmgDnPBL7m8YWZF+1HD+mdEsb52SUGfukip46Q3gRwSdk3QA==}
@@ -996,8 +996,8 @@ packages:
   csv-parse@7.0.3:
     resolution: {integrity: sha512-YFd3QM/yo17vH91L1IOZuvl09zM0zEEtdfTcOCKWcMdM++MNaQSyp09slXyFCLaPXvHstQFx/xC8myiFHSMUvw==}
 
-  csv-stringify@6.8.1:
-    resolution: {integrity: sha512-tZ6X6TKQyQgCo5OptXcyAbfN1pwmoxEqELPQ7KFazNErx7kiVsDK8o+VYRXhfMl4N9vvOOLXuioquR2MeP847A==}
+  csv-stringify@6.9.0:
+    resolution: {integrity: sha512-6b3e29CILFfSQ2nDRuZMRROzQOpPuJ+s8zPB5H7eK5ncXBbFOyVuRLU5Sx/zAUmVri3Ly49GyC8NEme4SVSAbA==}
 
   date-fns@4.4.0:
     resolution: {integrity: sha512-+1UMbeh68lH1SegH83CGWwpb6OHHbpSgr3+s5Eww5M4CAgswBpoWS0AjTOfEJ33HiYKz1hdj/KTFprzXHmq/6w==}
@@ -1041,8 +1041,8 @@ packages:
   es-module-lexer@2.3.2:
     resolution: {integrity: sha512-poHGpORABojJJucnV9KbOavETW8lBVnphkW77ER5/BQ5Fz7oXSoCNek7IH3vR5nRjdsEz926ibFYX8KtLQmdyw==}
 
-  es-toolkit@1.49.0:
-    resolution: {integrity: sha512-G5iZ6Pc/FNRY/soKZHC+TxGDD83rHUDXxzaWhGCX44vAv/tMs56WMusnm/KMNK+luUPsgA9U28cGr4RDlSzL2g==}
+  es-toolkit@1.53.1:
+    resolution: {integrity: sha512-VhMc6IXmexu8iYFfL2aaAww6IvJTdHlqBLruLoEUs33YD4IcP5DdZcLOybMsMmmLsiy1c8PsiLsrM0DdIuuRUA==}
 
   estree-walker@3.0.3:
     resolution: {integrity: sha512-7RUKfXgSMMkzt6ZuXmqapOurLGPPfgj6l9uRZ7lRGolvk0y2yocc35LdcxKC5PQZdn2DMqioAQ2NoWcrTKmm6g==}
@@ -1083,8 +1083,8 @@ packages:
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
     os: [darwin]
 
-  handlebars@4.7.9:
-    resolution: {integrity: sha512-4E71E0rpOaQuJR2A3xDZ+GM1HyWYv1clR58tC8emQNeQe3RH7MAzSbat+V0wG78LQBo6m6bzSG/L4pBuCsgnUQ==}
+  handlebars@4.7.10:
+    resolution: {integrity: sha512-P5VJMVM7qgBn6vjXMw8WG9uVI+ncf2pi72j4de4yz5ZULLj2RGqLYaKOYGsgyrViQ0tePOVlN1tDCCXXtFqXKg==}
     engines: {node: '>=0.4.7'}
     hasBin: true
 
@@ -1099,8 +1099,8 @@ packages:
   htmlparser2@10.1.0:
     resolution: {integrity: sha512-VTZkM9GWRAtEpveh7MSF6SjjrpNVNNVJfFup7xTY3UpFtm67foy9HDVXneLtFVt4pMz5kZtgNcvCniNFb1hlEQ==}
 
-  hyperformula@3.3.0:
-    resolution: {integrity: sha512-Mkc7AxP9WQDM4xHo1/XpAwzcpMLkwMand4HO9rfRzP502TBzoR1Z96zoCzRrwXodLSVyh+MD7FvzRVALDxmRFQ==}
+  hyperformula@3.5.0:
+    resolution: {integrity: sha512-wV0IpiVEG1L36UGUR2vAROEWNVgOQDlTUyZTL67v75JuzSWh0ANEONuoKqdhHdhd94Uo2A1EVk9q8LZabYNDkw==}
 
   iconv-lite@0.6.3:
     resolution: {integrity: sha512-4fCk79wshMdzMp2rH06qWrJE4iolqLhCUH+OiuIgU++RB0+94NlDL81atO7GX55uUKueo0txHNtvEyI6D7WdMw==}
@@ -1213,8 +1213,8 @@ packages:
   linkify-it@5.0.2:
     resolution: {integrity: sha512-ONTm2jCMAVZjgQa/Fy1kScXsuOoF5NPTsoFBdE1KVIZ2vAh/r9+Bqo+0jINCBYnavTPQZz38QzFTme79ENoN3Q==}
 
-  lru-cache@11.5.2:
-    resolution: {integrity: sha512-4pfM1Ff0x50o0tQwb5ucw/RzNyD0/YJME6IVcStalZuMWxdt3sR3huStTtxz4PUmvZfRguvDejasvQ2kifR11g==}
+  lru-cache@11.5.3:
+    resolution: {integrity: sha512-U4N8FgzmWxc8k1VH8Kr6lQg18U7Fjvby6wXHVRX/ZZ7IwWbRMgrRbP0Wrb5q5NVinryp4SQampHKdvtecItxUg==}
     engines: {node: 20 || >=22}
 
   magic-string@1.4.3:
@@ -1572,8 +1572,8 @@ packages:
     resolution: {integrity: sha512-+fdndUTwBP86cVjihTp21hZHo7d6oj1c/47XPA3lL8mM0XHs+C4EkcjmgRsFnFk2f/UONGDy9ItBItmXsLOQHw==}
     engines: {node: '>=22.19.0'}
 
-  uuid@14.0.2:
-    resolution: {integrity: sha512-xZe/16rV4aa+HGSOCiY2YeLT1OybRLrrkL/Rqaq7p7GMVXjFh+6wN4oMYgjFmnSnhY8t6Xpdl2l9qmnHYuMHwQ==}
+  uuid@14.0.3:
+    resolution: {integrity: sha512-Sc5u1VVln93y1Xnz4R+CunOZc7R9LUcTmhj7Rc7Eg3HVcf7rVn2FOoa812fe0W8p3jD7xeoGSYbfqCGGH2B6xw==}
     hasBin: true
 
   vite@8.2.1:
@@ -1690,15 +1690,15 @@ packages:
 
 snapshots:
 
-  '@actual-app/api@26.10.0':
+  '@actual-app/api@26.11.0':
     dependencies:
-      '@actual-app/core': 26.10.0
-      '@actual-app/crdt': 3.1.3
+      '@actual-app/core': 26.11.0
+      '@actual-app/crdt': 3.1.4
       better-sqlite3: 13.0.3
       compare-versions: 6.1.1
-      uuid: 14.0.2
+      uuid: 14.0.3
 
-  '@actual-app/core@26.10.0':
+  '@actual-app/core@26.11.0':
     dependencies:
       '@jlongster/sql.js': 1.6.7
       '@rschedule/core': 1.5.0
@@ -1706,22 +1706,22 @@ snapshots:
       absurd-sql: 0.0.54
       better-sqlite3: 13.0.3
       csv-parse: 7.0.3
-      csv-stringify: 6.8.1
+      csv-stringify: 6.9.0
       date-fns: 4.4.0
-      es-toolkit: 1.49.0
+      es-toolkit: 1.53.1
       fflate: 0.8.3
-      handlebars: 4.7.9
-      hyperformula: 3.3.0
-      lru-cache: 11.5.2
+      handlebars: 4.7.10
+      hyperformula: 3.5.0
+      lru-cache: 11.5.3
       mitt: 3.0.1
-      uuid: 14.0.2
+      uuid: 14.0.3
       xml2js: 0.6.2
 
-  '@actual-app/crdt@3.1.3':
+  '@actual-app/crdt@3.1.4':
     dependencies:
-      '@bufbuild/protobuf': 2.13.0
+      '@bufbuild/protobuf': 2.16.0
       murmurhash: 2.0.1
-      uuid: 14.0.2
+      uuid: 14.0.3
 
   '@babel/helper-string-parser@7.29.7': {}
 
@@ -1738,7 +1738,7 @@ snapshots:
 
   '@bcoe/v8-coverage@1.0.2': {}
 
-  '@bufbuild/protobuf@2.13.0': {}
+  '@bufbuild/protobuf@2.16.0': {}
 
   '@effect/platform-node-shared@4.1.2(effect@4.1.2)':
     dependencies:
@@ -2189,7 +2189,7 @@ snapshots:
 
   csv-parse@7.0.3: {}
 
-  csv-stringify@6.8.1: {}
+  csv-stringify@6.9.0: {}
 
   date-fns@4.4.0: {}
 
@@ -2225,7 +2225,7 @@ snapshots:
 
   es-module-lexer@2.3.2: {}
 
-  es-toolkit@1.49.0: {}
+  es-toolkit@1.53.1: {}
 
   estree-walker@3.0.3:
     dependencies:
@@ -2263,7 +2263,7 @@ snapshots:
   fsevents@2.3.3:
     optional: true
 
-  handlebars@4.7.9:
+  handlebars@4.7.10:
     dependencies:
       minimist: 1.2.8
       neo-async: 2.6.2
@@ -2289,7 +2289,7 @@ snapshots:
       domutils: 3.2.2
       entities: 7.0.1
 
-  hyperformula@3.3.0:
+  hyperformula@3.5.0:
     dependencies:
       chevrotain: 6.5.0
       tiny-emitter: 2.1.0
@@ -2383,7 +2383,7 @@ snapshots:
     dependencies:
       uc.micro: 2.1.0
 
-  lru-cache@11.5.2: {}
+  lru-cache@11.5.3: {}
 
   magic-string@1.4.3:
     dependencies:
@@ -2644,7 +2644,7 @@ snapshots:
 
   undici@8.12.3: {}
 
-  uuid@14.0.2: {}
+  uuid@14.0.3: {}
 
   vite@8.2.1(@types/node@26.6.6):
     dependencies:

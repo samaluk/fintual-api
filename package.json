@@ -23,7 +23,7 @@
 		"vitest": "5.0.5"
 	},
 	"dependencies": {
-		"@actual-app/api": "26.10.0",
+		"@actual-app/api": "26.11.0",
 		"@effect/platform-node": "4.1.2",
 		"effect": "4.1.2",
 		"imapflow": "2.10.0",
