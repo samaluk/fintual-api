@@ -15,7 +15,7 @@
 		"@types/mailparser": "3.9.0",
 		"@types/node": "26.6.6",
 		"@vitest/coverage-v8": "5.1.0",
-		"fallow": "3.38.1",
+		"fallow": "3.39.0",
 		"oxfmt": "0.76.0",
 		"oxlint": "1.91.0",
 		"oxlint-tsgolint": "7.0.2005",
