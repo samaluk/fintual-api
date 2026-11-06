@@ -9,7 +9,13 @@
   ],
   "includeEntryExports": true,
   "ignoreDependencies": [
+    "@effect/language-service",
     "@effect/tsgo"
+  ],
+  "ignoreBinaries": [
+    "if",
+    "then",
+    "fi"
   ],
   "typeAware": {
     "enabled": true,

@@ -110,6 +110,11 @@ and exceptions represent usage the analyzer cannot infer:
 - `bin/**/*.mjs` includes shell/runtime-invoked helper modules.
 - `bin/fintual-goal-performance.graphql` is loaded through `fs`.
 - `@effect/tsgo` provides the `effect-tsgo` binary used by `prepare`.
+- `@effect/language-service` is the TypeScript plugin name implemented by
+  `@effect/tsgo`'s patched compiler, not a separately installed dependency.
+- `if`, `then`, and `fi` are shell keywords in `prepare`, not package binaries.
+  Fallow 3.40.0's script parser reports them as unlisted binaries; the exact
+  keyword exceptions keep real unlisted-binary findings enforced.
 
 ## Investigation
 
