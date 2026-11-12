@@ -1,4 +1,4 @@
-FROM node:26.13.0-slim AS base
+FROM node:26.13.1-slim AS base
 
 ENV PNPM_HOME=/pnpm
 
