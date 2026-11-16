@@ -209,6 +209,9 @@ importers:
       fallow:
         specifier: 3.43.1
         version: 3.43.1
+      fallow-type-aware:
+        specifier: 3.43.1
+        version: 3.43.1
       node:
         specifier: runtime:26.13.1
         version: runtime:26.13.1
@@ -1063,6 +1066,16 @@ packages:
   expect-type@1.4.0:
     resolution: {integrity: sha512-KfYbmpRm0VbLjEvVa9yGwCi9GI34xvi7A/HXYWQO65CSD2u3MczUJSuwXKFIxlGsgBQizV9q5J9NHj4VG0n+pA==}
     engines: {node: '>=12.0.0'}
+
+  fallow-type-aware@3.43.1:
+    resolution: {integrity: sha512-X7EYSpzyh6g9/+xHh+SD280MccOaKZJwmHQtdGCOvJUopHMKyV8sYo67R7JAc/nHd7RrxOqsTct3OiFhUxwZuQ==}
+    engines: {node: '>=20'}
+    hasBin: true
+    peerDependencies:
+      tsrs: '*'
+    peerDependenciesMeta:
+      tsrs:
+        optional: true
 
   fallow@3.43.1:
     resolution: {integrity: sha512-I5Q01NsTME5xdYeHIBZJNZvsaXL+FckuJ47QUiwAZ33aGX82TelBvkpYOLlZOXceEmhNXg0K7LGMmS8YcGJHpw==}
@@ -2224,6 +2237,10 @@ snapshots:
       '@types/estree': 1.0.9
 
   expect-type@1.4.0: {}
+
+  fallow-type-aware@3.43.1:
+    dependencies:
+      typescript: 7.0.2
 
   fallow@3.43.1:
     dependencies:
