@@ -86,9 +86,10 @@ suppression then and retain the assertion.
 
 ## Testing lint rules
 
-Oxlint loads only `@interfere/landmines/testing`. The `no-test-doubles`,
-`strict-msw`, `no-fixed-sleep`, `no-unsignaled-poll`, and `no-flake-masking`
-rules are errors. Style and type-annotation rules are not enabled.
+Of the Landmines plugins, Oxlint loads only `@interfere/landmines/testing`.
+The `no-test-doubles`, `strict-msw`, `no-fixed-sleep`, `no-unsignaled-poll`,
+and `no-flake-masking` rules are errors. The Landmines style and type-annotation rules are not
+enabled; the existing built-in TypeScript lint rules remain enabled.
 
 The adoption baseline contains 21 `no-test-doubles` violations: 5 in
 `src/actual.test.ts`, 15 in `src/actual/actual-client.test.ts`, and 1 in
