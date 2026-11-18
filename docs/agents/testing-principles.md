@@ -84,6 +84,22 @@ suppression then and retain the assertion.
 - A test should fail for a meaningful behavioral regression, not harmless refactoring.
 - Keep output quiet. Expected errors should be captured and asserted; unexpected warnings and errors should remain visible.
 
+## Testing lint rules
+
+Of the Landmines plugins, Oxlint loads only `@interfere/landmines/testing`.
+The `no-test-doubles`, `strict-msw`, `no-fixed-sleep`, `no-unsignaled-poll`,
+and `no-flake-masking` rules are errors. The Landmines style and type-annotation rules are not
+enabled; the existing built-in TypeScript lint rules remain enabled.
+
+The adoption baseline contains 21 `no-test-doubles` violations: 5 in
+`src/actual.test.ts`, 15 in `src/actual/actual-client.test.ts`, and 1 in
+`src/fintual/performance.test.ts`. Each has a line-scoped
+`oxlint-disable-next-line` with `TODO(landmines)` because that rule has no
+allowlist option. Remove the directive when retiring its legacy test double;
+do not use these exceptions for new tests. The other four rules have no
+grandfathered violations. When a rule supports an exact-count per-file
+allowlist, use that instead of disable comments for any future migration.
+
 ## Running tests
 
 Vitest is the test runner. Run the complete suite with:

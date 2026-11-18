@@ -442,6 +442,7 @@ describe("fails when Goal Performance Data is unavailable", () => {
 it.effect("fails with HttpTransportFailure when a request throws", () =>
   Effect.gen(function* () {
     const requests: RecordedRequest[] = []
+    // oxlint-disable-next-line landmines-testing/no-test-doubles -- TODO(landmines): replace this legacy test double with a real implementation or MSW.
     const fetch: typeof globalThis.fetch = async (input, init = {}) => {
       requests.push({ url: requestUrl(input), init })
       if (requests.length === 3) {

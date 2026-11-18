@@ -15,6 +15,7 @@ const actualApiMock = vi.hoisted(() => ({
   shutdown: vi.fn(),
 }))
 
+// oxlint-disable-next-line landmines-testing/no-test-doubles -- TODO(landmines): replace this legacy test double with a real implementation or MSW.
 vi.mock("@actual-app/api", () => actualApiMock)
 
 import type { ActualConfig } from "../env.ts"
@@ -22,14 +23,23 @@ import type { PerformanceSnapshot } from "../performance-snapshot.ts"
 import { ActualClientFactory, type ActualClient } from "./actual-client.ts"
 
 beforeEach(() => {
+  // oxlint-disable-next-line landmines-testing/no-test-doubles -- TODO(landmines): replace this legacy test double with a real implementation or MSW.
   actualApiMock.init.mockResolvedValue({})
+  // oxlint-disable-next-line landmines-testing/no-test-doubles -- TODO(landmines): replace this legacy test double with a real implementation or MSW.
   actualApiMock.downloadBudget.mockResolvedValue({})
+  // oxlint-disable-next-line landmines-testing/no-test-doubles -- TODO(landmines): replace this legacy test double with a real implementation or MSW.
   actualApiMock.getTransactions.mockResolvedValue([])
+  // oxlint-disable-next-line landmines-testing/no-test-doubles -- TODO(landmines): replace this legacy test double with a real implementation or MSW.
   actualApiMock.getPayees.mockResolvedValue([{ id: "payee-1", name: "Fintual" }])
+  // oxlint-disable-next-line landmines-testing/no-test-doubles -- TODO(landmines): replace this legacy test double with a real implementation or MSW.
   actualApiMock.addTransactions.mockResolvedValue({})
+  // oxlint-disable-next-line landmines-testing/no-test-doubles -- TODO(landmines): replace this legacy test double with a real implementation or MSW.
   actualApiMock.updateTransaction.mockResolvedValue({})
+  // oxlint-disable-next-line landmines-testing/no-test-doubles -- TODO(landmines): replace this legacy test double with a real implementation or MSW.
   actualApiMock.deleteTransaction.mockResolvedValue({})
+  // oxlint-disable-next-line landmines-testing/no-test-doubles -- TODO(landmines): replace this legacy test double with a real implementation or MSW.
   actualApiMock.sync.mockResolvedValue({})
+  // oxlint-disable-next-line landmines-testing/no-test-doubles -- TODO(landmines): replace this legacy test double with a real implementation or MSW.
   actualApiMock.shutdown.mockResolvedValue({})
 })
 
@@ -104,6 +114,7 @@ it.effect("reconciles by downloading budget, planning, creating transactions, an
 
 it.effect("updates canonical existing transactions and deletes legacy duplicates", () =>
   Effect.gen(function* () {
+    // oxlint-disable-next-line landmines-testing/no-test-doubles -- TODO(landmines): replace this legacy test double with a real implementation or MSW.
     actualApiMock.getTransactions.mockResolvedValue([
       {
         id: "legacy-1",
@@ -136,6 +147,7 @@ it.effect("updates canonical existing transactions and deletes legacy duplicates
 
 it.effect("decodes a legacy numeric imported id to its date even when date field is stale", () =>
   Effect.gen(function* () {
+    // oxlint-disable-next-line landmines-testing/no-test-doubles -- TODO(landmines): replace this legacy test double with a real implementation or MSW.
     actualApiMock.getTransactions.mockResolvedValue([
       {
         id: "txn-1",
@@ -159,6 +171,7 @@ it.effect("decodes a legacy numeric imported id to its date even when date field
 
 it.effect("handles missing payee gracefully and still reconciles", () =>
   Effect.gen(function* () {
+    // oxlint-disable-next-line landmines-testing/no-test-doubles -- TODO(landmines): replace this legacy test double with a real implementation or MSW.
     actualApiMock.getPayees.mockResolvedValue([{ id: "other-payee", name: "Someone Else" }])
 
     const client = yield* acquireClient
@@ -210,6 +223,7 @@ it.effect("fails with a non-retryable failure on an invalid starting date", () =
 
 it.effect("fails with a non-retryable failure on a malformed transaction row", () =>
   Effect.gen(function* () {
+    // oxlint-disable-next-line landmines-testing/no-test-doubles -- TODO(landmines): replace this legacy test double with a real implementation or MSW.
     actualApiMock.getTransactions.mockResolvedValue([{ date: "2026-01-05" }])
 
     const client = yield* acquireClient
@@ -225,6 +239,7 @@ it.effect("fails with a non-retryable failure on a malformed transaction row", (
 
 it.effect("fails with a retryable failure on network failure during download", () =>
   Effect.gen(function* () {
+    // oxlint-disable-next-line landmines-testing/no-test-doubles -- TODO(landmines): replace this legacy test double with a real implementation or MSW.
     actualApiMock.downloadBudget.mockRejectedValue({ code: "network-failure" })
 
     const client = yield* acquireClient
