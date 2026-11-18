@@ -16,6 +16,7 @@ const actualApiMock = vi.hoisted(() => ({
   shutdown: vi.fn(),
 }))
 
+// oxlint-disable-next-line landmines-testing/no-test-doubles -- TODO(landmines): replace this legacy test double with a real implementation or MSW.
 vi.mock("@actual-app/api", () => actualApiMock)
 
 import { ActualSynchronization } from "./actual.ts"
@@ -125,7 +126,9 @@ it.effect("does not retry a non-retryable Actual failure", () =>
 
 it.effect("the live Actual adapter preserves stable SDK network codes", () =>
   Effect.gen(function* () {
+    // oxlint-disable-next-line landmines-testing/no-test-doubles -- TODO(landmines): replace this legacy test double with a real implementation or MSW.
     actualApiMock.init.mockResolvedValue({})
+    // oxlint-disable-next-line landmines-testing/no-test-doubles -- TODO(landmines): replace this legacy test double with a real implementation or MSW.
     actualApiMock.downloadBudget.mockRejectedValue({ code: "network-failure" })
 
     const result = yield* Effect.result(
@@ -156,6 +159,7 @@ it.effect("the live Actual adapter preserves stable SDK network codes", () =>
 it.effect("health checks normalize the server URL and classify HTTP failures", () =>
   Effect.gen(function* () {
     const urls: string[] = []
+    // oxlint-disable-next-line landmines-testing/no-test-doubles -- TODO(landmines): replace this legacy test double with a real implementation or MSW.
     const fetchRequest: typeof globalThis.fetch = async (input) => {
       urls.push(typeof input === "string" ? input : input instanceof URL ? input.href : input.url)
       return new Response("", { status: 503 })
@@ -328,6 +332,7 @@ function synchronizationProgram(
   fetchRequest?: typeof globalThis.fetch,
 ) {
   const clientQueue = [...clients]
+  // oxlint-disable-next-line landmines-testing/no-test-doubles -- TODO(landmines): replace this legacy test double with a real implementation or MSW.
   const defaultFetch: typeof globalThis.fetch = async (input) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url
     if (url.endsWith("/health")) {

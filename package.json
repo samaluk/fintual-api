@@ -12,6 +12,7 @@
 	"devDependencies": {
 		"@effect/tsgo": "0.69.0",
 		"@effect/vitest": "4.1.4",
+		"@interfere/landmines": "^0.0.0",
 		"@types/mailparser": "3.9.0",
 		"@types/node": "26.6.6",
 		"@vitest/coverage-v8": "5.1.0",

@@ -3,10 +3,21 @@
 	"plugins": [
 		"typescript"
 	],
+	"jsPlugins": [
+		{
+			"name": "landmines-testing",
+			"specifier": "@interfere/landmines/testing"
+		}
+	],
 	"options": {
 		"typeAware": true
 	},
 	"rules": {
+		"landmines-testing/no-test-doubles": "error",
+		"landmines-testing/strict-msw": "error",
+		"landmines-testing/no-fixed-sleep": "error",
+		"landmines-testing/no-unsignaled-poll": "error",
+		"landmines-testing/no-flake-masking": "error",
 		"typescript/ban-ts-comment": [
 			"error",
 			{
