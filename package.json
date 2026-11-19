@@ -15,14 +15,14 @@
 		"@interfere/landmines": "0.1.0",
 		"@types/mailparser": "3.9.0",
 		"@types/node": "26.6.6",
-		"@vitest/coverage-v8": "5.1.0",
+		"@vitest/coverage-v8": "5.1.1",
 		"fallow": "3.43.2",
 		"fallow-type-aware": "3.43.2",
 		"oxfmt": "0.79.0",
 		"oxlint": "1.94.0",
 		"oxlint-tsgolint": "7.0.2007",
 		"typescript": "7.0.2",
-		"vitest": "5.1.0"
+		"vitest": "5.1.1"
 	},
 	"dependencies": {
 		"@actual-app/api": "26.11.0",
