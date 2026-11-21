@@ -26,7 +26,7 @@ local sourceChecks = new Mapping<String, Step> {
 local stagedAudit = new Mapping<String, Step> {
     ["fallow-staged"] {
         check = new Command {
-            argv = List("pnpm", "run", "fallow:audit:staged")
+            argv = List("pnpm", "exec", "fallow", "audit", "--staged", "--quiet")
         }
     }
 }

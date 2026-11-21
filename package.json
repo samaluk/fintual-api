@@ -40,7 +40,7 @@
 		"lint": "oxlint --deny-warnings --report-unused-disable-directives src",
 		"lint:fix": "oxlint --deny-warnings --fix src",
 		"fallow:audit": "fallow audit --coverage coverage/coverage-final.json",
-		"fallow:audit:staged": "fallow audit --base HEAD",
+		"fallow:audit:staged": "fallow audit --staged --quiet",
 		"fallow:ci": "pnpm fallow:audit && fallow --format human --coverage coverage/coverage-final.json --fail-on-issues",
 		"dev": "RUN_MODE=once node src/main.ts",
 		"once": "RUN_MODE=once node src/main.ts",

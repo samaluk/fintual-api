@@ -3,7 +3,9 @@
 Fallow is a strict zero-debt gate: every unignored finding blocks delivery.
 There are no identity or regression baselines. `.fallowrc.json` owns analysis
 policy; `package.json` owns the exact CLI version and the three project commands.
-Use the installed binary through `pnpm exec fallow`.
+The CLI and type-aware companion are pinned to **3.44.0**. Use the installed
+binary through `pnpm exec fallow`. Setup follows the
+[official Fallow documentation](https://docs.fallow.tools).
 
 ## Gate and hooks
 
@@ -31,14 +33,15 @@ Two upstream behaviors need explicit settings:
   workaround is recorded in the proof and Frog friction log.
 
 `hk.pkl` remains the only hook manager. Pre-commit formats and lints staged
-TypeScript, re-stages safe fixes, and runs the coverage-free audit against
-`HEAD`. Pre-push generates real test coverage before running `fallow:ci`, alongside
-the repository's formatting, linting, and type checks. Full verification belongs
+TypeScript, re-stages safe fixes, and runs
+`pnpm exec fallow audit --staged --quiet` against the staged index, not unstaged
+working-tree edits. Pre-push generates real test coverage before running
+`fallow:ci`, alongside the repository's formatting, linting, and type checks. Full verification belongs
 at this hook boundary; focused diagnostic probes are appropriate during changes.
 
 | Command | Purpose |
 | --- | --- |
-| `pnpm fallow:audit:staged` | Coverage-free audit against `HEAD`, used with hk's staged-change isolation |
+| `pnpm fallow:audit:staged` | Coverage-free staged-index audit, matching the direct hk command |
 | `pnpm fallow:audit` | Coverage-aware audit against the branch base |
 | `pnpm fallow:ci` | Covered changed-file audit and full-repository gate |
 
@@ -81,14 +84,19 @@ its matching type-aware companion automatically from `.fallowrc.json`. Gate,
 semantic/near duplication, and type-aware policy also come from that config.
 The immutable Action release pin must stay aligned with the package; Renovate
 groups their updates. The agent skill symlink under `.agents/skills/fallow`
-always reads the installed package's guidance.
+always reads the installed package's guidance. Run `pnpm exec fallow agent status`
+after upgrades. The existing pointer can be reported as foreign because the
+package's skill lacks the installer's managed marker; that is not a stale skill. Keep the symlink rather
+than replacing it with a copied skill or overwriting unrelated agent setup.
 
-`.github/workflows/fallow-drift.yml` runs the same covered gate once per newly
-resolved lockfile version, on qualifying `main` pushes or manual dispatches
-against `main`. Its version-keyed success marker is cached only after a frozen
-install, fresh coverage, and a passing gate; failures remain retryable. No cron
-is needed for an exactly pinned analyzer. See the original
-[drift workflow evidence](fallow-drift-proof.md).
+`.github/workflows/fallow-drift.yml` runs the same covered gate once per unique
+`package.json`/`pnpm-lock.yaml` content hash, on qualifying `main` pushes or manual
+dispatches against `main`. Its dependency-keyed success marker is cached only after
+a frozen install, fresh coverage, and a passing gate; failures remain retryable. No cron
+is needed for an exactly pinned analyzer. Frozen installation resolves the CLI;
+there is no lockfile-text version parser. Dependency changes can trigger extra
+scans, never fewer than the old version-only key. See the original
+[drift workflow evidence](fallow-drift-proof.md) for the gate's failure contract.
 
 Fallow packages are explicitly excluded from pnpm's release-age window, as
 recorded in `pnpm-workspace.yaml`. Frozen installs still use the committed
@@ -134,6 +142,10 @@ pnpm exec fallow suppressions
 pnpm exec fallow explain unused-export
 pnpm exec fallow fix --dry-run
 ```
+
+In 3.44.0, `fallow config` already emits the resolved policy as JSON;
+`fallow config --resolved` is not a supported flag. Capture `config` before and
+after setup changes and compare the output to ensure policy has not weakened.
 
 Trace exact consumers before deleting code or dependencies. Partial semantic
 evidence is not deletion proof. For machine inspection, follow the installed
