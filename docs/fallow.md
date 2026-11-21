@@ -89,6 +89,11 @@ after upgrades. The existing pointer can be reported as foreign because the
 package's skill lacks the installer's managed marker; that is not a stale skill. Keep the symlink rather
 than replacing it with a copied skill or overwriting unrelated agent setup.
 
+The review job must expose npm's global bin prefix on `PATH` after pnpm runtime
+setup. Removing that step with the pinned 3.44.0 Action caused `analyze.sh` to
+fail with `fallow: command not found` in PR #742; keep it until the Action handles
+this runtime's installation path itself. It does not alter analysis policy.
+
 `.github/workflows/fallow-drift.yml` runs the same covered gate once per unique
 `package.json`/`pnpm-lock.yaml` content hash, on qualifying `main` pushes or manual
 dispatches against `main`. Its dependency-keyed success marker is cached only after

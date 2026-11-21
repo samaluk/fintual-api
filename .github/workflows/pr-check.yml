@@ -142,6 +142,12 @@ jobs:
           name: coverage
           path: coverage
 
+      # Required with pnpm/setup's managed runtime: removing this on Fallow
+      # 3.44.0 made analyze.sh fail with "fallow: command not found" (PR #742).
+      # The Action's npm global install prefix is not otherwise on PATH.
+      - name: Expose npm global binaries
+        run: echo "$(npm config get prefix)/bin" >> "$GITHUB_PATH"
+
       # The Action reads the CLI version from package.json and analysis policy
       # from .fallowrc.json, including complete type-aware evidence, gate: all,
       # and semantic/near duplication. It renders each PR surface from one audit.
