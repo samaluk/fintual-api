@@ -28,24 +28,14 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Resolve Fallow version
-        id: fallow-version
-        run: |
-          version="$(awk '/^  fallow@/ { version=$1; sub(/^fallow@/, "", version); sub(/:$/, "", version); print version; exit }' pnpm-lock.yaml)"
-          if [ -z "$version" ]; then
-            echo "::error::Fallow version not found in pnpm-lock.yaml"
-            exit 1
-          fi
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-
-      # A hit means this exact lockfile-resolved version already passed the
+      # A hit means these exact dependency inputs already passed the
       # canonical covered gate. actions/cache saves misses only on job success.
-      - name: Restore version marker
+      - name: Restore dependency marker
         id: seen
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .fallow-drift
-          key: fallow-drift-${{ steps.fallow-version.outputs.version }}
+          key: fallow-drift-${{ hashFiles('package.json', 'pnpm-lock.yaml') }}
 
       - name: Setup pnpm and Node.js
         if: steps.seen.outputs.cache-hit != 'true'
@@ -58,12 +48,6 @@ jobs:
       - name: Install dependencies
         if: steps.seen.outputs.cache-hit != 'true'
         run: pnpm install --frozen-lockfile
-
-      - name: Assert resolved Fallow version
-        if: steps.seen.outputs.cache-hit != 'true'
-        run: |
-          installed="$(pnpm exec fallow --version | sed -n '1s/^fallow //p')"
-          test "$installed" = "${{ steps.fallow-version.outputs.version }}"
 
       - name: Generate canonical coverage
         if: steps.seen.outputs.cache-hit != 'true'
@@ -78,7 +62,7 @@ jobs:
           FALLOW_AUDIT_BASE: origin/main
 
       # This step and the cache save are unreachable when install, coverage, or
-      # Fallow fails, so failed versions remain eligible for a later retry.
-      - name: Mark version as scanned
+      # Fallow fails, so failed dependency inputs remain eligible for a later retry.
+      - name: Mark dependencies as scanned
         if: steps.seen.outputs.cache-hit != 'true'
-        run: mkdir -p .fallow-drift && date > ".fallow-drift/${{ steps.fallow-version.outputs.version }}"
+        run: mkdir -p .fallow-drift && date > .fallow-drift/success
