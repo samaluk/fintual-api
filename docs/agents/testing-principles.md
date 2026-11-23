@@ -91,9 +91,11 @@ The `no-test-doubles`, `strict-msw`, `no-fixed-sleep`, `no-unsignaled-poll`,
 and `no-flake-masking` rules are errors. The Landmines style and type-annotation rules are not
 enabled; the existing built-in TypeScript lint rules remain enabled.
 
-The adoption baseline contains 21 `no-test-doubles` violations: 5 in
-`src/actual.test.ts`, 15 in `src/actual/actual-client.test.ts`, and 1 in
-`src/fintual/performance.test.ts`. Each has a line-scoped
+The remaining migration debt contains 18 `no-test-doubles` violations: 3 in
+`src/actual.test.ts` and 15 in `src/actual/actual-client.test.ts`. These retain
+legacy Actual SDK doubles until a separate hermetic real-SDK harness replaces
+that boundary; HTTP scenarios instead use strict MSW handlers with the real
+FetchHttpClient. Each remaining violation has a line-scoped
 `oxlint-disable-next-line` with `TODO(landmines)` because that rule has no
 allowlist option. Remove the directive when retiring its legacy test double;
 do not use these exceptions for new tests. The other four rules have no
