@@ -6,7 +6,7 @@ import { Duration, Effect, Fiber, Layer, Option, Redacted } from "effect"
 import { TestClock } from "effect/testing"
 import { http, HttpResponse, type PathParams } from "msw"
 import { setupServer } from "msw/node"
-import { afterAll, afterEach, beforeAll, describe, expect } from "vitest"
+import { afterAll, afterEach, beforeAll, describe, expect, onTestFinished } from "vitest"
 
 import { Email2FAConfigService, FintualConfigService, type FintualConfig } from "../env.ts"
 import { getErrorMessage } from "../logging.ts"
@@ -649,6 +649,21 @@ type FintualRoute = "signIn" | "login" | "finalizeLogin" | "reference" | "recent
 function createHttpScenario(responses: Partial<Record<FintualRoute, Response>>) {
   const requests: RecordedRequest[] = []
   const byRoute: Partial<Record<FintualRoute, RecordedRequest>> = {}
+  const graphQlRequests: unknown[] = []
+  const unexpectedRequests: string[] = []
+  onTestFinished(() => {
+    expect(unexpectedRequests).toEqual([])
+    for (const body of graphQlRequests) {
+      expect(body).toMatchObject({
+        operationName: "GoalInvestedBalanceGraphDataPoints",
+        variables: { goalId: CONFIG.goalId },
+      })
+    }
+  })
+  const unexpectedRequest = (detail: string): Response => {
+    unexpectedRequests.push(detail)
+    return HttpResponse.json({ error: detail }, { status: 400 })
+  }
   const respond = async (route: FintualRoute, request: Request): Promise<Response> => {
     const recorded = {
       url: request.url,
@@ -662,7 +677,7 @@ function createHttpScenario(responses: Partial<Record<FintualRoute, Response>>) 
     byRoute[route] = recorded
     const configuredResponse = responses[route]
     if (!configuredResponse) {
-      throw new Error(`Unexpected Fintual route: ${route}`)
+      return unexpectedRequest(`Unexpected Fintual route: ${route}`)
     }
     return configuredResponse.clone()
   }
@@ -677,18 +692,19 @@ function createHttpScenario(responses: Partial<Record<FintualRoute, Response>>) 
     ),
     http.post<
       PathParams,
-      { operationName: string; variables: { goalId: string; timeIntervalCode: string } }
+      { operationName?: string; variables?: { goalId?: string; timeIntervalCode?: string } }
     >("https://fintual.cl/gql/", async ({ request }) => {
       const body = await request.clone().json()
-      expect(body.operationName).toBe("GoalInvestedBalanceGraphDataPoints")
-      expect(body.variables.goalId).toBe(CONFIG.goalId)
-      switch (body.variables.timeIntervalCode) {
+      graphQlRequests.push(body)
+      switch (body.variables?.timeIntervalCode) {
         case "last_six_months":
           return respond("reference", request)
         case "last_month":
           return respond("recent", request)
         default:
-          throw new Error(`Unexpected performance interval: ${body.variables.timeIntervalCode}`)
+          return unexpectedRequest(
+            `Unexpected performance interval: ${body.variables?.timeIntervalCode}`,
+          )
       }
     }),
   )
