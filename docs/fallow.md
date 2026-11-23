@@ -3,7 +3,7 @@
 Fallow is a strict zero-debt gate: every unignored finding blocks delivery.
 There are no identity or regression baselines. `.fallowrc.json` owns analysis
 policy; `package.json` owns the exact CLI version and the three project commands.
-The CLI and type-aware companion are pinned to **3.44.0**. Use the installed
+The CLI and type-aware companion are pinned to **3.46.0**. Use the installed
 binary through `pnpm exec fallow`. Setup follows the
 [official Fallow documentation](https://docs.fallow.tools).
 
@@ -60,6 +60,12 @@ against the upstream or remote default. CI pins the base explicitly.
   Two reviewed fingerprint/count exceptions cover distinct tagged-error
   declaration sequences in the Actual and Fintual adapters. The obsolete four
   keys from the previous analyzer were replaced after reviewing current output.
+  Keep `dup:d04af01f:2` (Actual error declarations) and `dup:c79a6501:2`
+  (Fintual error declarations): their nominal tags, payloads, and retry semantics
+  are separate adapter contracts, not shared behavior. A declaration factory
+  would hide those differences without removing duplicated domain logic. Exact
+  fingerprints and occurrence counts keep changes reviewable without a blanket
+  ignore.
 - Health limits: cyclomatic 13, cognitive 15, CRAP 30, and unit size 60.
   Real Istanbul coverage feeds CRAP scoring.
 - Architecture boundary coverage for every analyzed source file.
