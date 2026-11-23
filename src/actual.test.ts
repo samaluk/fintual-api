@@ -1,8 +1,9 @@
 import { it } from "@effect/vitest"
 import { Effect, Fiber, Redacted, Result } from "effect"
-import { FetchHttpClient } from "effect/http"
 import { TestClock } from "effect/testing"
-import { afterEach, expect, vi } from "vitest"
+import { http, HttpResponse } from "msw"
+import { setupServer } from "msw/node"
+import { afterAll, afterEach, beforeAll, expect, vi } from "vitest"
 
 const actualApiMock = vi.hoisted(() => ({
   init: vi.fn(),
@@ -29,8 +30,14 @@ import {
 import { ActualConfigService, type ActualConfig } from "./env.ts"
 import type { PerformanceSnapshot } from "./performance-snapshot.ts"
 
+const healthUrl = "https://actual.example.test/health"
+const server = setupServer(http.get(healthUrl, () => new HttpResponse()))
+beforeAll(() => server.listen({ onUnhandledFrame: "error" }))
+afterAll(() => server.close())
+
 afterEach(() => {
   vi.resetAllMocks()
+  server.resetHandlers()
 })
 
 const CONFIG: ActualConfig = {
@@ -159,11 +166,12 @@ it.effect("the live Actual adapter preserves stable SDK network codes", () =>
 it.effect("health checks normalize the server URL and classify HTTP failures", () =>
   Effect.gen(function* () {
     const urls: string[] = []
-    // oxlint-disable-next-line landmines-testing/no-test-doubles -- TODO(landmines): replace this legacy test double with a real implementation or MSW.
-    const fetchRequest: typeof globalThis.fetch = async (input) => {
-      urls.push(typeof input === "string" ? input : input instanceof URL ? input.href : input.url)
-      return new Response("", { status: 503 })
-    }
+    server.use(
+      http.get(healthUrl, ({ request }) => {
+        urls.push(request.url)
+        return new HttpResponse(null, { status: 503 })
+      }),
+    )
     const program = Effect.gen(function* () {
       const service = yield* ActualSynchronization
       yield* service.synchronize(SNAPSHOT)
@@ -179,7 +187,6 @@ it.effect("health checks normalize the server URL and classify HTTP failures", (
             }),
           ),
       }),
-      Effect.provideService(FetchHttpClient.Fetch, fetchRequest),
     )
 
     const fiber = yield* Effect.forkChild(program)
@@ -198,9 +205,7 @@ it.effect("health checks normalize the server URL and classify HTTP failures", (
 
 it.effect("health checks map transport failures to a retryable failure", () =>
   Effect.gen(function* () {
-    const fetchRequest: typeof globalThis.fetch = async () => {
-      throw new TypeError("network down")
-    }
+    server.use(http.get(healthUrl, () => HttpResponse.error()))
     const program = Effect.gen(function* () {
       const service = yield* ActualSynchronization
       yield* service.synchronize(SNAPSHOT)
@@ -216,7 +221,6 @@ it.effect("health checks map transport failures to a retryable failure", () =>
             }),
           ),
       }),
-      Effect.provideService(FetchHttpClient.Fetch, fetchRequest),
     )
 
     const fiber = yield* Effect.forkChild(program)
@@ -233,7 +237,21 @@ it.effect("health checks map transport failures to a retryable failure", () =>
 
 it.effect("health-check timeout is controlled by the Effect Clock", () =>
   Effect.gen(function* () {
-    const fetchRequest: typeof globalThis.fetch = async () => new Promise<Response>(() => {})
+    const started = Promise.withResolvers<Request>()
+    server.use(
+      http.get(healthUrl, ({ request }) => {
+        started.resolve(request)
+        return new Promise<Response>((resolve) => {
+          request.signal.addEventListener(
+            "abort",
+            () => resolve(new HttpResponse(null, { status: 499 })),
+            {
+              once: true,
+            },
+          )
+        })
+      }),
+    )
     const program = Effect.gen(function* () {
       const service = yield* ActualSynchronization
       yield* service.synchronize(SNAPSHOT)
@@ -249,13 +267,14 @@ it.effect("health-check timeout is controlled by the Effect Clock", () =>
             }),
           ),
       }),
-      Effect.provideService(FetchHttpClient.Fetch, fetchRequest),
     )
     const fiber = yield* Effect.forkChild(program)
+    const request = yield* Effect.promise(() => started.promise)
     yield* TestClock.adjust("5 minutes")
     const result = yield* Effect.result(Fiber.join(fiber))
 
     expect(Result.isFailure(result)).toBe(true)
+    expect(request.signal.aborted).toBe(true)
     if (Result.isFailure(result)) {
       expect(result.failure).toMatchObject({
         _tag: "ActualHealthCheckFailure",
@@ -291,7 +310,6 @@ it.effect("rejects an invalid starting date with a non-retryable failure", () =>
         Effect.provideService(ActualClientFactory, {
           acquire: () => Effect.succeed(client),
         }),
-        Effect.provideService(FetchHttpClient.Fetch, async () => new Response("", { status: 200 })),
       ),
     )
 
@@ -326,21 +344,14 @@ it.effect("shuts down the scoped Actual session when the workflow is interrupted
   }),
 )
 
-function synchronizationProgram(
-  clients: ReadonlyArray<ActualClient>,
-  calls: string[],
-  fetchRequest?: typeof globalThis.fetch,
-) {
+function synchronizationProgram(clients: ReadonlyArray<ActualClient>, calls: string[]) {
   const clientQueue = [...clients]
-  // oxlint-disable-next-line landmines-testing/no-test-doubles -- TODO(landmines): replace this legacy test double with a real implementation or MSW.
-  const defaultFetch: typeof globalThis.fetch = async (input) => {
-    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url
-    if (url.endsWith("/health")) {
+  server.use(
+    http.get(healthUrl, () => {
       calls.push("health")
-      return new Response("", { status: 200 })
-    }
-    return new Response("", { status: 200 })
-  }
+      return new HttpResponse()
+    }),
+  )
 
   return Effect.gen(function* () {
     const service = yield* ActualSynchronization
@@ -361,7 +372,6 @@ function synchronizationProgram(
             )
       },
     }),
-    Effect.provideService(FetchHttpClient.Fetch, fetchRequest ?? defaultFetch),
   )
 }
 
