@@ -1,8 +1,11 @@
+import { Console as NodeConsole } from "node:console"
+import { Writable } from "node:stream"
+
 import { it } from "@effect/vitest"
-import { Effect, Redacted, Result } from "effect"
+import { Cause, Console, Effect, Redacted, Result } from "effect"
 import { expect } from "vitest"
 
-import { resolveRuntimeConfig, RuntimeConfigError, type Environment } from "./env.ts"
+import { resolveRuntimeConfig, RuntimeConfigError, runtimeLayer, type Environment } from "./env.ts"
 
 function requiredEnvironment(): Environment {
   return {
@@ -15,6 +18,66 @@ function requiredEnvironment(): Environment {
     FINTUAL_GOAL_ID: "goal-id",
   }
 }
+
+it.effect.each<{ email: string; credentials: Readonly<Record<string, string>> }>([
+  { email: "absent", credentials: {} },
+  {
+    email: "present",
+    credentials: {
+      GMAIL_USER_EMAIL: "mailbox@example.com",
+      GMAIL_APP_PASSWORD: "gmail-app-password",
+    },
+  },
+])(
+  "redacts runtime secrets at the log boundary with email configuration $email",
+  ({ credentials }) =>
+    Effect.gen(function* () {
+      const configuration = yield* resolveRuntimeConfig({
+        ...requiredEnvironment(),
+        ...credentials,
+      })
+      const secrets = [
+        "https://actual.example.test",
+        "actual password",
+        "sync-id",
+        "account-id",
+        "investor@example.com",
+        "fintual password",
+        "goal-id",
+        ...Object.values(credentials),
+      ]
+      const payload = secrets.join(" | ")
+      const redactedPayload = secrets.map(() => "[redacted]").join(" | ")
+      const lines: string[] = []
+      const output = new Writable({
+        write(chunk: Buffer, _encoding, callback) {
+          lines.push(chunk.toString("utf8"))
+          callback()
+        },
+      })
+
+      yield* Effect.gen(function* () {
+        yield* Effect.logInfo(`message: ${payload}`)
+        yield* Effect.logInfo("annotation").pipe(Effect.annotateLogs({ credentials: payload }))
+        yield* Effect.logError(Cause.fail(new Error(`failure: ${payload}`)))
+      }).pipe(
+        Effect.provide(runtimeLayer(configuration)),
+        Effect.provideService(
+          Console.Console,
+          new NodeConsole({ stdout: output, stderr: output, ignoreErrors: false }),
+        ),
+        Effect.ensuring(Effect.sync(() => output.end())),
+      )
+
+      expect(lines).toHaveLength(3)
+      expect(lines[0]).toContain(`INFO: message: ${redactedPayload}`)
+      expect(lines[1]).toContain(`INFO: annotation credentials: ${redactedPayload}`)
+      expect(lines[2]).toContain(`ERROR: Error: failure: ${redactedPayload}`)
+      for (const secret of secrets) {
+        expect(lines.join("")).not.toContain(secret)
+      }
+    }),
+)
 
 it.effect("normalizes runtime values and applies defaults once for every domain", () =>
   Effect.gen(function* () {
