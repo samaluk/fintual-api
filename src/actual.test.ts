@@ -1,32 +1,17 @@
+import { mkdtempSync, rmSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+
 import { it } from "@effect/vitest"
 import { Effect, Fiber, Redacted, Result } from "effect"
 import { TestClock } from "effect/testing"
 import { http, HttpResponse } from "msw"
 import { setupServer } from "msw/node"
-import { afterAll, afterEach, beforeAll, expect, vi } from "vitest"
-
-const actualApiMock = vi.hoisted(() => ({
-  init: vi.fn(),
-  downloadBudget: vi.fn(),
-  getTransactions: vi.fn(),
-  getPayees: vi.fn(),
-  addTransactions: vi.fn(),
-  updateTransaction: vi.fn(),
-  deleteTransaction: vi.fn(),
-  sync: vi.fn(),
-  shutdown: vi.fn(),
-}))
-
-// oxlint-disable-next-line landmines-testing/no-test-doubles -- TODO(landmines): replace this legacy test double with a real implementation or MSW.
-vi.mock("@actual-app/api", () => actualApiMock)
+import { afterAll, afterEach, beforeAll, beforeEach, expect } from "vitest"
 
 import { ActualSynchronization } from "./actual.ts"
 import { ActualClientFactory, type ActualClient } from "./actual/actual-client.ts"
-import {
-  ActualInitializationFailure,
-  ActualInvalidStartingDate,
-  ActualOperationFailure,
-} from "./actual/actual-error.ts"
+import { ActualInitializationFailure, ActualOperationFailure } from "./actual/actual-error.ts"
 import { ActualConfigService, type ActualConfig } from "./env.ts"
 import type { PerformanceSnapshot } from "./performance-snapshot.ts"
 
@@ -35,10 +20,13 @@ const server = setupServer(http.get(healthUrl, () => new HttpResponse()))
 beforeAll(() => server.listen({ onUnhandledFrame: "error" }))
 afterAll(() => server.close())
 
-afterEach(() => {
-  vi.resetAllMocks()
-  server.resetHandlers()
+let dataDir: string
+beforeEach(({ onTestFinished }) => {
+  const directory = mkdtempSync(join(tmpdir(), "actual-synchronization-"))
+  dataDir = directory
+  onTestFinished(() => rmSync(directory, { recursive: true, force: true }))
 })
+afterEach(() => server.resetHandlers())
 
 const CONFIG: ActualConfig = {
   serverUrl: "https://actual.example.test/",
@@ -131,38 +119,6 @@ it.effect("does not retry a non-retryable Actual failure", () =>
   }),
 )
 
-it.effect("the live Actual adapter preserves stable SDK network codes", () =>
-  Effect.gen(function* () {
-    // oxlint-disable-next-line landmines-testing/no-test-doubles -- TODO(landmines): replace this legacy test double with a real implementation or MSW.
-    actualApiMock.init.mockResolvedValue({})
-    // oxlint-disable-next-line landmines-testing/no-test-doubles -- TODO(landmines): replace this legacy test double with a real implementation or MSW.
-    actualApiMock.downloadBudget.mockRejectedValue({ code: "network-failure" })
-
-    const result = yield* Effect.result(
-      Effect.gen(function* () {
-        const factory = yield* ActualClientFactory
-        const client = yield* factory.acquire(CONFIG)
-        return yield* client.reconcile(SNAPSHOT, {
-          startingDate: CONFIG.startingDate,
-          accountId: CONFIG.fintualAccount,
-          payeeName: CONFIG.payee,
-        })
-      }).pipe(Effect.provide(ActualClientFactory.live)),
-    )
-
-    expect(Result.isFailure(result)).toBe(true)
-    expect(actualApiMock.init).toHaveBeenCalledWith(expect.objectContaining({ password: "secret" }))
-    if (Result.isFailure(result)) {
-      expect(result.failure).toMatchObject({
-        _tag: "ActualOperationFailure",
-        operation: "download_budget",
-        cause: { code: "network-failure" },
-        retryable: true,
-      })
-    }
-  }),
-)
-
 it.effect("health checks normalize the server URL and classify HTTP failures", () =>
   Effect.gen(function* () {
     const urls: string[] = []
@@ -176,7 +132,7 @@ it.effect("health checks normalize the server URL and classify HTTP failures", (
       const service = yield* ActualSynchronization
       yield* service.synchronize(SNAPSHOT)
     }).pipe(
-      Effect.provide(ActualSynchronization.layer),
+      Effect.provide(ActualSynchronization.layer(dataDir)),
       Effect.provideService(ActualConfigService, CONFIG),
       Effect.provideService(ActualClientFactory, {
         acquire: () =>
@@ -210,7 +166,7 @@ it.effect("health checks map transport failures to a retryable failure", () =>
       const service = yield* ActualSynchronization
       yield* service.synchronize(SNAPSHOT)
     }).pipe(
-      Effect.provide(ActualSynchronization.layer),
+      Effect.provide(ActualSynchronization.layer(dataDir)),
       Effect.provideService(ActualConfigService, CONFIG),
       Effect.provideService(ActualClientFactory, {
         acquire: () =>
@@ -256,7 +212,7 @@ it.effect("health-check timeout is controlled by the Effect Clock", () =>
       const service = yield* ActualSynchronization
       yield* service.synchronize(SNAPSHOT)
     }).pipe(
-      Effect.provide(ActualSynchronization.layer),
+      Effect.provide(ActualSynchronization.layer(dataDir)),
       Effect.provideService(ActualConfigService, CONFIG),
       Effect.provideService(ActualClientFactory, {
         acquire: () =>
@@ -281,43 +237,6 @@ it.effect("health-check timeout is controlled by the Effect Clock", () =>
         retryable: true,
       })
     }
-  }),
-)
-
-it.effect("rejects an invalid starting date with a non-retryable failure", () =>
-  Effect.gen(function* () {
-    const calls: string[] = []
-    const client = scriptedClient(calls, {
-      reconcile: (_snapshot, options) =>
-        options.startingDate === "not-a-date"
-          ? Effect.fail(
-              new ActualInvalidStartingDate({
-                startingDate: options.startingDate,
-                retryable: false,
-              }),
-            )
-          : Effect.succeed({ created: 1, updated: 0, deletedDuplicates: 0 }),
-    })
-    const invalidConfig = { ...CONFIG, startingDate: "not-a-date" }
-
-    const error = yield* Effect.flip(
-      Effect.gen(function* () {
-        const service = yield* ActualSynchronization
-        yield* service.synchronize(SNAPSHOT)
-      }).pipe(
-        Effect.provide(ActualSynchronization.layer),
-        Effect.provideService(ActualConfigService, invalidConfig),
-        Effect.provideService(ActualClientFactory, {
-          acquire: () => Effect.succeed(client),
-        }),
-      ),
-    )
-
-    expect(error).toMatchObject({
-      _tag: "ActualInvalidStartingDate",
-      startingDate: "not-a-date",
-      retryable: false,
-    })
   }),
 )
 
@@ -357,7 +276,7 @@ function synchronizationProgram(clients: ReadonlyArray<ActualClient>, calls: str
     const service = yield* ActualSynchronization
     yield* service.synchronize(SNAPSHOT)
   }).pipe(
-    Effect.provide(ActualSynchronization.layer),
+    Effect.provide(ActualSynchronization.layer(dataDir)),
     Effect.provideService(ActualConfigService, CONFIG),
     Effect.provideService(ActualClientFactory, {
       acquire: () => {

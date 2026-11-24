@@ -15,8 +15,6 @@ import {
   type ExistingVariationTransaction,
 } from "./reconciliation-policy.ts"
 
-const ACTUAL_DATA_DIR = "./tmp/actual-data"
-
 type ActualInitConfig = Parameters<typeof api.init>[0]
 
 interface ActualPayee {
@@ -49,17 +47,21 @@ export class ActualClientFactory extends Context.Service<
   {
     readonly acquire: (
       config: ActualConfig,
+      dataDir: string,
     ) => Effect.Effect<ActualClient, ActualInitializationFailure>
   }
 >()("ActualClientFactory") {
   static readonly live = Layer.succeed(
     ActualClientFactory,
     ActualClientFactory.of({
-      acquire: Effect.fn("ActualClientFactory.acquire")(function* (config: ActualConfig) {
+      acquire: Effect.fn("ActualClientFactory.acquire")(function* (
+        config: ActualConfig,
+        dataDir: string,
+      ) {
         yield* Effect.tryPromise({
           try: () =>
             api.init({
-              dataDir: ACTUAL_DATA_DIR,
+              dataDir,
               serverURL: config.serverUrl,
               password: Redacted.value(config.password),
               verbose: false,

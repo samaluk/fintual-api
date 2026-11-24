@@ -1,0 +1,42 @@
+diff --git a/dist/crdt/index.d.ts b/dist/crdt/index.d.ts
+index 684ca6c09c3a8447037e52dc66598d1beacf61d9..8e9f683a4eb74e206c4b9d15e7545db04f3f9ce0 100644
+--- a/dist/crdt/index.d.ts
++++ b/dist/crdt/index.d.ts
+@@ -1,4 +1,4 @@
+-import * as merkle from './merkle';
++import * as merkle from './merkle.js';
+ export { merkle };
+-export { getClock, setClock, makeClock, makeClientId, serializeClock, deserializeClock, type Clock, Timestamp, } from './timestamp';
++export { getClock, setClock, makeClock, makeClientId, serializeClock, deserializeClock, type Clock, Timestamp, } from './timestamp.js';
+ //# sourceMappingURL=index.d.ts.map
+diff --git a/dist/crdt/merkle.d.ts b/dist/crdt/merkle.d.ts
+index 94eb87b06fc8ee8ccf6fb33ed42911c06b126f05..cc569f5f2e4e2e96799b8e0bf71ffdd0ed440373 100644
+--- a/dist/crdt/merkle.d.ts
++++ b/dist/crdt/merkle.d.ts
+@@ -1,4 +1,4 @@
+-import type { Timestamp } from './timestamp';
++import type { Timestamp } from './timestamp.js';
+ /**
+  * Represents a node within a trinary radix trie.
+  */
+diff --git a/dist/crdt/timestamp.d.ts b/dist/crdt/timestamp.d.ts
+index b9ac258473dc456f6c534434e418339a8d5b9698..ecb435da69888202f45a2df38137c5338c1b5aad 100644
+--- a/dist/crdt/timestamp.d.ts
++++ b/dist/crdt/timestamp.d.ts
+@@ -1,4 +1,4 @@
+-import type { TrieNode } from './merkle';
++import type { TrieNode } from './merkle.js';
+ /**
+  * Hybrid Unique Logical Clock (HULC) timestamp generator
+  *
+diff --git a/dist/index.d.ts b/dist/index.d.ts
+index b1a4da3e6ffb06e7a6144b09dd9a16fc1b9b13e1..255731d01c79af9ac76362e36ad9296e7dd8a3ce 100644
+--- a/dist/index.d.ts
++++ b/dist/index.d.ts
+@@ -1,4 +1,4 @@
+-export { merkle, getClock, setClock, makeClock, makeClientId, serializeClock, deserializeClock, type Clock, Timestamp, } from './crdt';
+-export { type EncryptedData, type Message, type MessageEnvelope, type SyncRequest, type SyncResponse, EncryptedDataSchema, MessageSchema, MessageEnvelopeSchema, SyncRequestSchema, SyncResponseSchema, } from './proto/sync_pb';
++export { merkle, getClock, setClock, makeClock, makeClientId, serializeClock, deserializeClock, type Clock, Timestamp, } from './crdt/index.js';
++export { type EncryptedData, type Message, type MessageEnvelope, type SyncRequest, type SyncResponse, EncryptedDataSchema, MessageSchema, MessageEnvelopeSchema, SyncRequestSchema, SyncResponseSchema, } from './proto/sync_pb.js';
+ export { create, fromBinary, toBinary } from '@bufbuild/protobuf';
+ //# sourceMappingURL=index.d.ts.map
