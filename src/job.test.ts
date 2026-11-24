@@ -1,3 +1,7 @@
+import { mkdtemp, rm } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+
 import { it } from "@effect/vitest"
 import { Cron, Effect, Layer, Option, Redacted, Result } from "effect"
 import { FetchHttpClient } from "effect/http"
@@ -106,6 +110,10 @@ it.effect("preserves a Fintual failure and does not start Actual", () =>
 
 it.effect("runs the assembled Fintual-to-Actual workflow once", () =>
   Effect.gen(function* () {
+    const dataDir = yield* Effect.acquireRelease(
+      Effect.promise(() => mkdtemp(join(tmpdir(), "actual-job-"))),
+      (directory) => Effect.promise(() => rm(directory, { recursive: true, force: true })),
+    )
     const calls: string[] = []
     const script = createFetchScript([
       response("", 200, "session=sign-in"),
@@ -123,7 +131,7 @@ it.effect("runs the assembled Fintual-to-Actual workflow once", () =>
       shutdown: Effect.void,
     }
     const fintualLayer = FintualPerformance.layer
-    const actualLayer = ActualSynchronization.layer.pipe(
+    const actualLayer = ActualSynchronization.layer(dataDir).pipe(
       Layer.provide(
         Layer.succeed(ActualClientFactory, {
           acquire: () => Effect.succeed(actualClient),

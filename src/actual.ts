@@ -38,32 +38,35 @@ export class ActualSynchronization extends Context.Service<
     readonly synchronize: (snapshot: PerformanceSnapshot) => Effect.Effect<void, ActualError>
   }
 >()("ActualSynchronization") {
-  static readonly layer = Layer.effect(
-    ActualSynchronization,
-    Effect.gen(function* () {
-      const config = yield* ActualConfigService
-      const clientFactory = yield* ActualClientFactory
-      const httpClient = yield* HttpClient.HttpClient
+  static layer(dataDir: string) {
+    return Layer.effect(
+      ActualSynchronization,
+      Effect.gen(function* () {
+        const config = yield* ActualConfigService
+        const clientFactory = yield* ActualClientFactory
+        const httpClient = yield* HttpClient.HttpClient
 
-      const synchronize = Effect.fn("ActualSynchronization.synchronize")(function* (
-        snapshot: PerformanceSnapshot,
-      ) {
-        const syncCounts = yield* runActualSyncWithRetry(
-          config,
-          snapshot,
-          clientFactory,
-          httpClient,
-        )
-        yield* Effect.logInfo(
-          `Actual sync finished. Created ${syncCounts.created} transactions, updated ${syncCounts.updated}, and deleted ${syncCounts.deletedDuplicates} duplicates.`,
-        )
-      })
+        const synchronize = Effect.fn("ActualSynchronization.synchronize")(function* (
+          snapshot: PerformanceSnapshot,
+        ) {
+          const syncCounts = yield* runActualSyncWithRetry(
+            config,
+            snapshot,
+            clientFactory,
+            httpClient,
+            dataDir,
+          )
+          yield* Effect.logInfo(
+            `Actual sync finished. Created ${syncCounts.created} transactions, updated ${syncCounts.updated}, and deleted ${syncCounts.deletedDuplicates} duplicates.`,
+          )
+        })
 
-      return ActualSynchronization.of({ synchronize })
-    }),
-  ).pipe(Layer.provide(FetchHttpClient.layer))
+        return ActualSynchronization.of({ synchronize })
+      }),
+    ).pipe(Layer.provide(FetchHttpClient.layer))
+  }
 
-  static readonly live = this.layer.pipe(Layer.provide(ActualClientFactory.live))
+  static readonly live = this.layer(ACTUAL_DATA_DIR).pipe(Layer.provide(ActualClientFactory.live))
 }
 
 const runActualSyncWithRetry = Effect.fn("ActualSynchronization.withRetry")(function* (
@@ -71,6 +74,7 @@ const runActualSyncWithRetry = Effect.fn("ActualSynchronization.withRetry")(func
   snapshot: PerformanceSnapshot,
   clientFactory: ActualClientFactory["Service"],
   httpClient: HttpClient.HttpClient,
+  dataDir: string,
 ): Effect.fn.Return<SyncCounts, ActualError> {
   const schedule = actualRetrySchedule.pipe(
     Schedule.while(({ input }) => input.retryable),
@@ -81,7 +85,7 @@ const runActualSyncWithRetry = Effect.fn("ActualSynchronization.withRetry")(func
     ),
   )
 
-  return yield* runActualSyncAttempt(config, snapshot, clientFactory, httpClient).pipe(
+  return yield* runActualSyncAttempt(config, snapshot, clientFactory, httpClient, dataDir).pipe(
     Effect.retry(schedule),
   )
 })
@@ -91,13 +95,17 @@ const runActualSyncAttempt = Effect.fn("ActualSynchronization.attempt")(function
   snapshot: PerformanceSnapshot,
   clientFactory: ActualClientFactory["Service"],
   httpClient: HttpClient.HttpClient,
+  dataDir: string,
 ): Effect.fn.Return<SyncCounts, ActualError> {
   return yield* Effect.scoped(
     Effect.gen(function* () {
-      yield* resetDataDirectory()
+      yield* resetDataDirectory(dataDir)
       yield* checkHealth(httpClient, config.serverUrl)
 
-      const client = yield* Effect.acquireRelease(clientFactory.acquire(config), closeActualClient)
+      const client = yield* Effect.acquireRelease(
+        clientFactory.acquire(config, dataDir),
+        closeActualClient,
+      )
 
       return yield* client.reconcile(snapshot, {
         startingDate: config.startingDate,
@@ -108,17 +116,17 @@ const runActualSyncAttempt = Effect.fn("ActualSynchronization.attempt")(function
   )
 })
 
-const resetDataDirectory = Effect.fn("ActualSynchronization.resetDataDirectory")(
-  function* (): Effect.fn.Return<void, ActualDataDirectoryFailure> {
-    return yield* Effect.try({
-      try: () => {
-        fs.rmSync(ACTUAL_DATA_DIR, { recursive: true, force: true })
-        fs.mkdirSync(ACTUAL_DATA_DIR, { recursive: true })
-      },
-      catch: (cause) => new ActualDataDirectoryFailure({ cause, retryable: false }),
-    }).pipe(Effect.withSpan("ActualSynchronization.resetDataDirectory"))
-  },
-)
+const resetDataDirectory = Effect.fn("ActualSynchronization.resetDataDirectory")(function* (
+  dataDir: string,
+): Effect.fn.Return<void, ActualDataDirectoryFailure> {
+  return yield* Effect.try({
+    try: () => {
+      fs.rmSync(dataDir, { recursive: true, force: true })
+      fs.mkdirSync(dataDir, { recursive: true })
+    },
+    catch: (cause) => new ActualDataDirectoryFailure({ cause, retryable: false }),
+  }).pipe(Effect.withSpan("ActualSynchronization.resetDataDirectory"))
+})
 
 function getHealthUrl(serverUrl: string): string {
   const normalizedBaseUrl = serverUrl.endsWith("/") ? serverUrl.slice(0, -1) : serverUrl

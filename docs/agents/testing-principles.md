@@ -91,16 +91,24 @@ The `no-test-doubles`, `strict-msw`, `no-fixed-sleep`, `no-unsignaled-poll`,
 and `no-flake-masking` rules are errors. The Landmines style and type-annotation rules are not
 enabled; the existing built-in TypeScript lint rules remain enabled.
 
-The remaining migration debt contains 18 `no-test-doubles` violations: 3 in
-`src/actual.test.ts` and 15 in `src/actual/actual-client.test.ts`. These retain
-legacy Actual SDK doubles until a separate hermetic real-SDK harness replaces
-that boundary; HTTP scenarios instead use strict MSW handlers with the real
-FetchHttpClient. Each remaining violation has a line-scoped
-`oxlint-disable-next-line` with `TODO(landmines)` because that rule has no
-allowlist option. Remove the directive when retiring its legacy test double;
-do not use these exceptions for new tests. The other four rules have no
-grandfathered violations. When a rule supports an exact-count per-file
-allowlist, use that instead of disable comments for any future migration.
+There are no grandfathered Landmines violations. HTTP scenarios use strict MSW
+handlers with the real FetchHttpClient. Actual synchronization tests control
+the application-level client to test retries and interruption. SDK compatibility
+tests instead generate one immutable SQLite-backed archive with accounts for
+the different fixture cases. Each test downloads it into its own data directory
+and exchanges Actual's binary sync messages with its own loopback server.
+The server implements only the unencrypted endpoints used by these tests; it
+uses Actual's CRDT package to accept changes and replay them to a fresh SDK
+client, not to emulate the SDK's database or reconcile logic. The suite sets
+`NODE_ENV=production` in its isolated test worker so the SDK uses its normal
+deferred sync path instead of syncing inline on each mutation. The seed marks
+the SDK's daily schedule runner as already run at a fixed SDK date; otherwise it
+can write preferences in the background after shutdown. The malformed-row case
+seeds a SQLite blob because public SDK writes accept only a string imported ID.
+
+The `@actual-app/crdt` pnpm patch only corrects relative ESM declaration imports
+for TypeScript's `NodeNext` resolution. Remove it when the pinned release ships
+resolvable declarations; it does not change the runtime protocol implementation.
 
 ## Running tests
 

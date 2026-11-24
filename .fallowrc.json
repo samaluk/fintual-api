@@ -9,8 +9,7 @@
   ],
   "includeEntryExports": true,
   "ignoreDependencies": [
-    "@effect/language-service",
-    "@effect/tsgo"
+    "@effect/language-service"
   ],
   "ignoreBinaries": [
     "if",

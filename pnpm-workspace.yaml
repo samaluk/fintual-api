@@ -4,3 +4,5 @@ allowBuilds:
   msgpackr-extract: false
 minimumReleaseAgeStrict: true
 minimumReleaseAge: 1440
+patchedDependencies:
+  '@actual-app/crdt@3.1.4': patches/@actual-app__crdt@3.1.4.patch
