@@ -86,10 +86,11 @@ suppression then and retain the assertion.
 
 ## Testing lint rules
 
-Of the Landmines plugins, Oxlint loads only `@interfere/landmines/testing`.
-The `no-test-doubles`, `strict-msw`, `no-fixed-sleep`, `no-unsignaled-poll`,
-and `no-flake-masking` rules are errors. The Landmines style and type-annotation rules are not
-enabled; the existing built-in TypeScript lint rules remain enabled.
+Oxlint loads `@interfere/landmines` as the `landmines` plugin. The
+`landmines/no-test-doubles`, `landmines/strict-msw`, `landmines/no-fixed-sleep`,
+`landmines/no-unsignaled-poll`, and `landmines/no-flake-masking` rules are errors.
+The Landmines style and type-annotation rules are not enabled; the existing
+built-in TypeScript lint rules remain enabled.
 
 There are no grandfathered Landmines violations. HTTP scenarios use strict MSW
 handlers with the real FetchHttpClient. Actual synchronization tests control
