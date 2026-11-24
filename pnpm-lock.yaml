@@ -214,8 +214,8 @@ importers:
         specifier: 4.1.5
         version: 4.1.5(effect@4.1.5)(vitest@5.1.1)
       '@interfere/landmines':
-        specifier: 0.1.1
-        version: 0.1.1(oxlint@1.94.0(oxlint-tsgolint@7.0.2008))
+        specifier: 0.2.1
+        version: 0.2.1(oxlint@1.94.0(oxlint-tsgolint@7.0.2008))
       '@types/mailparser':
         specifier: 3.9.0
         version: 3.9.0
@@ -452,8 +452,8 @@ packages:
       '@types/node':
         optional: true
 
-  '@interfere/landmines@0.1.1':
-    resolution: {integrity: sha512-ClZhJIIMJaibCU11dQru3APhnHtzrfSRFbAfUhisusA/6ueURr1FRjJeu0i1n0Y0lGMwPNTqv9GNspJ23N9/hg==}
+  '@interfere/landmines@0.2.1':
+    resolution: {integrity: sha512-og4Z394nr2o7SUqIR4haAIMKAD6ffNwd5tnNAobZxAatana4oLXX7J+PkDJRiPqAXXswDyDduqrmdWhzhRH9Gw==}
     engines: {node: '>=22.18.0'}
     peerDependencies:
       oxlint: '>=1.81.0'
@@ -1421,6 +1421,9 @@ packages:
   js-tokens@10.0.0:
     resolution: {integrity: sha512-lM/UBzQmfJRo9ABXbPWemivdCW8V2G8FHaHdypQaIy523snUjog0W71ayWXTjiR+ixeMyVHN2XcpnTd/liPg/Q==}
 
+  jsonc-parser@3.3.1:
+    resolution: {integrity: sha512-HUgH65KyejrUFPvHFPbqOY0rsFip3Bo5wb4ngvdi1EpCYWUQDC5V+Y7mZws+DLkr4M//zQJoanu1SP+87Dv1oQ==}
+
   leac@0.7.0:
     resolution: {integrity: sha512-qMrZeyEekgdRQ9o6a4NAB2EQZrv827GJdn1vnapwSJ90hWRB4TzUSunvacPkxQ2TnNqHNI1/zSt0hlo0crG8Jw==}
 
@@ -2260,11 +2263,12 @@ snapshots:
     optionalDependencies:
       '@types/node': 26.6.6
 
-  '@interfere/landmines@0.1.1(oxlint@1.94.0(oxlint-tsgolint@7.0.2008))':
+  '@interfere/landmines@0.2.1(oxlint@1.94.0(oxlint-tsgolint@7.0.2008))':
     dependencies:
       '@babel/parser': 8.0.4
       '@babel/types': 8.0.4
       '@oxlint/plugins': 1.81.0
+      jsonc-parser: 3.3.1
       oxc-resolver: 11.24.2
       oxlint: 1.94.0(oxlint-tsgolint@7.0.2008)
       zod: 4.6.6
@@ -2906,6 +2910,8 @@ snapshots:
   is-node-process@1.2.0: {}
 
   js-tokens@10.0.0: {}
+
+  jsonc-parser@3.3.1: {}
 
   leac@0.7.0: {}
 
