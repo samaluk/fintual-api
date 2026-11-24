@@ -20,7 +20,7 @@
 		"fallow": "3.47.0",
 		"fallow-type-aware": "3.47.0",
 		"msw": "3.0.7",
-		"oxfmt": "0.79.0",
+		"oxfmt": "0.80.0",
 		"oxlint": "1.94.0",
 		"oxlint-tsgolint": "7.0.2008",
 		"typescript": "7.0.2",
