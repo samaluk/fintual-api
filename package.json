@@ -13,7 +13,7 @@
 		"@actual-app/crdt": "3.1.4",
 		"@effect/tsgo": "0.73.4",
 		"@effect/vitest": "4.1.5",
-		"@interfere/landmines": "0.3.0",
+		"@interfere/landmines": "0.3.1",
 		"@types/mailparser": "3.9.0",
 		"@types/node": "26.6.6",
 		"@vitest/coverage-v8": "5.1.1",
