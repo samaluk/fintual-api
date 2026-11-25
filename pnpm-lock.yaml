@@ -214,8 +214,8 @@ importers:
         specifier: 4.1.5
         version: 4.1.5(effect@4.1.5)(vitest@5.1.1)
       '@interfere/landmines':
-        specifier: 0.2.1
-        version: 0.2.1(oxlint@1.95.0(oxlint-tsgolint@7.0.2008))
+        specifier: 0.3.0
+        version: 0.3.0(oxlint@1.95.0(oxlint-tsgolint@7.0.2008))
       '@types/mailparser':
         specifier: 3.9.0
         version: 3.9.0
@@ -452,8 +452,8 @@ packages:
       '@types/node':
         optional: true
 
-  '@interfere/landmines@0.2.1':
-    resolution: {integrity: sha512-og4Z394nr2o7SUqIR4haAIMKAD6ffNwd5tnNAobZxAatana4oLXX7J+PkDJRiPqAXXswDyDduqrmdWhzhRH9Gw==}
+  '@interfere/landmines@0.3.0':
+    resolution: {integrity: sha512-c1Z+py9yIyYBoFe5Vh39kj1l37MqiC35F0hUWLa2zSn4aH/UwLDVmJ/Badh6Ajvof/Q+/VFps88KVX8YUpWg2A==}
     engines: {node: '>=22.18.0'}
     peerDependencies:
       oxlint: '>=1.81.0'
@@ -2263,7 +2263,7 @@ snapshots:
     optionalDependencies:
       '@types/node': 26.6.6
 
-  '@interfere/landmines@0.2.1(oxlint@1.95.0(oxlint-tsgolint@7.0.2008))':
+  '@interfere/landmines@0.3.0(oxlint@1.95.0(oxlint-tsgolint@7.0.2008))':
     dependencies:
       '@babel/parser': 8.0.4
       '@babel/types': 8.0.4
