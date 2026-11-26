@@ -16,7 +16,7 @@
 		"@interfere/landmines": "0.3.1",
 		"@types/mailparser": "3.9.0",
 		"@types/node": "26.6.10",
-		"@vitest/coverage-v8": "5.1.1",
+		"@vitest/coverage-v8": "5.1.2",
 		"fallow": "3.48.0",
 		"fallow-type-aware": "3.48.0",
 		"msw": "3.0.7",
@@ -24,7 +24,7 @@
 		"oxlint": "1.95.0",
 		"oxlint-tsgolint": "7.0.2008",
 		"typescript": "7.0.2",
-		"vitest": "5.1.1"
+		"vitest": "5.1.2"
 	},
 	"dependencies": {
 		"@actual-app/api": "26.11.0",
