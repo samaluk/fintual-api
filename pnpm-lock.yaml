@@ -229,8 +229,8 @@ importers:
         specifier: 3.48.0
         version: 3.48.0
       fallow-type-aware:
-        specifier: 3.48.0
-        version: 3.48.0
+        specifier: 3.49.0
+        version: 3.49.0
       msw:
         specifier: 3.0.8
         version: 3.0.8(@types/node@26.6.11)(typescript@7.0.2)(vite@8.2.1(@types/node@26.6.11))
@@ -1328,8 +1328,8 @@ packages:
     resolution: {integrity: sha512-KfYbmpRm0VbLjEvVa9yGwCi9GI34xvi7A/HXYWQO65CSD2u3MczUJSuwXKFIxlGsgBQizV9q5J9NHj4VG0n+pA==}
     engines: {node: '>=12.0.0'}
 
-  fallow-type-aware@3.48.0:
-    resolution: {integrity: sha512-iBY7VlKv1v2CWkrKEsw0HhhIOaQY0ljBmm6w9jpX86AGkDTzB+eHUdTLnYV6IAYuWsKkq9PLZCW1uWmCWN9J/g==}
+  fallow-type-aware@3.49.0:
+    resolution: {integrity: sha512-iH8FHmorXXYCZyOGjLmmziSrinPjVIjyGRa7nOLbcPDeja1G1BHbEm2GSuiHEx0civxEpT5gpjrOg623I/mI2w==}
     engines: {node: '>=20'}
     hasBin: true
     peerDependencies:
@@ -2810,7 +2810,7 @@ snapshots:
 
   expect-type@1.4.0: {}
 
-  fallow-type-aware@3.48.0:
+  fallow-type-aware@3.49.0:
     dependencies:
       typescript: 7.0.2
 
