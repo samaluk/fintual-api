@@ -22,7 +22,7 @@
 		"msw": "3.0.8",
 		"oxfmt": "0.80.0",
 		"oxlint": "1.95.0",
-		"oxlint-tsgolint": "7.0.2008",
+		"oxlint-tsgolint": "7.0.2009",
 		"typescript": "7.0.2",
 		"vitest": "5.1.2"
 	},
