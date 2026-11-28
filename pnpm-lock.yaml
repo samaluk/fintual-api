@@ -192,8 +192,8 @@ importers:
         specifier: 26.11.0
         version: 26.11.0
       '@effect/platform-node':
-        specifier: 4.1.6
-        version: 4.1.6(effect@4.1.6)(redis@6.2.1)
+        specifier: 4.1.7
+        version: 4.1.7(effect@4.1.6)(redis@6.2.1)
       effect:
         specifier: 4.1.6
         version: 4.1.6
@@ -211,8 +211,8 @@ importers:
         specifier: 0.73.7
         version: 0.73.7
       '@effect/vitest':
-        specifier: 4.1.6
-        version: 4.1.6(effect@4.1.6)(vitest@5.1.2)
+        specifier: 4.1.7
+        version: 4.1.7(effect@4.1.6)(vitest@5.1.2)
       '@interfere/landmines':
         specifier: 0.3.2
         version: 0.3.2(oxlint@1.95.0(oxlint-tsgolint@7.0.2009))
@@ -306,17 +306,17 @@ packages:
   '@bufbuild/protobuf@2.16.0':
     resolution: {integrity: sha512-FWa0sPlqYGJgpTs6OxBRcL/AW4JT0OIO+W1ajerluoTVh8CV0B7XM1qsNCRgnkSCkRCgOICKHRQlY17jrsm0+Q==}
 
-  '@effect/platform-node-shared@4.1.6':
-    resolution: {integrity: sha512-RWKHX5TEZet2KC/NlBu5prBkZT30m6h8YTSWfJM0wIw0BNMkfEzCuH6N5HOw8mUudclWp5z1XTzsZ7xg0h+6Qw==}
+  '@effect/platform-node-shared@4.1.7':
+    resolution: {integrity: sha512-EDnlB5zL6EW0ahVAeQAUtpuMHc/0yruMLKBsX3nC4Zn3PuG4McWv2A6Rvdk2OUSFM/OFTCclt3sKWNCvk3pEUw==}
     engines: {node: '>=22.19.0'}
     peerDependencies:
-      effect: ^4.1.6
+      effect: ^4.1.7
 
-  '@effect/platform-node@4.1.6':
-    resolution: {integrity: sha512-DNHzWIRARCCoK6Ez5MOqJ6H81e5FbQecH8GY41ftJGqATENUOVOLkT1iNgxBt6zPi36iF1EpraBen+MjKUqHpw==}
+  '@effect/platform-node@4.1.7':
+    resolution: {integrity: sha512-+hWmfkd5QtfeDKdCnyf+Vs/XK6lnNCfwXWMXWb6YOAyhAQC6qBvHNR5Tx6Lkk8l33eL8xAalHexXF64jL8ABiQ==}
     engines: {node: '>=22.19.0'}
     peerDependencies:
-      effect: ^4.1.6
+      effect: ^4.1.7
       redis: '>=5.1.0 <7.0.0'
 
   '@effect/tsgo-darwin-arm64@0.73.7':
@@ -358,10 +358,10 @@ packages:
     resolution: {integrity: sha512-Ks+JDKKrQxhV370MX/AZyBwX+/zUScIHBZ0n4rbS2/bwTcpCPga+9H5yNKX+uOMMUwreH7GFnBka0iZKqkRbfw==}
     hasBin: true
 
-  '@effect/vitest@4.1.6':
-    resolution: {integrity: sha512-Knb13gPhDbtOuNUnPXE/Sl+UvrKFHRATwU2vy+DGQCpjK1yI3oy1feQo1g2X8ZdOdc63sJB7HJXCMNsDy8xYvg==}
+  '@effect/vitest@4.1.7':
+    resolution: {integrity: sha512-4Rj7db3Zol7HtCkuQ2KZ26KrbIWIKAS2rpvH5s3drB1sMZh93nSaK6zXZ6EOtMtWl2CM/flz7tJ8ADaMCRHUWw==}
     peerDependencies:
-      effect: ^4.1.6
+      effect: ^4.1.7
       vitest: '>=5.0.0 <6.0.0'
 
   '@emnapi/core@1.11.2':
@@ -2140,7 +2140,7 @@ snapshots:
 
   '@bufbuild/protobuf@2.16.0': {}
 
-  '@effect/platform-node-shared@4.1.6(effect@4.1.6)':
+  '@effect/platform-node-shared@4.1.7(effect@4.1.6)':
     dependencies:
       '@types/ws': 8.18.2
       effect: 4.1.6
@@ -2149,9 +2149,9 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  '@effect/platform-node@4.1.6(effect@4.1.6)(redis@6.2.1)':
+  '@effect/platform-node@4.1.7(effect@4.1.6)(redis@6.2.1)':
     dependencies:
-      '@effect/platform-node-shared': 4.1.6(effect@4.1.6)
+      '@effect/platform-node-shared': 4.1.7(effect@4.1.6)
       effect: 4.1.6
       redis: 6.2.1
       undici: 8.13.1
@@ -2190,7 +2190,7 @@ snapshots:
       '@effect/tsgo-win32-arm64': 0.73.7
       '@effect/tsgo-win32-x64': 0.73.7
 
-  '@effect/vitest@4.1.6(effect@4.1.6)(vitest@5.1.2)':
+  '@effect/vitest@4.1.7(effect@4.1.6)(vitest@5.1.2)':
     dependencies:
       effect: 4.1.6
       vitest: 5.1.2(@types/node@26.6.11)(@vitest/coverage-v8@5.1.2)(msw@3.0.8(@types/node@26.6.11)(typescript@7.0.2)(vite@8.2.1(@types/node@26.6.11)))(vite@8.2.1(@types/node@26.6.11))
